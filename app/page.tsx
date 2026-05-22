@@ -1,68 +1,103 @@
 "use client"
 
-import { useState } from "react"
-
-const words = [
-  {
-    slovak: "dom",
-    correct: "house",
-    options: ["house", "water", "road"]
-  },
-  {
-    slovak: "voda",
-    correct: "water",
-    options: ["fire", "water", "sky"]
-  }
-]
+import { useState, useEffect } from "react"
+import { words } from "../data/words"
+import { checkAnswer } from "../lib/game"
+import { saveProgress, loadProgress } from "../lib/storage"
+import GameUI from "./components/GameUI"
 
 export default function Home() {
-  const [current, setCurrent] = useState(0)
+  const [queue, setQueue] = useState(words)
+
   const [xp, setXp] = useState(0)
+  const [streak, setStreak] = useState(0)
+  const [lives, setLives] = useState(3)
   const [message, setMessage] = useState("")
 
-  const checkAnswer = (option: string) => {
-    if (option === words[current].correct) {
-      setXp(xp + 10)
-      setMessage("✅ Correct!")
+  const [options, setOptions] = useState<string[]>([])
+
+  const word = queue[0]
+
+  // 📥 загрузка прогресса
+  useEffect(() => {
+    const savedXp = loadProgress("xp")
+    const savedStreak = loadProgress("streak")
+    const savedLives = loadProgress("lives")
+
+    if (savedXp !== null) setXp(savedXp)
+    if (savedStreak !== null) setStreak(savedStreak)
+    if (savedLives !== null) setLives(savedLives)
+  }, [])
+
+  // 💾 сохранение
+  useEffect(() => {
+    saveProgress("xp", xp)
+  }, [xp])
+
+  useEffect(() => {
+    saveProgress("streak", streak)
+  }, [streak])
+
+  useEffect(() => {
+    saveProgress("lives", lives)
+  }, [lives])
+
+  // 🎯 генерация вариантов
+  useEffect(() => {
+    const correct = word.slovak
+
+    const wrongOptions = words
+      .filter((w) => w.slovak !== correct)
+      .map((w) => w.slovak)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 2)
+
+    setOptions([...wrongOptions, correct])
+  }, [queue])
+
+  // 🎮 логика ответа
+  const checkAnswerHandler = (option: string) => {
+    if (checkAnswer(word, option)) {
+      setXp((v) => v + 10)
+      setStreak((v) => v + 1)
+      setMessage("✅ Правильно!")
     } else {
-      setMessage("❌ Wrong!")
+      setLives((v) => v - 1)
+      setStreak(0)
+      setMessage("❌ Неправильно!")
     }
 
     setTimeout(() => {
-      setCurrent((current + 1) % words.length)
+      setQueue((prev) => {
+        const [, ...rest] = prev
+        return [...rest, prev[0]]
+      })
       setMessage("")
-    }, 1000)
+    }, 800)
+  }
+
+  // 🔁 рестарт
+  const restartGame = () => {
+    setLives(3)
+    setXp(0)
+    setStreak(0)
+    setQueue(words)
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-10">
-      <h1 className="text-4xl font-bold">
-        Slovak Game
-      </h1>
-
-      <div className="text-2xl">
-        XP: {xp}
-      </div>
-
-      <div className="text-5xl font-bold">
-        {words[current].slovak}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {words[current].options.map((option) => (
-          <button
-            key={option}
-            onClick={() => checkAnswer(option)}
-            className="rounded-xl bg-blue-500 px-6 py-3 text-white text-xl"
-          >
-            {option}
-          </button>
-        ))}
-      </div>
-
-      <div className="text-2xl">
-        {message}
-      </div>
-    </main>
+    <GameUI
+      xp={xp}
+      streak={streak}
+      lives={lives}
+      word={word}
+      options={options}
+      message={message}
+      onAnswer={checkAnswerHandler}
+      onRestart={restartGame}
+      setLives={setLives}
+      setXp={setXp}
+      setStreak={setStreak}
+      setQueue={setQueue}
+    />
   )
-} 
+}
