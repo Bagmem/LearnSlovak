@@ -1,19 +1,16 @@
 "use client"
 
-import { words } from "../../data/words"
+import { type Word } from "../../data/words"
 type Props = {
   xp: number
   streak: number
   lives: number
-  word: any
+  word: Word | null
   options: string[]
   message: string
   onAnswer: (option: string) => void
   onRestart: () => void
-  setLives: (v: number) => void
-  setXp: (v: number) => void
-  setStreak: (v: number) => void
-  setQueue: (v: any) => void
+  disabled: boolean
 }
 
 export default function GameUI({
@@ -25,10 +22,7 @@ export default function GameUI({
   message,
   onAnswer,
   onRestart,
-  setLives,
-  setXp,
-  setStreak,
-  setQueue,
+  disabled,
 }: Props) {
   return (
     <main className="min-h-screen bg-[#f7f7f7] flex flex-col items-center px-6 py-10">
@@ -64,7 +58,7 @@ export default function GameUI({
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-10 text-center mb-10">
         <div className="text-gray-500 mb-2">Переведи слово:</div>
         <div className="text-4xl font-extrabold">
-          {word.russian}
+          {word ? word.russian : "Загрузка..."}
         </div>
       </div>
 
@@ -74,8 +68,9 @@ export default function GameUI({
           <button
             key={option}
             onClick={() => onAnswer(option)}
+            disabled={disabled}
             className="bg-white border rounded-xl py-4 text-lg font-semibold shadow-sm
-                       hover:bg-green-50 hover:border-green-400 transition"
+                       hover:bg-green-50 hover:border-green-400 transition disabled:cursor-not-allowed disabled:opacity-60"
           >
             {option}
           </button>

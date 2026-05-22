@@ -1,22 +1,25 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { words } from "../data/words"
+import { words, type Word } from "../data/words"
 import { checkAnswer } from "../lib/game"
 import { saveProgress, loadProgress } from "../lib/storage"
 import GameUI from "./components/GameUI"
 
-export default function Home() {
-  const [queue, setQueue] = useState(words)
+function shuffleArray<T>(items: T[]) {
+  return [...items].sort(() => Math.random() - 0.5)
+}
 
+export default function Home() {
+  const [queue, setQueue] = useState<Word[]>(words)
   const [xp, setXp] = useState(0)
   const [streak, setStreak] = useState(0)
   const [lives, setLives] = useState(3)
   const [message, setMessage] = useState("")
-
   const [options, setOptions] = useState<string[]>([])
+  const [isAnswering, setIsAnswering] = useState(false)
 
-  const word = queue[0]
+  const word = queue[0] ?? null
 
   // 📥 загрузка прогресса
   useEffect(() => {
@@ -44,19 +47,25 @@ export default function Home() {
 
   // 🎯 генерация вариантов
   useEffect(() => {
-    const correct = word.slovak
+    if (!word) {
+      setOptions([])
+      return
+    }
 
     const wrongOptions = words
-      .filter((w) => w.slovak !== correct)
+      .filter((w) => w.slovak !== word.slovak)
       .map((w) => w.slovak)
-      .sort(() => Math.random() - 0.5)
       .slice(0, 2)
 
-    setOptions([...wrongOptions, correct])
-  }, [queue])
+    setOptions(shuffleArray([...wrongOptions, word.slovak]))
+  }, [word])
 
   // 🎮 логика ответа
   const checkAnswerHandler = (option: string) => {
+    if (isAnswering || !word || lives <= 0) return
+
+    setIsAnswering(true)
+
     if (checkAnswer(word, option)) {
       setXp((v) => v + 10)
       setStreak((v) => v + 1)
@@ -73,6 +82,7 @@ export default function Home() {
         return [...rest, prev[0]]
       })
       setMessage("")
+      setIsAnswering(false)
     }, 800)
   }
 
@@ -94,10 +104,7 @@ export default function Home() {
       message={message}
       onAnswer={checkAnswerHandler}
       onRestart={restartGame}
-      setLives={setLives}
-      setXp={setXp}
-      setStreak={setStreak}
-      setQueue={setQueue}
+      disabled={isAnswering || lives <= 0}
     />
   )
 }

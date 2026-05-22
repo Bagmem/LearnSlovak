@@ -1,13 +1,5 @@
-import { words } from "../data/words"
+import { type Word } from "../data/words"
 
-export function getWord(index: number) {
-  return words[index]
-}
-
-export function checkAnswer(word: any, answer: string) {
+export function checkAnswer(word: Word, answer: string) {
   return word.slovak === answer
-}
-
-export function getNextIndex(current: number) {
-  return (current + 1) % words.length
 }
