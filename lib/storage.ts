@@ -1,14 +1,19 @@
-function hasLocalStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined"
+export function saveProgress(key: string, value: any): void {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.setItem(`slovak_app_${key}`, JSON.stringify(value))
+  } catch (error) {
+    console.error("Ошибка сохранения в localStorage", error)
+  }
 }
 
-export function saveProgress(key: string, value: number) {
-  if (!hasLocalStorage()) return
-  localStorage.setItem(key, String(value))
-}
-
-export function loadProgress(key: string): number | null {
-  if (!hasLocalStorage()) return null
-  const value = localStorage.getItem(key)
-  return value ? Number(value) : null
+export function loadProgress(key: string): any | null {
+  if (typeof window === "undefined") return null
+  try {
+    const data = localStorage.getItem(`slovak_app_${key}`)
+    return data ? JSON.parse(data) : null
+  } catch (error) {
+    console.error("Ошибка загрузки из localStorage", error)
+    return null
+  }
 }
