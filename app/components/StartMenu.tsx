@@ -74,6 +74,7 @@ export default function StartMenu({
   { code: "A2" as LanguageLevel, title: "Уровень A2", icon: "🚀", desc: "Элементарный" },
   { code: "B1" as LanguageLevel, title: "Уровень B1", icon: "🏆", desc: "Пороговый" },
   { code: "B2" as LanguageLevel, title: "Уровень B2", icon: "🔥", desc: "Продвинутый" },
+  { code: "C1" as LanguageLevel, title: "Уровень C1", icon: "💎", desc: "Экспертный" },
 ], [])
 
   const getCategoriesForLevel = useCallback((levelCode: LanguageLevel) => {

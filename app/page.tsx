@@ -7,6 +7,9 @@ import { texts, type SlovakText } from "../data/texts"
 import { checkAnswer, generateWrongOptions, selectNextWord, updateWordStats, type WordStats, createEmptyWordStats } from "../lib/game"
 import { saveProgress, loadProgress } from "../lib/storage"
 import { playCorrectSound, playWrongSound, playLessonStartSound, playVictorySound, playClickSound, initAudio, setMuted } from "../lib/sounds"
+import { canEarnXpForWord, canEarnLessonBonus } from "../lib/xpLimits"
+import { useAchievements } from "../hooks/useAchievements"
+import type { AchievementState } from "../data/achievements"
 import GameUI from "./components/GameUI"
 import StartMenu, { type GameMode } from "./components/StartMenu"
 import VictoryScreen from "./components/VictoryScreen"
@@ -14,6 +17,8 @@ import ReferenceView from "./components/ReferenceView"
 import FlashcardMode from "./components/FlashcardMode"
 import TextsMenu from "./components/TextsMenu"
 import TextViewer from "./components/TextViewer"
+import AchievementNotification from "./components/AchievementNotification"
+import AchievementsList from "./components/AchievementsList"
 import { useSettings } from "../hooks/useSettings"
 import { useTheme } from "../hooks/useTheme"
 
@@ -62,6 +67,7 @@ const calculateStreak = (dates: string[]): number => {
 export default function Home() {
   const { settings, toggleMute, setSpeechRate, setAutoSpeak } = useSettings()
   const { theme, toggleTheme } = useTheme()
+  const { unlocked, lastUnlocked, checkAchievements } = useAchievements()
   
   useEffect(() => {
     setMuted(settings.isMuted)
@@ -82,6 +88,7 @@ export default function Home() {
   
   const [xp, setXp] = useState<number>(0)
   const [streak, setStreak] = useState<number>(0)
+  const [maxStreak, setMaxStreak] = useState<number>(0)
   const [lives, setLives] = useState<number>(3)
   const [message, setMessage] = useState<string>("")
   const [options, setOptions] = useState<string[]>([])
@@ -92,6 +99,10 @@ export default function Home() {
   const [correctAnswersCount, setCorrectAnswersCount] = useState<number>(0)
   const [totalClicksCount, setTotalClicksCount] = useState<number>(0)
 
+  const [choiceCorrectCount, setChoiceCorrectCount] = useState<number>(0)
+  const [writeCorrectCount, setWriteCorrectCount] = useState<number>(0)
+  const [flashcardCorrectCount, setFlashcardCorrectCount] = useState<number>(0)
+
   const [progressData, setProgressData] = useState<Record<string, number>>({})
   const [activeDates, setActiveDates] = useState<string[]>([])
   const [isLoaded, setIsLoaded] = useState<boolean>(false)
@@ -99,6 +110,9 @@ export default function Home() {
   const [wordStatsMap, setWordStatsMap] = useState<Map<string, WordStats>>(new Map())
 
   const [selectedText, setSelectedText] = useState<SlovakText | null>(null)
+
+  const learnedWordsCount = Array.from(wordStatsMap.values()).filter(stat => stat.correctCount > 0).length
+  const completedCategoriesCount = Object.values(progressData).filter(passed => passed > 0).length
 
   useEffect(() => {
     initAudio()
@@ -148,6 +162,8 @@ export default function Home() {
     const dates: string[] = savedDatesStr ? JSON.parse(savedDatesStr) : []
     setActiveDates(dates)
     setStreak(calculateStreak(dates))
+    const savedMaxStreak = loadProgress("maxStreak")
+    if (savedMaxStreak !== null) setMaxStreak(savedMaxStreak)
 
     const initialProgress: Record<string, number> = {}
     const allPools = [...words, ...grammarTasks]
@@ -166,6 +182,7 @@ export default function Home() {
 
   useEffect(() => { if (isLoaded) saveProgress("xp", xp) }, [xp, isLoaded])
   useEffect(() => { if (isLoaded) saveProgress("lives", lives) }, [lives, isLoaded])
+  useEffect(() => { if (isLoaded && streak > maxStreak) { setMaxStreak(streak); saveProgress("maxStreak", streak) } }, [streak, maxStreak, isLoaded])
 
   useEffect(() => {
     if (!currentWord || !selectedCategory || !selectedLevel || gameMode === "flashcard") {
@@ -177,7 +194,12 @@ export default function Home() {
       (w) => w.category === selectedCategory && w.level === selectedLevel
     )
     const pool = samePoolWords.length >= 3 ? samePoolWords : poolSource
-    const wrongOptions = generateWrongOptions(currentWord, pool, 2)
+    const wrongOptions = generateWrongOptions(
+      currentWord,
+      pool,
+      2,
+      currentDataSource
+    )
     setOptions(shuffleArray([...wrongOptions, currentWord.slovak]))
   }, [currentWord, selectedCategory, selectedLevel, currentDataSource, gameMode])
 
@@ -204,6 +226,30 @@ export default function Home() {
     playLessonStartSound()
   }, [wordStatsMap])
 
+  const triggerAchievementCheck = useCallback(() => {
+    const state: AchievementState = {
+      totalXp: xp,
+      totalCorrect: correctAnswersCount,
+      totalWrong: totalClicksCount - correctAnswersCount,
+      streak: streak,
+      maxStreak: maxStreak,
+      completedCategories: completedCategoriesCount,
+      learnedWords: learnedWordsCount,
+      flashcardAnswers: flashcardCorrectCount,
+      writeAnswers: writeCorrectCount,
+      choiceAnswers: choiceCorrectCount,
+    }
+    const newAchievements = checkAchievements(state)
+    newAchievements.forEach(ach => {
+      const reward = ach.reward || 0
+      if (reward > 0) setXp(prev => prev + reward)
+    })
+  }, [xp, correctAnswersCount, totalClicksCount, streak, maxStreak, completedCategoriesCount, learnedWordsCount, flashcardCorrectCount, writeCorrectCount, choiceCorrectCount, checkAchievements])
+
+  useEffect(() => {
+    if (isLoaded) triggerAchievementCheck()
+  }, [xp, correctAnswersCount, streak, maxStreak, completedCategoriesCount, learnedWordsCount, flashcardCorrectCount, writeCorrectCount, choiceCorrectCount, triggerAchievementCheck, isLoaded])
+
   const checkAnswerHandler = useCallback((userInput: string) => {
     if (isAnswering || !currentWord || lives <= 0) return
     
@@ -225,8 +271,12 @@ export default function Home() {
 
     if (isCorrect) {
       playCorrectSound()
-      setXp(v => v + (gameMode === "write" ? 15 : 10))
+      const canEarn = canEarnXpForWord(wordKey)
+      const earnedXp = canEarn ? (gameMode === "write" ? 15 : 10) : 0
+      if (earnedXp > 0) setXp(v => v + earnedXp)
       setCorrectAnswersCount(v => v + 1)
+      if (gameMode === "choice") setChoiceCorrectCount(v => v + 1)
+      if (gameMode === "write") setWriteCorrectCount(v => v + 1)
       setMessage("Правильно!")
       
       if (!completedWords.has(wordKey)) {
@@ -261,8 +311,10 @@ export default function Home() {
 
     if (known) {
       playCorrectSound()
-      setXp(v => v + 5)
+      const canEarn = canEarnXpForWord(wordKey)
+      if (canEarn) setXp(v => v + 5)
       setCorrectAnswersCount(v => v + 1)
+      setFlashcardCorrectCount(v => v + 1)
       
       if (!completedWords.has(wordKey)) {
         const newCompleted = new Set(completedWords)
@@ -283,6 +335,7 @@ export default function Home() {
     if (notCompletedWords.length === 0) {
       playVictorySound()
       setScreen("victory")
+      setIsAnswering(false)
       return
     }
     const nextWord = selectNextWord(notCompletedWords, wordStatsMap)
@@ -298,7 +351,9 @@ export default function Home() {
     if (isCorrect) {
       if (remainingWordsCount === 0) {
         playVictorySound()
-        setXp(v => v + 50)
+        const categoryKey = `${selectedLevel}_${selectedCategory}_${currentDataSource}`
+        const canEarnBonus = canEarnLessonBonus(categoryKey)
+        if (canEarnBonus) setXp(v => v + 50)
         const todayStr = getLocalDateString()
         let updatedDates = [...activeDates]
         if (!activeDates.includes(todayStr)) {
@@ -331,7 +386,7 @@ export default function Home() {
     setMessage("")
     setIsAnswering(false)
     setSelectedOption(null)
-  }, [message, lives, remainingWordsCount, activeDates, lessonWords, completedWords, wordStatsMap])
+  }, [message, lives, remainingWordsCount, activeDates, lessonWords, completedWords, wordStatsMap, selectedLevel, selectedCategory, currentDataSource])
 
   const handleRestart = useCallback(() => {
     playClickSound()
@@ -419,11 +474,14 @@ export default function Home() {
         />
       )}
       {globalTab === "reference" && (
-        <ReferenceView
-          progressData={progressData}
-          activeDates={activeDates}
-          wordStatsMap={wordStatsMap}
-        />
+        <div className="w-full max-w-2xl mx-auto px-4 py-6 pb-24">
+          <ReferenceView
+            progressData={progressData}
+            activeDates={activeDates}
+            wordStatsMap={wordStatsMap}
+          />
+          <AchievementsList unlocked={unlocked} />
+        </div>
       )}
       {globalTab === "texts" && (
         selectedText ? (
@@ -464,6 +522,8 @@ export default function Home() {
           <span className="text-[10px] font-black uppercase mt-0.5 tracking-wider">Тексты</span>
         </button>
       </div>
+
+      <AchievementNotification achievement={lastUnlocked} onHide={() => {}} />
     </div>
   )
 }

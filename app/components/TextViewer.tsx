@@ -54,10 +54,9 @@ export default function TextViewer({ text, onBack }: TextViewerProps) {
             </button>
           </div>
 
-          <div className="prose prose-lg dark:prose-invert max-w-none">
-            <p className="text-gray-800 dark:text-gray-200 leading-relaxed text-base">
-              {text.content}
-            </p>
+          {/* Обычный текст без кликабельных слов */}
+          <div className="leading-relaxed text-gray-800 dark:text-gray-200">
+            {text.content}
           </div>
 
           <button

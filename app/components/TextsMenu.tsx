@@ -1,40 +1,24 @@
 "use client"
 
 import { useState } from "react"
-import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../data/texts"
+import { texts, type SlovakText, type TextLevel } from "../../data/texts"
 
 type TextsMenuProps = {
   onSelectText: (text: SlovakText) => void
 }
 
-const topicLabels: Record<TextTopic, string> = {
-  daily: "Повседневная жизнь",
-  travel: "Путешествия",
-  work: "Работа",
-  nature: "Природа",
-  culture: "Культура",
-  health: "Здоровье",
-  family: "Семья",
-}
-
-const allTopics = Object.keys(topicLabels) as TextTopic[]
-
 export default function TextsMenu({ onSelectText }: TextsMenuProps) {
   const [selectedLevel, setSelectedLevel] = useState<TextLevel | "all">("all")
-  const [selectedTopic, setSelectedTopic] = useState<TextTopic | "all">("all")
 
-  const filteredTexts = texts.filter((t) => {
-    const levelMatch = selectedLevel === "all" || t.level === selectedLevel
-    const topicMatch = selectedTopic === "all" || t.topic === selectedTopic
-    return levelMatch && topicMatch
-  })
+  const filteredTexts =
+    selectedLevel === "all" ? texts : texts.filter((t) => t.level === selectedLevel)
 
   const levels: { value: TextLevel | "all"; label: string }[] = [
-    { value: "all", label: "Все уровни" },
-    { value: "A1", label: "A1" },
-    { value: "A2", label: "A2" },
-    { value: "B1", label: "B1" },
-    { value: "B2", label: "B2" },
+    { value: "all", label: "Все" },
+    { value: "A1", label: "A1 (нач.)" },
+    { value: "A2", label: "A2 (элем.)" },
+    { value: "B1", label: "B1 (сред.)" },
+    { value: "B2", label: "B2 (выше сред.)" },
   ]
 
   return (
@@ -43,8 +27,7 @@ export default function TextsMenu({ onSelectText }: TextsMenuProps) {
         📖 Тексты для чтения
       </h2>
 
-      {/* Фильтр по уровням */}
-      <div className="flex flex-wrap gap-2 mb-4 justify-center">
+      <div className="flex flex-wrap gap-2 mb-6 justify-center">
         {levels.map((lvl) => (
           <button
             key={lvl.value}
@@ -56,33 +39,6 @@ export default function TextsMenu({ onSelectText }: TextsMenuProps) {
             }`}
           >
             {lvl.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Фильтр по темам */}
-      <div className="flex flex-wrap gap-2 mb-6 justify-center">
-        <button
-          onClick={() => setSelectedTopic("all")}
-          className={`px-3 py-1.5 text-xs font-black rounded-full transition-all ${
-            selectedTopic === "all"
-              ? "bg-orange-500 text-white"
-              : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-          }`}
-        >
-          Все темы
-        </button>
-        {allTopics.map((topic) => (
-          <button
-            key={topic}
-            onClick={() => setSelectedTopic(topic)}
-            className={`px-3 py-1.5 text-xs font-black rounded-full transition-all ${
-              selectedTopic === topic
-                ? "bg-orange-500 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-            }`}
-          >
-            {topicLabels[topic]}
           </button>
         ))}
       </div>
@@ -100,7 +56,7 @@ export default function TextsMenu({ onSelectText }: TextsMenuProps) {
                   {text.title}
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {text.wordCount} слов · уровень {text.level} · {topicLabels[text.topic]}
+                  {text.wordCount} слов · уровень {text.level}
                 </p>
               </div>
               <span className="text-2xl text-gray-400 group-hover:text-orange-500">→</span>
@@ -108,12 +64,6 @@ export default function TextsMenu({ onSelectText }: TextsMenuProps) {
           </button>
         ))}
       </div>
-
-      {filteredTexts.length === 0 && (
-        <p className="text-center text-gray-500 dark:text-gray-400 mt-8">
-          Нет текстов, соответствующих выбранным фильтрам.
-        </p>
-      )}
     </div>
   )
 }
