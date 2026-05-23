@@ -92,4 +92,25 @@
   transition-property: background-color, border-color, color, fill, stroke;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
+  /* Градиентные кнопки */
+.gradient-orange {
+  @apply bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black rounded-xl transition-all duration-200 transform active:scale-95;
+}
+.gradient-green {
+  @apply bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-black rounded-xl transition-all duration-200 transform active:scale-95;
+}
+.gradient-red {
+  @apply bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-black rounded-xl transition-all duration-200 transform active:scale-95;
+}
+
+/* Карточка с ховером */
+.card-hover {
+  @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+}
+
+/* Кастомный скроллбар */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { @apply bg-gray-100 dark:bg-gray-800 rounded-full; }
+::-webkit-scrollbar-thumb { @apply bg-orange-400 dark:bg-orange-600 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-orange-500 dark:bg-orange-500; }
 }

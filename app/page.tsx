@@ -1,15 +1,17 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { FaBullseye, FaBookOpen, FaScroll } from "react-icons/fa"
 import { words, type Word, type LanguageLevel } from "../data/words"
 import { grammarTasks } from "../data/grammar"
-import { type SlovakText } from "../data/texts"
+import { texts, type SlovakText } from "../data/texts"
 import { checkAnswer, generateWrongOptions, selectNextWord, updateWordStats, type WordStats, createEmptyWordStats } from "../lib/game"
 import { saveProgress, loadProgress } from "../lib/storage"
 import { playCorrectSound, playWrongSound, playLessonStartSound, playVictorySound, playClickSound, initAudio, setMuted } from "../lib/sounds"
 import { canEarnXpForWord, canEarnLessonBonus } from "../lib/xpLimits"
 import { useAchievements } from "../hooks/useAchievements"
 import type { AchievementState } from "../data/achievements"
+import { useTextProgress } from "../hooks/useTextProgress"
 import GameUI from "./components/GameUI"
 import StartMenu, { type GameMode } from "./components/StartMenu"
 import VictoryScreen from "./components/VictoryScreen"
@@ -17,8 +19,8 @@ import ReferenceView from "./components/ReferenceView"
 import FlashcardMode from "./components/FlashcardMode"
 import TextsMenu from "./components/TextsMenu"
 import TextViewer from "./components/TextViewer"
+import TextQuiz from "./components/TextQuiz"
 import AchievementNotification from "./components/AchievementNotification"
-import AchievementsList from "./components/AchievementsList"
 import { useSettings } from "../hooks/useSettings"
 import { useTheme } from "../hooks/useTheme"
 
@@ -81,13 +83,14 @@ export default function Home() {
   const { settings, toggleMute, setSpeechRate, setAutoSpeak } = useSettings()
   const { theme, toggleTheme } = useTheme()
   const { unlocked, lastUnlocked, checkAchievements } = useAchievements()
-  
+  const { isRead, markAsRead, isQuizCompleted, getQuizScore, markQuizCompleted, hasXpEarned } = useTextProgress()
+
   useEffect(() => {
     setMuted(settings.isMuted)
   }, [settings.isMuted])
 
   const [globalTab, setGlobalTab] = useState<"study" | "reference" | "texts">("study")
-  
+
   const [screen, setScreen] = useState<"menu" | "game" | "victory">("menu")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedLevel, setSelectedLevel] = useState<LanguageLevel | null>(null)
@@ -97,7 +100,7 @@ export default function Home() {
   const [currentWord, setCurrentWord] = useState<Word | null>(null)
   const [lessonWords, setLessonWords] = useState<Word[]>([])
   const [completedWords, setCompletedWords] = useState<Set<string>>(new Set())
-  
+
   const [xp, setXp] = useState<number>(0)
   const [streak, setStreak] = useState<number>(0)
   const [maxStreak, setMaxStreak] = useState<number>(0)
@@ -119,6 +122,7 @@ export default function Home() {
   const mountedRef = useRef(false)
 
   const [selectedText, setSelectedText] = useState<SlovakText | null>(null)
+  const [quizText, setQuizText] = useState<SlovakText | null>(null)
 
   const totalLessonWords = lessonWords.length
   const completedCount = completedWords.size
@@ -398,6 +402,19 @@ export default function Home() {
     }
   }, [screen])
 
+  const handleStartQuiz = (text: SlovakText) => {
+    markAsRead(text.id)
+    setQuizText(text)
+  }
+
+  const handleQuizComplete = (textId: string, score: number, total: number, xp: number, firstTime: boolean) => {
+    if (firstTime) {
+      markQuizCompleted(textId, score, true)
+      setXp(prev => prev + xp)
+    }
+    // Не закрываем викторину здесь – она закроется по кнопке "ПРОДОЛЖИТЬ"
+  }
+
   if (screen === "game") {
     if (gameMode === "flashcard") {
       return (
@@ -460,6 +477,10 @@ export default function Home() {
           onSetAutoSpeak={setAutoSpeak}
           theme={theme}
           onToggleTheme={toggleTheme}
+          correctAnswersCount={correctAnswersCount}
+          totalClicksCount={totalClicksCount}
+          learnedWordsCount={learnedWordsCount}
+          completedCategoriesCount={completedCategoriesCount}
         />
       )}
       {globalTab === "reference" && (
@@ -469,14 +490,29 @@ export default function Home() {
             activeDates={activeDates}
             wordStatsMap={wordStatsMap}
           />
-          <AchievementsList unlocked={unlocked} />
         </div>
       )}
       {globalTab === "texts" && (
-        selectedText ? (
-          <TextViewer text={selectedText} onBack={() => setSelectedText(null)} />
+        quizText ? (
+          <TextQuiz
+            text={quizText}
+            onComplete={(score, total, xp, firstTime) => handleQuizComplete(quizText.id, score, total, xp, firstTime)}
+            onBack={() => setQuizText(null)}
+            existingScore={getQuizScore(quizText.id)}
+            xpAlreadyEarned={hasXpEarned(quizText.id)}
+          />
+        ) : selectedText ? (
+          <TextViewer
+            text={selectedText}
+            onBack={() => setSelectedText(null)}
+            onQuiz={() => handleStartQuiz(selectedText)}
+            isRead={isRead(selectedText.id)}
+          />
         ) : (
-          <TextsMenu onSelectText={setSelectedText} />
+          <TextsMenu
+            onSelectText={setSelectedText}
+            readStatus={Object.fromEntries(texts.map(t => [t.id, isRead(t.id)]))}
+          />
         )
       )}
 
@@ -487,18 +523,18 @@ export default function Home() {
             globalTab === "study" ? "text-orange-500 scale-105" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           }`}
         >
-          <span className="text-xl">🎯</span>
-          <span className="text-[10px] font-black uppercase mt-0.5 tracking-wider">Изучение</span>
+          <FaBullseye size={22} />
+          <span className="text-[10px] font-black uppercase mt-1 tracking-wider">Изучение</span>
         </button>
-        
+
         <button
           onClick={() => setGlobalTab("reference")}
           className={`flex flex-col items-center justify-center w-20 h-full transition-all ${
             globalTab === "reference" ? "text-orange-500 scale-105" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           }`}
         >
-          <span className="text-xl">📚</span>
-          <span className="text-[10px] font-black uppercase mt-0.5 tracking-wider">Справочник</span>
+          <FaBookOpen size={22} />
+          <span className="text-[10px] font-black uppercase mt-1 tracking-wider">Справочник</span>
         </button>
 
         <button
@@ -507,8 +543,8 @@ export default function Home() {
             globalTab === "texts" ? "text-orange-500 scale-105" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           }`}
         >
-          <span className="text-xl">📖</span>
-          <span className="text-[10px] font-black uppercase mt-0.5 tracking-wider">Тексты</span>
+          <FaScroll size={22} />
+          <span className="text-[10px] font-black uppercase mt-1 tracking-wider">Тексты</span>
         </button>
       </div>
 

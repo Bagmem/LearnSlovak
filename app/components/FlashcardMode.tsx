@@ -13,7 +13,7 @@ type FlashcardModeProps = {
   wordsLeft: number
   totalWords: number
 }
-
+  
 export default function FlashcardMode({
   word,
   onNext,

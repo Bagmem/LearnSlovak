@@ -1,8 +1,9 @@
-// components/AchievementsList.tsx
 "use client"
 
 import { achievements } from "../../data/achievements"
 import { type UnlockedAchievement } from "../../hooks/useAchievements"
+import { getIconForAchievement } from "../../utils/achievementIcons"
+import { FaTrophy } from "react-icons/fa"
 
 type Props = {
   unlocked: UnlockedAchievement[]
@@ -14,7 +15,7 @@ export default function AchievementsList({ unlocked }: Props) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-4 shadow-sm mt-6">
       <h3 className="font-black text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-        <span>🏆</span> Достижения
+        <FaTrophy className="text-yellow-500" /> Достижения
       </h3>
       <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
         {achievements.map((ach) => {
@@ -29,7 +30,7 @@ export default function AchievementsList({ unlocked }: Props) {
               }`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-2xl">{ach.icon}</span>
+                <div className="text-2xl">{getIconForAchievement(ach.id, 20)}</div>
                 <div>
                   <p className="font-black text-sm text-gray-800 dark:text-white">{ach.title}</p>
                   <p className="text-[10px] text-gray-500 dark:text-gray-400">{ach.description}</p>

@@ -7,6 +7,7 @@ import GrammarHint from "./GrammarHint"
 import { playClickSound } from "../../lib/sounds"
 import { useAnimation } from "../../hooks/useAnimation"
 import AnimatedFeedback from "./AnimatedFeedback"
+import { FaVolumeUp, FaCheck, FaTimes } from "react-icons/fa"
 
 type GameUIProps = {
   xp: number
@@ -139,6 +140,7 @@ export default function GameUI({
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-between pb-8 animate-fadeIn">
+      {/* Верхняя панель */}
       <div className="w-full max-w-xl mx-auto px-4 pt-6 flex items-center justify-between gap-4">
         <button
           onClick={onBack}
@@ -147,10 +149,11 @@ export default function GameUI({
           ✕
         </button>
 
+        {/* Прогресс-бар + счётчик */}
         <div className="flex-1 flex flex-col items-center gap-1">
           <div className="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded-full overflow-hidden border border-gray-300 dark:border-gray-600 p-0.5">
             <div
-              className="bg-green-500 h-full rounded-full transition-all duration-300 ease-out"
+              className="bg-gradient-to-r from-green-500 to-green-600 h-full rounded-full transition-all duration-300 ease-out"
               style={{ width: `${lessonProgress}%` }}
             />
           </div>
@@ -159,6 +162,7 @@ export default function GameUI({
           </span>
         </div>
 
+        {/* Подсказка / кнопка озвучки */}
         {word.hint ? (
           isCorrect ? (
             <GrammarHint hintText={word.hint} />
@@ -176,11 +180,11 @@ export default function GameUI({
             }`}
             aria-label="Прослушать произношение (доступно после правильного ответа)"
           >
-            🔊
+            <FaVolumeUp />
           </button>
         )}
 
-        {/* Блок с 3 сердечками, неактивные — серые и полупрозрачные */}
+        {/* Сердечки */}
         <div
           className={`flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-sm transition-all ${
             heartBlockPulse ? "animate-pulse" : ""
@@ -205,12 +209,12 @@ export default function GameUI({
         </div>
       </div>
 
-      {/* Остальной код без изменений (нижняя часть) */}
+      {/* Центральная часть – вопрос */}
       <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full mx-auto px-4 my-8">
         <span className="text-4xl mb-4 animate-bounce">🎓</span>
         <h2 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Как переводится:</h2>
-        
-        <div className="flex items-center gap-3 bg-white dark:bg-gray-800 px-6 py-4 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 shadow-sm w-full justify-center animate-slideInScale">
+
+        <div className="flex items-center gap-3 bg-white dark:bg-gray-800 px-6 py-4 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 shadow-md w-full justify-center animate-slideInScale">
           <p className="text-2xl font-black text-gray-800 dark:text-white text-center leading-tight">
             {word.russian}
           </p>
@@ -224,7 +228,7 @@ export default function GameUI({
             }`}
             aria-label="Прослушать произношение (доступно после правильного ответа)"
           >
-            🔊
+            <FaVolumeUp />
           </button>
         </div>
 
@@ -279,7 +283,7 @@ export default function GameUI({
                 <button
                   type="submit"
                   disabled={!writeInput.trim() || disabled}
-                  className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:border-gray-300 dark:disabled:border-gray-600 disabled:text-gray-400 dark:disabled:text-gray-500 text-white font-black rounded-xl border-b-4 border-orange-700 transition-all transform active:scale-[0.99]"
+                  className="w-full py-3.5 gradient-orange disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Проверить ответ (Enter)
                 </button>
@@ -289,6 +293,7 @@ export default function GameUI({
         </div>
       </div>
 
+      {/* Нижняя панель – результат и кнопка далее */}
       <div className="w-full border-t-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-4 px-4 shadow-inner">
         <div className="max-w-md mx-auto flex flex-col gap-3">
           {lives <= 0 ? (
@@ -299,23 +304,26 @@ export default function GameUI({
                   setWriteInput("")
                   onRestart()
                 }}
-                className="w-full py-3.5 bg-red-500 hover:bg-red-600 text-white font-black rounded-xl border-b-4 border-red-700 transition-all active:scale-95"
+                className="w-full py-3.5 gradient-red"
               >
                 Попробовать снова
               </button>
             </div>
           ) : isAnswered ? (
             <div className="space-y-3">
-              <div className={`p-3 rounded-xl font-bold text-center border text-sm ${
-                isCorrect 
-                  ? "bg-green-100 dark:bg-green-900 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300" 
-                  : "bg-red-100 dark:bg-red-900 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300"
-              }`}>
+              <div
+                className={`p-3 rounded-xl font-bold text-center border text-sm flex items-center justify-center gap-2 ${
+                  isCorrect
+                    ? "bg-green-100 dark:bg-green-900 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300"
+                    : "bg-red-100 dark:bg-red-900 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300"
+                }`}
+              >
+                {isCorrect ? <FaCheck className="inline" /> : <FaTimes className="inline" />}
                 {message} {!isCorrect && `Правильный ответ: ${word.slovak}`}
               </div>
               <button
                 onClick={handleNextClick}
-                className="w-full py-3.5 bg-green-500 hover:bg-green-600 text-white font-black rounded-xl border-b-4 border-green-700 transition-all transform active:scale-[0.99]"
+                className="w-full py-3.5 gradient-green"
               >
                 {wordsLeft === 0 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
               </button>

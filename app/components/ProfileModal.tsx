@@ -1,0 +1,192 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { FaUserCircle, FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaStar, FaRegSmile, FaTimes, FaGraduationCap } from "react-icons/fa"
+import { type UnlockedAchievement } from "../../hooks/useAchievements"
+import { achievements } from "../../data/achievements"
+import { getIconForAchievement } from "../../utils/achievementIcons"
+
+type ProfileModalProps = {
+  isOpen: boolean
+  onClose: () => void
+  xp: number
+  streak: number
+  correctAnswers: number
+  totalClicks: number
+  learnedWords: number
+  completedCategories: number
+  unlockedAchievements: UnlockedAchievement[]
+  avatar: string
+  onAvatarChange: (avatar: string) => void
+}
+
+const avatarOptions = [
+  { id: "default", icon: <FaUserCircle size={48} className="text-gray-400" />, name: "Стандарт" },
+  { id: "student", icon: <FaGraduationCap size={48} className="text-blue-500" />, name: "Студент" },
+  { id: "hero", icon: <FaTrophy size={48} className="text-yellow-500" />, name: "Герой" },
+  { id: "cat", icon: <FaRegSmile size={48} className="text-orange-500" />, name: "Котик" },
+  { id: "star", icon: <FaStar size={48} className="text-yellow-400" />, name: "Звезда" },
+  { id: "fire", icon: <FaFire size={48} className="text-red-500" />, name: "Пламя" },
+]
+
+export default function ProfileModal({
+  isOpen,
+  onClose,
+  xp,
+  streak,
+  correctAnswers,
+  totalClicks,
+  learnedWords,
+  completedCategories,
+  unlockedAchievements,
+  avatar,
+  onAvatarChange,
+}: ProfileModalProps) {
+  const [activeTab, setActiveTab] = useState<"stats" | "achievements">("stats")
+
+  const accuracy = totalClicks > 0 ? Math.round((correctAnswers / totalClicks) * 100) : 0
+  const unlockedIds = new Set(unlockedAchievements.map(a => a.id))
+  const totalAchievements = achievements.length
+  const unlockedCount = unlockedAchievements.length
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 animate-fadeIn">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-slideInScale">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          <h2 className="text-lg font-black text-gray-800 dark:text-white">Профиль</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            <FaTimes size={20} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {/* Выбор аватара */}
+          <div className="text-center">
+            <div className="inline-block p-2 rounded-full bg-gray-100 dark:bg-gray-700">
+              {avatarOptions.find(a => a.id === avatar)?.icon || avatarOptions[0].icon}
+            </div>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              {avatarOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => onAvatarChange(opt.id)}
+                  className={`p-2 rounded-full transition-all ${
+                    avatar === opt.id
+                      ? "ring-2 ring-orange-500 scale-110"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  {opt.icon}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Табы */}
+          <div className="flex rounded-xl bg-gray-100 dark:bg-gray-700 p-1">
+            <button
+              onClick={() => setActiveTab("stats")}
+              className={`flex-1 py-2 text-sm font-black rounded-lg transition-all ${
+                activeTab === "stats"
+                  ? "bg-white dark:bg-gray-600 text-orange-500 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              Статистика
+            </button>
+            <button
+              onClick={() => setActiveTab("achievements")}
+              className={`flex-1 py-2 text-sm font-black rounded-lg transition-all ${
+                activeTab === "achievements"
+                  ? "bg-white dark:bg-gray-600 text-orange-500 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              Достижения ({unlockedCount}/{totalAchievements})
+            </button>
+          </div>
+
+          {/* Контент вкладок */}
+          {activeTab === "stats" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-black text-orange-500">{xp}</p>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Опыт (XP)</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-black text-orange-500">{streak}</p>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Дней подряд</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-black text-green-500">{accuracy}%</p>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Точность</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-black text-blue-500">{learnedWords}</p>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Выучено слов</p>
+                </div>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                <p className="text-2xl font-black text-purple-500">{completedCategories}</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Пройдено категорий</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "achievements" && (
+            <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+              {achievements.map((ach) => {
+                const isUnlocked = unlockedIds.has(ach.id)
+                return (
+                  <div
+                    key={ach.id}
+                    className={`p-3 rounded-xl border transition-all ${
+                      isUnlocked
+                        ? "bg-yellow-50 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700"
+                        : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 opacity-60"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="text-2xl">{getIconForAchievement(ach.id, 20)}</div>
+                      <div>
+                        <p className="font-black text-sm text-gray-800 dark:text-white">{ach.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{ach.description}</p>
+                        {ach.reward && <p className="text-[10px] font-bold text-orange-500">+{ach.reward} XP</p>}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          <button
+            onClick={onClose}
+            className="w-full py-3 gradient-orange"
+          >
+            Закрыть
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

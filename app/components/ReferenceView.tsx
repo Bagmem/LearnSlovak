@@ -1,11 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { words } from "../../data/words"
 import { grammarTasks } from "../../data/grammar"
 import { type WordStats } from "../../lib/game"
 import { initAudio } from "../../lib/sounds"
 
+import {
+  FaSearch, FaCalendarAlt, FaChartLine, FaSkull, FaQuestionCircle,
+  FaFire, FaStar, FaTrophy, FaBook, FaCheckCircle, FaRegSmile, FaGraduationCap,
+  FaHeart 
+} from "react-icons/fa"
 type ReferenceViewProps = {
   progressData: Record<string, number>
   activeDates: string[]
@@ -15,10 +20,6 @@ type ReferenceViewProps = {
 export default function ReferenceView({ progressData, activeDates, wordStatsMap }: ReferenceViewProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
-  useEffect(() => {
-    initAudio()
-  }, [])
-
   const speakText = (text: string, lang: string) => {
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = lang
@@ -27,6 +28,9 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
     window.speechSynthesis.speak(utterance)
   }
 
+  // --------------------------------------------------------------
+  // 1. Статистика (общая)
+  // --------------------------------------------------------------
   const allItems = [...words, ...grammarTasks]
   const categoryTotalCount: Record<string, number> = {}
   allItems.forEach(item => {
@@ -52,17 +56,68 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
     totalCorrect += stat.correctCount
     totalWrong += stat.wrongCount
   })
-  const accuracy = totalCorrect + totalWrong > 0 ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100) : 0
+  const accuracy = totalCorrect + totalWrong > 0
+    ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100)
+    : 0
 
+  // --------------------------------------------------------------
+  // 2. Активность за последние 30 дней (календарь)
+  // --------------------------------------------------------------
   const today = new Date()
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(today.getDate() - i)
-    return d.toISOString().slice(0, 10)
-  }).reverse()
-  const activityMap = new Map<string, boolean>()
-  activeDates.forEach(date => activityMap.set(date, true))
+  const last30Days = useMemo(() => {
+    return Array.from({ length: 30 }, (_, i) => {
+      const d = new Date()
+      d.setDate(today.getDate() - i)
+      return d.toISOString().slice(0, 10)
+    }).reverse()
+  }, [today])
+  const activitySet = new Set(activeDates)
+  const activeDaysCount = activeDates.filter(date => last30Days.includes(date)).length
 
+  // --------------------------------------------------------------
+  // 3. Прогресс по уровням (A1–C1)
+  // --------------------------------------------------------------
+  const levelStats = useMemo(() => {
+    const levels = ["A1", "A2", "B1", "B2", "C1"] as const
+    return levels.map(level => {
+      const itemsInLevel = allItems.filter(item => item.level === level)
+      const total = itemsInLevel.length
+      if (total === 0) return { level, total, learned: 0, percent: 0 }
+      const categories = new Set(itemsInLevel.map(i => i.category))
+      let learnedWordsCount = 0
+      categories.forEach(cat => {
+        const totalInCat = itemsInLevel.filter(i => i.category === cat).length
+        const passed = progressData[`cat_progress_${level}_${cat}`] || 0
+        learnedWordsCount += Math.min(passed, totalInCat)
+      })
+      const percent = (learnedWordsCount / total) * 100
+      return { level, total, learned: learnedWordsCount, percent }
+    })
+  }, [progressData, allItems])
+
+  // --------------------------------------------------------------
+  // 4. Топ-3 сложных слов
+  // --------------------------------------------------------------
+  const hardWords = useMemo(() => {
+    const wordsWithErrors: { word: string; translation: string; wrong: number; correct: number }[] = []
+    wordStatsMap.forEach((stat, key) => {
+      if (stat.wrongCount > 0 || stat.correctCount > 0) {
+        const [slovak, russian] = key.split("|")
+        wordsWithErrors.push({
+          word: slovak,
+          translation: russian,
+          wrong: stat.wrongCount,
+          correct: stat.correctCount,
+        })
+      }
+    })
+    wordsWithErrors.sort((a, b) => (b.wrong - b.correct) - (a.wrong - a.correct))
+    return wordsWithErrors.slice(0, 3)
+  }, [wordStatsMap])
+
+  // --------------------------------------------------------------
+  // 5. Алфавит
+  // --------------------------------------------------------------
   const alphabet = [
     { letter: "Á / á", sound: "Долгая [а]", example: "káva (кофе)" },
     { letter: "Ä / ä", sound: "Широкая [э] или обычная [э/е]", example: "mäso (мясо)" },
@@ -80,6 +135,9 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
     { letter: "Ž / ž", sound: "Мягкая [ж]", example: "žena (женщина)" },
   ]
 
+  // --------------------------------------------------------------
+  // 6. Словарь (фильтрация по поиску)
+  // --------------------------------------------------------------
   const filteredEntries = allItems.filter(
     (item) =>
       item.slovak.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -90,9 +148,10 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
     <div className="w-full max-w-2xl mx-auto px-4 py-6 pb-24 animate-fadeIn">
       <h2 className="text-2xl font-black text-gray-800 dark:text-white mb-6 text-center">📚 Справочник языка</h2>
 
+      {/* БЛОК 1: Общая статистика (ваш дизайн, но с иконками) */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
-        <h3 className="font-black text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
-          <span>📊</span> Ваша статистика
+        <h3 className="font-black text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+          <FaChartLine className="text-blue-500" /> Ваша статистика
         </h3>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="text-center">
@@ -112,27 +171,126 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
             <p className="text-xs font-bold text-gray-400 dark:text-gray-500">дней активности</p>
           </div>
         </div>
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-          <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">Активность за последние 7 дней:</p>
-          <div className="flex justify-between gap-1">
-            {last7Days.map(day => {
-              const isActive = activityMap.has(day)
-              const dayOfWeek = new Date(day).toLocaleDateString("ru-RU", { weekday: "short" })
-              return (
-                <div key={day} className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black ${
-                    isActive ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
-                  }`}>
-                    {isActive ? "✓" : "○"}
-                  </div>
-                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mt-1">{dayOfWeek}</span>
-                </div>
-              )
-            })}
-          </div>
+      </div>
+
+      {/* БЛОК 2: Активность за 30 дней (календарь) */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
+        <h3 className="font-black text-gray-800 dark:text-white mb-2 flex items-center gap-2">
+          <FaCalendarAlt className="text-orange-500" /> Активность за последние 30 дней
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          Занимались {activeDaysCount} из 30 дней
+        </p>
+        <div className="flex flex-wrap gap-1">
+          {last30Days.map(day => {
+            const isActive = activitySet.has(day)
+            const dayOfMonth = new Date(day).getDate()
+            return (
+              <div
+                key={day}
+                className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold ${
+                  isActive
+                    ? "bg-green-500 text-white"
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                }`}
+                title={day}
+              >
+                {dayOfMonth}
+              </div>
+            )
+          })}
         </div>
       </div>
 
+      {/* БЛОК 3: Прогресс по уровням */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
+        <h3 className="font-black text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+          <FaGraduationCap className="text-indigo-500" /> Прогресс по уровням
+        </h3>
+        <div className="space-y-3">
+          {levelStats.map(stat => (
+            <div key={stat.level}>
+              <div className="flex justify-between text-sm font-bold mb-1">
+                <span className="text-gray-700 dark:text-gray-300">Уровень {stat.level}</span>
+                <span className="text-gray-500 dark:text-gray-400">{stat.learned}/{stat.total} слов</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                <div
+                  className="bg-gradient-to-r from-orange-500 to-amber-500 h-2.5 rounded-full transition-all duration-300"
+                  style={{ width: `${stat.percent}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* БЛОК 4: Топ-3 сложных слов */}
+      {hardWords.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
+          <h3 className="font-black text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+            <FaSkull className="text-red-500" /> Самые сложные слова
+          </h3>
+          <div className="space-y-2">
+            {hardWords.map((item, idx) => (
+              <div key={idx} className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2 last:border-0">
+                <div>
+                  <p className="font-bold text-gray-800 dark:text-white">{item.word}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{item.translation}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-red-500">Ошибок: {item.wrong}</p>
+                  <p className="text-xs text-green-500">Правильно: {item.correct}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-3">💡 Повторите эти слова в режиме «Карточки» или «Письмо».</p>
+        </div>
+      )}
+
+     {/* БЛОК 5: Часто задаваемые вопросы */}
+<div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
+  <h3 className="font-black text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+    <FaQuestionCircle className="text-purple-500" /> Часто задаваемые вопросы
+  </h3>
+  <div className="space-y-3 text-sm">
+    <div>
+      <p className="font-bold text-gray-800 dark:text-white flex items-center gap-1">
+        <FaStar className="text-yellow-500" size={12} /> Как заработать XP?
+      </p>
+      <p className="text-gray-600 dark:text-gray-400">
+        Правильные ответы: тест – 10 XP, письмо – 15 XP, карточки – 5 XP. Бонус за завершение урока – 50 XP. Достижения также приносят XP.
+      </p>
+    </div>
+    <div>
+      <p className="font-bold text-gray-800 dark:text-white flex items-center gap-1">
+        <FaFire className="text-orange-500" size={12} /> Зачем нужна серия (streak)?
+      </p>
+      <p className="text-gray-600 dark:text-gray-400">
+        Серия мотивирует заниматься каждый день. Некоторые достижения требуют высокой серии.
+      </p>
+    </div>
+    <div>
+      <p className="font-bold text-gray-800 dark:text-white flex items-center gap-1">
+        <FaRegSmile className="text-green-500" size={12} /> Можно ли учить одно слово несколько раз в день?
+      </p>
+      <p className="text-gray-600 dark:text-gray-400">
+        XP за слово начисляется только раз в день (чтобы избежать фарма), но повторять слова для закрепления можно сколько угодно.
+      </p>
+    </div>
+    <div>
+      <p className="font-bold text-gray-800 dark:text-white flex items-center gap-1">
+        <FaHeart className="text-red-500" size={12} /> Как работают жизни?
+      </p>
+      <p className="text-gray-600 dark:text-gray-400">
+        При начале нового урока или при нажатии «Попробовать снова» жизни сбрасываются до 3. В будущем планируется магазин, где можно будет приобрести дополнительные жизни.
+      </p>
+    </div>
+  </div>
+</div>
+
+      {/* БЛОК 6: Алфавит (ваш оригинальный блок) */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 mb-8 shadow-sm">
         <h3 className="text-lg font-black text-gray-800 dark:text-white mb-3 flex items-center gap-2">
           <span>🔤</span> Особые буквы и произношение
@@ -162,9 +320,10 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         </div>
       </div>
 
+      {/* БЛОК 7: Словарь (ваш оригинальный блок) */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 shadow-sm">
         <h3 className="text-lg font-black text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-          <span>🔍</span> Интерактивный словарь ({allItems.length})
+          <FaSearch className="text-orange-500" /> Интерактивный словарь ({allItems.length})
         </h3>
         <input
           type="text"
