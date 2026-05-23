@@ -10,7 +10,7 @@ import SettingsModal from "./SettingsModal"
 import { useSettings, type Settings } from "../../hooks/useSettings"
 import { type Theme } from "../../hooks/useTheme"
 
-export type GameMode = "choice" | "write"
+export type GameMode = "choice" | "write" | "flashcard"
 
 type StartMenuProps = {
   onSelectCategory: (category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => void
@@ -49,7 +49,7 @@ export default function StartMenu({
   useEffect(() => {
     initAudio()
     const saved = localStorage.getItem("gameMode")
-    if (saved === "choice" || saved === "write") {
+    if (saved === "choice" || saved === "write" || saved === "flashcard") {
       setGameMode(saved)
     }
   }, [setGameMode])
@@ -69,11 +69,12 @@ export default function StartMenu({
     return studyTab === "vocab" ? words : grammarTasks
   }, [studyTab])
 
-  const levels = useMemo(() => [
-    { code: "A1" as LanguageLevel, title: "Уровень A1", icon: "🌱", desc: "Начальный" },
-    { code: "A2" as LanguageLevel, title: "Уровень A2", icon: "🚀", desc: "Элементарный" },
-    { code: "B1" as LanguageLevel, title: "Уровень B1", icon: "🏆", desc: "Пороговый" },
-  ], [])
+ const levels = useMemo(() => [
+  { code: "A1" as LanguageLevel, title: "Уровень A1", icon: "🌱", desc: "Начальный" },
+  { code: "A2" as LanguageLevel, title: "Уровень A2", icon: "🚀", desc: "Элементарный" },
+  { code: "B1" as LanguageLevel, title: "Уровень B1", icon: "🏆", desc: "Пороговый" },
+  { code: "B2" as LanguageLevel, title: "Уровень B2", icon: "🔥", desc: "Продвинутый" },
+], [])
 
   const getCategoriesForLevel = useCallback((levelCode: LanguageLevel) => {
     const categoriesSet = new Set(
@@ -128,6 +129,16 @@ export default function StartMenu({
                 }`}
               >
                 Письмо
+              </button>
+              <button
+                onClick={() => handleModeChange("flashcard")}
+                className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all ${
+                  gameMode === "flashcard" 
+                    ? "bg-white dark:bg-gray-600 text-orange-500 shadow-sm" 
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                }`}
+              >
+                Карточки
               </button>
             </div>
           </div>

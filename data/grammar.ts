@@ -6,7 +6,7 @@ export interface GrammarWord extends Word {
 
 export const grammarTasks: GrammarWord[] = [
   // ==========================================
-  // ⚙️ КАТЕГОРИЯ: Глагол "Byť" (Быть)
+  // ⚙️ Глагол "Byť" (быть) – оставляем существующие
   // ==========================================
   { 
     slovak: "Ja som študent", 
@@ -59,7 +59,7 @@ export const grammarTasks: GrammarWord[] = [
   },
 
   // ==========================================
-  // ⚙️ КАТЕГОРИЯ: Глагол "Mať" (Иметь)
+  // ⚙️ Глагол "Mať" (иметь) – оставляем существующие
   // ==========================================
   { 
     slovak: "Mám otázku", 
@@ -91,7 +91,7 @@ export const grammarTasks: GrammarWord[] = [
   },
 
   // ==========================================
-  // ⚙️ КАТЕГОРИЯ: Род и окончания (A2-B1)
+  // ⚙️ Род и окончания (A2-B1) – оставляем существующие
   // ==========================================
   { 
     slovak: "To je dobrý muž", 
@@ -113,5 +113,117 @@ export const grammarTasks: GrammarWord[] = [
     category: "⚙️ Род и окончания", 
     level: "A2",
     hint: "**Средний род прилагательных:**\nВ именительном падеже почти всегда заканчивается на долгую **-é**:\n• dobr**é** mesto\n• pekn**é** auto"
-  }
+  },
+
+  // ==========================================
+  // ⚙️ НОВЫЕ ГРАММАТИЧЕСКИЕ ТЕМЫ
+  // ==========================================
+
+  // ---------- Падежи (Nominatív, Akuzatív) ----------
+  {
+    slovak: "Vidím pekný dom",
+    russian: "Я вижу красивый дом (винительный падеж)",
+    category: "⚙️ Падежи (Akuzatív)",
+    level: "B1",
+    hint: "**Винительный падеж (koho? čo?):**\nДля мужских неодушевлённых и средних – форма совпадает с именительным.\n• Vidím pekný dom – (koho? čo?) dom."
+  },
+  {
+    slovak: "Mám novú knihu",
+    russian: "У меня есть новая книга (винительный падеж)",
+    category: "⚙️ Падежи (Akuzatív)",
+    level: "B1",
+    hint: "**Винительный падеж женского рода:**\nОкончание **-u** (koho? čo? knihu)."
+  },
+  {
+    slovak: "Bez otca nemôžem ísť",
+    russian: "Без отца я не могу идти (родительный падеж)",
+    category: "⚙️ Падежи (Genitív)",
+    level: "B1",
+    hint: "**Родительный падеж (bez koho? bez čoho?):**\n• bez otca (муж.род)\n• bez matky (жен.род)"
+  },
+  {
+    slovak: "Dávam darček sestre",
+    russian: "Я даю подарок сестре (дательный падеж)",
+    category: "⚙️ Падежи (Datív)",
+    level: "B1",
+    hint: "**Дательный падеж (komu? čomu?):**\n• sestre (жен.род, окончание -e)\n• bratovi (муж.род, окончание -ovi)"
+  },
+
+  // ---------- Будущее время (budúci čas) ----------
+  {
+    slovak: "Budem študovať slovenčinu",
+    russian: "Я буду учить словацкий язык",
+    category: "⚙️ Будущее время",
+    level: "A2",
+    hint: "**Будущее время образуется с помощью вспомогательного глагола 'byť' в будущем времени + инфинитив:**\n• budem + študovať\n• budeš + študovať\n• bude + študovať"
+  },
+  {
+    slovak: "Zajtra pôjdem do práce",
+    russian: "Завтра я пойду на работу (глагол движения)",
+    category: "⚙️ Будущее время",
+    level: "A2",
+    hint: "**Некоторые глаголы имеют особую форму будущего времени:**\n• ísť → pôjdem (я пойду)\n• mať → budem mať (я буду иметь)"
+  },
+
+  // ---------- Модальные глаголы ----------
+  {
+    slovak: "Môžem otvoriť okno?",
+    russian: "Можно мне открыть окно?",
+    category: "⚙️ Модальные глаголы",
+    level: "A2",
+    hint: "**Модальный глагол môcť (мочь):**\n• ja môžem\n• ty môžeš\n• on môže\nПосле модального глагола инфинитив ставится в конце."
+  },
+  {
+    slovak: "Musím sa učiť",
+    russian: "Я должен учиться",
+    category: "⚙️ Модальные глаголы",
+    level: "B1",
+    hint: "**Musieť (должен):**\n• ja musím\n• ty musíš\n• on musí"
+  },
+  {
+    slovak: "Chcem si kúpiť auto",
+    russian: "Я хочу купить машину",
+    category: "⚙️ Модальные глаголы",
+    level: "A2",
+    hint: "**Chcieť (хотеть):**\n• ja chcem\n• ty chceš\n• on chce"
+  },
+
+  // ---------- Условное наклонение (podmieňovací spôsob) ----------
+  {
+    slovak: "Keby som mal peniaze, kúpil by som dom",
+    russian: "Если бы у меня были деньги, я бы купил дом",
+    category: "⚙️ Условные предложения",
+    level: "B2",
+    hint: "**Условные предложения (Keby + minulý čas, + by + minulý čas):**\n• Keby som mal – если бы я имел\n• kúpil by som – я бы купил"
+  },
+  {
+    slovak: "Rád by som si dal kávu",
+    russian: "Я хотел бы выпить кофе (вежливая форма)",
+    category: "⚙️ Условные предложения",
+    level: "B1",
+    hint: "**Вежливая просьба с 'by som':**\n• rád by som – я бы хотел\n• mohli by ste – вы могли бы"
+  },
+
+  // ---------- Предлоги (A2-B1) ----------
+  {
+    slovak: "Kniha je na stole",
+    russian: "Книга на столе",
+    category: "⚙️ Предлоги",
+    level: "A2",
+    hint: "**Предлог 'na' + местный падеж:**\n• na stole (на столе)\n• na stene (на стене)"
+  },
+  {
+    slovak: "Idem do školy",
+    russian: "Я иду в школу",
+    category: "⚙️ Предлоги",
+    level: "A2",
+    hint: "**Предлог 'do' + родительный падеж (направление):**\n• do školy\n• do mesta"
+  },
+  {
+    slovak: "Bývam na Slovensku",
+    russian: "Я живу в Словакии",
+    category: "⚙️ Предлоги",
+    level: "B1",
+    hint: "**Предлог 'na' с названиями стран (кроме некоторых):**\n• na Slovensku\n• na Ukrajine\n• ale: v Česku, v Poľsku"
+  },
 ]

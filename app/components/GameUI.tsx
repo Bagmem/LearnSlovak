@@ -52,6 +52,17 @@ export default function GameUI({
   const hasAutoSpokenRef = useRef(false)
   const [feedback, setFeedback] = useState<boolean | null>(null)
   const { animation, trigger } = useAnimation(300)
+  const [heartBlockPulse, setHeartBlockPulse] = useState(false)
+  const prevLivesRef = useRef(lives)
+
+  // Анимация пульсации блока при потере жизни
+  useEffect(() => {
+    if (lives < prevLivesRef.current) {
+      setHeartBlockPulse(true)
+      setTimeout(() => setHeartBlockPulse(false), 350)
+    }
+    prevLivesRef.current = lives
+  }, [lives])
 
   const speakSlovak = (text: string) => {
     if (!text) return
@@ -147,11 +158,11 @@ export default function GameUI({
         <div className="flex-1 flex flex-col items-center gap-1">
           <div className="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded-full overflow-hidden border border-gray-300 dark:border-gray-600 p-0.5">
             <div
-              className="bg-green-500 h-full rounded-full transition-all duration-300"
+              className="bg-green-500 h-full rounded-full transition-all duration-300 ease-out"
               style={{ width: `${lessonProgress}%` }}
             />
           </div>
-          <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tabular-nums min-w-[3rem] text-center">
             {totalWords - wordsLeft}/{totalWords}
           </span>
         </div>
@@ -177,12 +188,32 @@ export default function GameUI({
           </button>
         )}
 
-        <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-sm">
-          <span className="text-red-500 text-lg">❤️</span>
-          <span className="font-black text-gray-700 dark:text-gray-200 text-sm">{lives}</span>
+        {/* Блок с 3 сердечками, неактивные — серые и полупрозрачные */}
+        <div
+          className={`flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-sm transition-all ${
+            heartBlockPulse ? "animate-pulse" : ""
+          }`}
+        >
+          {[1, 2, 3].map((_, idx) => {
+            const isAlive = idx < lives
+            return (
+              <span
+                key={idx}
+                className={`inline-block transition-all duration-200 ${
+                  isAlive
+                    ? "text-red-500 scale-100"
+                    : "text-gray-300 dark:text-gray-600 scale-75 opacity-50"
+                }`}
+                style={{ fontSize: "1.5rem" }}
+              >
+                ❤️
+              </span>
+            )
+          })}
         </div>
       </div>
 
+      {/* Остальной код без изменений (нижняя часть) */}
       <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full mx-auto px-4 my-8">
         <span className="text-4xl mb-4 animate-bounce">🎓</span>
         <h2 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Как переводится:</h2>
