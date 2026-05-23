@@ -216,7 +216,6 @@ export const words: Word[] = [
   // ==========================================
   { slovak: "šťastný", russian: "счастливый", category: "😊 Эмоции и чувства", level: "A2" },
   { slovak: "smutný", russian: "грустный", category: "😊 Эмоции и чувства", level: "A2" },
-  { slovak: "nahnevaný", russian: "злой", category: "😊 Эмоции и чувства", level: "B1" },
   { slovak: "unavený", russian: "уставший", category: "😊 Эмоции и чувства", level: "A2" },
   { slovak: "nervózny", russian: "нервный", category: "😊 Эмоции и чувства", level: "B1" },
   { slovak: "báť sa", russian: "бояться", category: "😊 Эмоции и чувства", level: "B1" },
