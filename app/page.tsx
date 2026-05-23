@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { words, type Word, type LanguageLevel } from "../data/words"
 import { grammarTasks } from "../data/grammar"
-import { texts, type SlovakText } from "../data/texts"
+import { type SlovakText } from "../data/texts"
 import { checkAnswer, generateWrongOptions, selectNextWord, updateWordStats, type WordStats, createEmptyWordStats } from "../lib/game"
 import { saveProgress, loadProgress } from "../lib/storage"
 import { playCorrectSound, playWrongSound, playLessonStartSound, playVictorySound, playClickSound, initAudio, setMuted } from "../lib/sounds"
@@ -40,28 +40,41 @@ const calculateStreak = (dates: string[]): number => {
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   const yesterdayStr = getLocalDateString(yesterday)
-  
-  let startDateStr = ""
-  if (uniqueDates.has(todayStr)) {
-    startDateStr = todayStr
-  } else if (uniqueDates.has(yesterdayStr)) {
-    startDateStr = yesterdayStr
-  } else {
-    return 0
-  }
-  
+
+  const startDateStr = uniqueDates.has(todayStr)
+    ? todayStr
+    : uniqueDates.has(yesterdayStr)
+      ? yesterdayStr
+      : ""
+
+  if (!startDateStr) return 0
+
   let streakCount = 0
   const checkDate = new Date(startDateStr)
   while (true) {
     const checkStr = getLocalDateString(checkDate)
-    if (uniqueDates.has(checkStr)) {
-      streakCount++
-      checkDate.setDate(checkDate.getDate() - 1)
-    } else {
-      break
-    }
+    if (!uniqueDates.has(checkStr)) break
+    streakCount++
+    checkDate.setDate(checkDate.getDate() - 1)
   }
   return streakCount
+}
+
+const getWordKey = (word: Word): string => `${word.slovak}|${word.russian}`
+
+const getInitialProgressData = (): Record<string, number> => {
+  const initialProgress: Record<string, number> = {}
+  const allPools = [...words, ...grammarTasks]
+  allPools.forEach((w) => {
+    if (w.level && w.category) {
+      const storageKey = `cat_progress_${w.level}_${w.category}`
+      if (initialProgress[storageKey] === undefined) {
+        const savedCount = loadProgress<number>(storageKey)
+        initialProgress[storageKey] = savedCount !== null ? savedCount : 0
+      }
+    }
+  })
+  return initialProgress
 }
 
 export default function Home() {
@@ -84,18 +97,15 @@ export default function Home() {
   const [currentWord, setCurrentWord] = useState<Word | null>(null)
   const [lessonWords, setLessonWords] = useState<Word[]>([])
   const [completedWords, setCompletedWords] = useState<Set<string>>(new Set())
-  const [remainingWordsCount, setRemainingWordsCount] = useState(0)
   
   const [xp, setXp] = useState<number>(0)
   const [streak, setStreak] = useState<number>(0)
   const [maxStreak, setMaxStreak] = useState<number>(0)
   const [lives, setLives] = useState<number>(3)
   const [message, setMessage] = useState<string>("")
-  const [options, setOptions] = useState<string[]>([])
   const [isAnswering, setIsAnswering] = useState<boolean>(false)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
 
-  const [totalLessonWords, setTotalLessonWords] = useState<number>(0)
   const [correctAnswersCount, setCorrectAnswersCount] = useState<number>(0)
   const [totalClicksCount, setTotalClicksCount] = useState<number>(0)
 
@@ -105,90 +115,32 @@ export default function Home() {
 
   const [progressData, setProgressData] = useState<Record<string, number>>({})
   const [activeDates, setActiveDates] = useState<string[]>([])
-  const [isLoaded, setIsLoaded] = useState<boolean>(false)
-  
   const [wordStatsMap, setWordStatsMap] = useState<Map<string, WordStats>>(new Map())
+  const mountedRef = useRef(false)
 
   const [selectedText, setSelectedText] = useState<SlovakText | null>(null)
 
-  const learnedWordsCount = Array.from(wordStatsMap.values()).filter(stat => stat.correctCount > 0).length
-  const completedCategoriesCount = Object.values(progressData).filter(passed => passed > 0).length
+  const totalLessonWords = lessonWords.length
+  const completedCount = completedWords.size
+  const remainingWordsCount = totalLessonWords - completedCount
+  const lessonProgressPercent = totalLessonWords ? (completedCount / totalLessonWords) * 100 : 0
 
-  useEffect(() => {
-    initAudio()
-  }, [])
+  const learnedWordsCount = useMemo(
+    () => Array.from(wordStatsMap.values()).filter(stat => stat.correctCount > 0).length,
+    [wordStatsMap]
+  )
+  const completedCategoriesCount = useMemo(
+    () => Object.values(progressData).filter(passed => passed > 0).length,
+    [progressData]
+  )
 
-  useEffect(() => {
-    const savedStats = localStorage.getItem("slovak_word_stats")
-    if (savedStats) {
-      try {
-        const parsed = JSON.parse(savedStats)
-        const map = new Map<string, WordStats>(Object.entries(parsed))
-        setWordStatsMap(map)
-      } catch (e) {
-        console.warn("Failed to load word stats", e)
-      }
-    }
-  }, [])
+  const notCompletedWords = useMemo(
+    () => lessonWords.filter((w) => !completedWords.has(getWordKey(w))),
+    [lessonWords, completedWords]
+  )
 
-  useEffect(() => {
-    if (isLoaded) {
-      const obj: Record<string, WordStats> = {}
-      wordStatsMap.forEach((value, key) => {
-        obj[key] = value
-      })
-      localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
-    }
-  }, [wordStatsMap, isLoaded])
-
-  const updateCategoryProgress = useCallback((completedCount: number) => {
-    if (selectedCategory && selectedLevel && currentDataSource) {
-      const storageKey = `cat_progress_${selectedLevel}_${selectedCategory}`
-      const currentSaved = progressData[storageKey] || 0
-      if (completedCount > currentSaved) {
-        saveProgress(storageKey, completedCount)
-        setProgressData(prev => ({ ...prev, [storageKey]: completedCount }))
-      }
-    }
-  }, [selectedCategory, selectedLevel, currentDataSource, progressData])
-
-  useEffect(() => {
-    const savedXp = loadProgress("xp")
-    const savedLives = loadProgress("lives")
-    if (savedXp !== null) setXp(savedXp)
-    if (savedLives !== null) setLives(savedLives)
-
-    const savedDatesStr = typeof window !== "undefined" ? localStorage.getItem("slovak_active_dates") : null
-    const dates: string[] = savedDatesStr ? JSON.parse(savedDatesStr) : []
-    setActiveDates(dates)
-    setStreak(calculateStreak(dates))
-    const savedMaxStreak = loadProgress("maxStreak")
-    if (savedMaxStreak !== null) setMaxStreak(savedMaxStreak)
-
-    const initialProgress: Record<string, number> = {}
-    const allPools = [...words, ...grammarTasks]
-    allPools.forEach((w) => {
-      if (w.level && w.category) {
-        const storageKey = `cat_progress_${w.level}_${w.category}`
-        if (!initialProgress[storageKey]) {
-          const savedCount = loadProgress(storageKey)
-          initialProgress[storageKey] = savedCount !== null ? savedCount : 0
-        }
-      }
-    })
-    setProgressData(initialProgress)
-    setIsLoaded(true)
-  }, [])
-
-  useEffect(() => { if (isLoaded) saveProgress("xp", xp) }, [xp, isLoaded])
-  useEffect(() => { if (isLoaded) saveProgress("lives", lives) }, [lives, isLoaded])
-  useEffect(() => { if (isLoaded && streak > maxStreak) { setMaxStreak(streak); saveProgress("maxStreak", streak) } }, [streak, maxStreak, isLoaded])
-
-  useEffect(() => {
-    if (!currentWord || !selectedCategory || !selectedLevel || gameMode === "flashcard") {
-      setOptions([])
-      return
-    }
+  const options = useMemo(() => {
+    if (!currentWord || !selectedCategory || !selectedLevel || gameMode === "flashcard") return []
     const poolSource = currentDataSource === "vocab" ? words : grammarTasks
     const samePoolWords = poolSource.filter(
       (w) => w.category === selectedCategory && w.level === selectedLevel
@@ -200,16 +152,80 @@ export default function Home() {
       2,
       currentDataSource
     )
-    setOptions(shuffleArray([...wrongOptions, currentWord.slovak]))
+    return shuffleArray([...wrongOptions, currentWord.slovak])
   }, [currentWord, selectedCategory, selectedLevel, currentDataSource, gameMode])
+
+  useEffect(() => {
+    initAudio()
+  }, [])
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const savedXp = loadProgress<number>("xp")
+    if (savedXp !== null) setXp(savedXp)
+
+    const savedLives = loadProgress<number>("lives")
+    if (savedLives !== null) setLives(savedLives)
+
+    const savedMaxStreak = loadProgress<number>("maxStreak")
+    if (savedMaxStreak !== null) setMaxStreak(savedMaxStreak)
+
+    const savedDatesStr = localStorage.getItem("slovak_active_dates")
+    const dates: string[] = savedDatesStr ? JSON.parse(savedDatesStr) : []
+    setActiveDates(dates)
+    setStreak(calculateStreak(dates))
+
+    setProgressData(getInitialProgressData())
+
+    const savedStats = localStorage.getItem("slovak_word_stats")
+    if (savedStats) {
+      try {
+        setWordStatsMap(new Map<string, WordStats>(Object.entries(JSON.parse(savedStats))))
+      } catch {
+        setWordStatsMap(new Map())
+      }
+    }
+
+    mountedRef.current = true
+  }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    if (!mountedRef.current) return
+    const obj: Record<string, WordStats> = {}
+    wordStatsMap.forEach((value, key) => {
+      obj[key] = value
+    })
+    localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
+  }, [wordStatsMap])
+
+  const updateCategoryProgress = useCallback((completedCount: number) => {
+    if (!selectedCategory || !selectedLevel) return
+    const storageKey = `cat_progress_${selectedLevel}_${selectedCategory}`
+    setProgressData((prev) => {
+      const currentSaved = prev[storageKey] || 0
+      if (completedCount <= currentSaved) return prev
+      saveProgress(storageKey, completedCount)
+      return { ...prev, [storageKey]: completedCount }
+    })
+  }, [selectedCategory, selectedLevel])
+
+  const setStatsForWord = useCallback((wordKey: string, isCorrect: boolean) => {
+    setWordStatsMap((prev) => {
+      const oldStats = prev.get(wordKey) || createEmptyWordStats(wordKey)
+      const nextStats = updateWordStats(oldStats, isCorrect)
+      nextStats.id = wordKey
+      return new Map(prev).set(wordKey, nextStats)
+    })
+  }, [])
 
   const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
     const poolSource = dataSource === "vocab" ? words : grammarTasks
     const filteredWords = poolSource.filter((w) => w.category === category && w.level === level)
     setLessonWords(filteredWords)
-    setTotalLessonWords(filteredWords.length)
     setCompletedWords(new Set())
-    setRemainingWordsCount(filteredWords.length)
     setCurrentDataSource(dataSource)
     setSelectedCategory(category)
     setSelectedLevel(level)
@@ -219,9 +235,8 @@ export default function Home() {
     setMessage("")
     setSelectedOption(null)
     setIsAnswering(false)
-    
-    const firstWord = selectNextWord(filteredWords, wordStatsMap)
-    setCurrentWord(firstWord)
+
+    setCurrentWord(filteredWords.length > 0 ? selectNextWord(filteredWords, wordStatsMap) : null)
     setScreen("game")
     playLessonStartSound()
   }, [wordStatsMap])
@@ -231,8 +246,8 @@ export default function Home() {
       totalXp: xp,
       totalCorrect: correctAnswersCount,
       totalWrong: totalClicksCount - correctAnswersCount,
-      streak: streak,
-      maxStreak: maxStreak,
+      streak,
+      maxStreak,
       completedCategories: completedCategoriesCount,
       learnedWords: learnedWordsCount,
       flashcardAnswers: flashcardCorrectCount,
@@ -240,153 +255,120 @@ export default function Home() {
       choiceAnswers: choiceCorrectCount,
     }
     const newAchievements = checkAchievements(state)
-    newAchievements.forEach(ach => {
-      const reward = ach.reward || 0
-      if (reward > 0) setXp(prev => prev + reward)
-    })
+    if (newAchievements.length > 0) {
+      const reward = newAchievements.reduce((sum, ach) => sum + (ach.reward || 0), 0)
+      if (reward > 0) setXp((v) => v + reward)
+    }
   }, [xp, correctAnswersCount, totalClicksCount, streak, maxStreak, completedCategoriesCount, learnedWordsCount, flashcardCorrectCount, writeCorrectCount, choiceCorrectCount, checkAchievements])
 
   useEffect(() => {
-    if (isLoaded) triggerAchievementCheck()
-  }, [xp, correctAnswersCount, streak, maxStreak, completedCategoriesCount, learnedWordsCount, flashcardCorrectCount, writeCorrectCount, choiceCorrectCount, triggerAchievementCheck, isLoaded])
+    if (!mountedRef.current) return
+    triggerAchievementCheck()
+  }, [triggerAchievementCheck])
 
   const checkAnswerHandler = useCallback((userInput: string) => {
     if (isAnswering || !currentWord || lives <= 0) return
-    
     initAudio()
-    
     setIsAnswering(true)
     setSelectedOption(userInput)
-    setTotalClicksCount(v => v + 1)
+    setTotalClicksCount((v) => v + 1)
 
     const isCorrect = checkAnswer(currentWord, userInput)
-    
-    const wordKey = `${currentWord.slovak}|${currentWord.russian}`
-    const oldStats = wordStatsMap.get(wordKey) || createEmptyWordStats(wordKey)
-    const newStats = updateWordStats(oldStats, isCorrect)
-    newStats.id = wordKey
-    const newMap = new Map(wordStatsMap)
-    newMap.set(wordKey, newStats)
-    setWordStatsMap(newMap)
+    const wordKey = getWordKey(currentWord)
+    setStatsForWord(wordKey, isCorrect)
 
     if (isCorrect) {
       playCorrectSound()
-      const canEarn = canEarnXpForWord(wordKey)
-      const earnedXp = canEarn ? (gameMode === "write" ? 15 : 10) : 0
-      if (earnedXp > 0) setXp(v => v + earnedXp)
-      setCorrectAnswersCount(v => v + 1)
-      if (gameMode === "choice") setChoiceCorrectCount(v => v + 1)
-      if (gameMode === "write") setWriteCorrectCount(v => v + 1)
+      const earnedXp = canEarnXpForWord(wordKey) ? (gameMode === "write" ? 15 : 10) : 0
+      if (earnedXp > 0) setXp((v) => v + earnedXp)
+      setCorrectAnswersCount((v) => v + 1)
+      if (gameMode === "choice") setChoiceCorrectCount((v) => v + 1)
+      if (gameMode === "write") setWriteCorrectCount((v) => v + 1)
       setMessage("Правильно!")
-      
+
       if (!completedWords.has(wordKey)) {
-        const newCompleted = new Set(completedWords)
-        newCompleted.add(wordKey)
-        setCompletedWords(newCompleted)
-        const newRemaining = totalLessonWords - newCompleted.size
-        setRemainingWordsCount(newRemaining)
-        updateCategoryProgress(newCompleted.size)
+        const nextCompleted = new Set(completedWords)
+        nextCompleted.add(wordKey)
+        setCompletedWords(nextCompleted)
+        updateCategoryProgress(nextCompleted.size)
       }
     } else {
       playWrongSound()
-      setLives(v => v - 1)
+      setLives((v) => v - 1)
       setMessage(`Ошибка! Правильно: ${currentWord.slovak}`)
     }
-  }, [isAnswering, currentWord, lives, wordStatsMap, gameMode, completedWords, totalLessonWords, updateCategoryProgress])
+  }, [isAnswering, currentWord, lives, gameMode, completedWords, updateCategoryProgress, setStatsForWord])
 
   const handleFlashcardRating = useCallback((known: boolean) => {
     if (isAnswering || !currentWord) return
-    
     initAudio()
     setIsAnswering(true)
-    setTotalClicksCount(v => v + 1)
+    setTotalClicksCount((v) => v + 1)
 
-    const wordKey = `${currentWord.slovak}|${currentWord.russian}`
-    const oldStats = wordStatsMap.get(wordKey) || createEmptyWordStats(wordKey)
-    const newStats = updateWordStats(oldStats, known)
-    newStats.id = wordKey
-    const newMap = new Map(wordStatsMap)
-    newMap.set(wordKey, newStats)
-    setWordStatsMap(newMap)
+    const wordKey = getWordKey(currentWord)
+    setStatsForWord(wordKey, known)
 
-    if (known) {
+    let nextCompleted = completedWords
+    if (known && !completedWords.has(wordKey)) {
+      nextCompleted = new Set(completedWords)
+      nextCompleted.add(wordKey)
+      setCompletedWords(nextCompleted)
+      updateCategoryProgress(nextCompleted.size)
+      setCorrectAnswersCount((v) => v + 1)
+      setFlashcardCorrectCount((v) => v + 1)
+      if (canEarnXpForWord(wordKey)) setXp((v) => v + 5)
       playCorrectSound()
-      const canEarn = canEarnXpForWord(wordKey)
-      if (canEarn) setXp(v => v + 5)
-      setCorrectAnswersCount(v => v + 1)
-      setFlashcardCorrectCount(v => v + 1)
-      
-      if (!completedWords.has(wordKey)) {
-        const newCompleted = new Set(completedWords)
-        newCompleted.add(wordKey)
-        setCompletedWords(newCompleted)
-        const newRemaining = totalLessonWords - newCompleted.size
-        setRemainingWordsCount(newRemaining)
-        updateCategoryProgress(newCompleted.size)
-      }
-    } else {
+    } else if (!known) {
       playWrongSound()
     }
 
-    const notCompletedWords = lessonWords.filter(w => {
-      const key = `${w.slovak}|${w.russian}`
-      return !completedWords.has(key)
-    })
-    if (notCompletedWords.length === 0) {
+    const remainingWords = lessonWords.filter((w) => !nextCompleted.has(getWordKey(w)))
+    if (remainingWords.length === 0) {
       playVictorySound()
       setScreen("victory")
       setIsAnswering(false)
       return
     }
-    const nextWord = selectNextWord(notCompletedWords, wordStatsMap)
-    setCurrentWord(nextWord)
+
+    setCurrentWord(selectNextWord(remainingWords, wordStatsMap))
     setIsAnswering(false)
-  }, [isAnswering, currentWord, wordStatsMap, completedWords, totalLessonWords, lessonWords, updateCategoryProgress])
+  }, [isAnswering, currentWord, completedWords, lessonWords, updateCategoryProgress, setStatsForWord, wordStatsMap])
 
   const handleNextWord = useCallback(() => {
-    const isCorrect = message === "Правильно!"
-    
     if (lives <= 0) return
-    
-    if (isCorrect) {
-      if (remainingWordsCount === 0) {
-        playVictorySound()
-        const categoryKey = `${selectedLevel}_${selectedCategory}_${currentDataSource}`
-        const canEarnBonus = canEarnLessonBonus(categoryKey)
-        if (canEarnBonus) setXp(v => v + 50)
-        const todayStr = getLocalDateString()
-        let updatedDates = [...activeDates]
-        if (!activeDates.includes(todayStr)) {
-          updatedDates.push(todayStr)
-          setActiveDates(updatedDates)
-          localStorage.setItem("slovak_active_dates", JSON.stringify(updatedDates))
-        }
-        setStreak(calculateStreak(updatedDates))
-        setScreen("victory")
-        return
-      }
-      
-      const notCompletedWords = lessonWords.filter(w => {
-        const key = `${w.slovak}|${w.russian}`
-        return !completedWords.has(key)
-      })
-      if (notCompletedWords.length === 0) {
-        setScreen("victory")
-        return
-      }
-      const nextWord = selectNextWord(notCompletedWords, wordStatsMap)
-      setCurrentWord(nextWord)
-    } else {
+    if (message !== "Правильно!") {
       setMessage("")
       setIsAnswering(false)
       setSelectedOption(null)
       return
     }
-    
+
+    if (remainingWordsCount === 0) {
+      playVictorySound()
+      const categoryKey = `${selectedLevel}_${selectedCategory}_${currentDataSource}`
+      if (canEarnLessonBonus(categoryKey)) setXp((v) => v + 50)
+
+      const todayStr = getLocalDateString()
+      const nextDates = activeDates.includes(todayStr) ? activeDates : [...activeDates, todayStr]
+      if (!activeDates.includes(todayStr)) {
+        setActiveDates(nextDates)
+        localStorage.setItem("slovak_active_dates", JSON.stringify(nextDates))
+      }
+      setStreak(calculateStreak(nextDates))
+      setScreen("victory")
+      return
+    }
+
+    if (notCompletedWords.length === 0) {
+      setScreen("victory")
+      return
+    }
+
+    setCurrentWord(selectNextWord(notCompletedWords, wordStatsMap))
     setMessage("")
     setIsAnswering(false)
     setSelectedOption(null)
-  }, [message, lives, remainingWordsCount, activeDates, lessonWords, completedWords, wordStatsMap, selectedLevel, selectedCategory, currentDataSource])
+  }, [message, lives, remainingWordsCount, activeDates, notCompletedWords, wordStatsMap, selectedLevel, selectedCategory, currentDataSource])
 
   const handleRestart = useCallback(() => {
     playClickSound()
@@ -396,6 +378,14 @@ export default function Home() {
       setScreen("menu")
     }
   }, [selectedCategory, selectedLevel, currentDataSource, handleSelectCategory])
+
+  useEffect(() => { if (!mountedRef.current) return; saveProgress("xp", xp) }, [xp])
+  useEffect(() => { if (!mountedRef.current) return; saveProgress("lives", lives) }, [lives])
+  useEffect(() => { if (!mountedRef.current || streak <= maxStreak) return; setMaxStreak(streak); saveProgress("maxStreak", streak) }, [streak, maxStreak])
+
+  useEffect(() => {
+    mountedRef.current = true
+  }, [])
 
   const handleBack = useCallback(() => {
     playClickSound()
@@ -409,11 +399,10 @@ export default function Home() {
   }, [screen])
 
   if (screen === "game") {
-    const lessonProgressPercent = totalLessonWords > 0 ? ((totalLessonWords - remainingWordsCount) / totalLessonWords) * 100 : 0
-    
     if (gameMode === "flashcard") {
       return (
         <FlashcardMode
+          key={currentWord ? getWordKey(currentWord) : undefined}
           word={currentWord}
           onNext={handleFlashcardRating}
           onBack={handleBack}
@@ -424,7 +413,7 @@ export default function Home() {
         />
       )
     }
-    
+
     return (
       <GameUI
         xp={xp}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { type Word } from "../../data/words"
 import { playClickSound } from "../../lib/sounds"
 
@@ -23,10 +23,6 @@ export default function FlashcardMode({
   totalWords,
 }: FlashcardModeProps) {
   const [showAnswer, setShowAnswer] = useState(false)
-
-  useEffect(() => {
-    setShowAnswer(false)
-  }, [word])
 
   if (!word) return null
 

@@ -13,41 +13,34 @@ export function checkAnswer(word: Word, userAnswer: string): boolean {
   return normalizeString(word.slovak) === normalizeString(userAnswer)
 }
 
+const randomShuffle = <T>(items: T[]): T[] => [...items].sort(() => Math.random() - 0.5)
+
 export function generateWrongOptions(
   correctWord: Word | GrammarWord,
   pool: (Word | GrammarWord)[],
   count: number = 2,
   dataType: "vocab" | "grammar" = "vocab"
 ): string[] {
-  let candidates = pool.filter(w => w.slovak !== correctWord.slovak)
-  
+  const candidates = pool.filter(w => w.slovak !== correctWord.slovak)
+  const sameCategory = candidates.filter(w => w.category === correctWord.category && w.level === correctWord.level)
+  const sameLevel = candidates.filter(w => w.level === correctWord.level)
+  const poolToUse = sameCategory.length >= count ? sameCategory : sameLevel.length >= count ? sameLevel : candidates
+
+  const ranked = [...poolToUse]
   if (dataType === "vocab") {
-    const sameCategory = candidates.filter(w => w.category === correctWord.category && w.level === correctWord.level)
-    if (sameCategory.length >= count) candidates = sameCategory
-    else {
-      const sameLevel = candidates.filter(w => w.level === correctWord.level)
-      if (sameLevel.length >= count) candidates = sameLevel
-    }
-    candidates.sort((a, b) => 
+    ranked.sort((a, b) =>
       Math.abs(a.slovak.length - correctWord.slovak.length) - Math.abs(b.slovak.length - correctWord.slovak.length)
     )
   } else {
-    const sameCategory = candidates.filter(w => w.category === correctWord.category && w.level === correctWord.level)
-    if (sameCategory.length >= count) candidates = sameCategory
-    else {
-      const sameLevel = candidates.filter(w => w.level === correctWord.level)
-      if (sameLevel.length >= count) candidates = sameLevel
-    }
     const correctStart = correctWord.slovak.slice(0, 3).toLowerCase()
-    candidates.sort((a, b) => {
+    ranked.sort((a, b) => {
       const aScore = a.slovak.toLowerCase().startsWith(correctStart) ? 0 : 1
       const bScore = b.slovak.toLowerCase().startsWith(correctStart) ? 0 : 1
       return aScore - bScore
     })
   }
-  
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, count).map(w => w.slovak)
+
+  return randomShuffle(ranked).slice(0, count).map(w => w.slovak)
 }
 
 export type WordStats = {

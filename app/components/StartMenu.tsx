@@ -7,7 +7,7 @@ import StreakWidget from "./StreakWidget"
 import TreeLevel from "./TreeLevel"
 import { playModeSwitchSound, initAudio } from "../../lib/sounds"
 import SettingsModal from "./SettingsModal"
-import { useSettings, type Settings } from "../../hooks/useSettings"
+import { type Settings } from "../../hooks/useSettings"
 import { type Theme } from "../../hooks/useTheme"
 
 export type GameMode = "choice" | "write" | "flashcard"

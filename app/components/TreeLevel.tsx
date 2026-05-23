@@ -34,7 +34,7 @@ export default function TreeLevel({
   const levelProgressPercent = totalWords > 0 ? (passedWords / totalWords) * 100 : 0
 
   return (
-    <div className="border-2 border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm transition-all">
+    <div data-level={levelCode} className="border-2 border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm transition-all">
       <button
         onClick={toggleOpen}
         className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

@@ -7,7 +7,11 @@ export function setMuted(muted: boolean) {
 
 function getAudioContext(): AudioContext {
   if (!audioContext) {
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const AudioCtor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioCtor) {
+      throw new Error("Web Audio API is not supported")
+    }
+    audioContext = new AudioCtor()
   }
   return audioContext
 }

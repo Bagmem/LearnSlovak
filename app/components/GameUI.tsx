@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback, type FormEvent } from "react"
 import { type Word } from "../../data/words"
 import { type GameMode } from "./StartMenu"
 import GrammarHint from "./GrammarHint"
@@ -50,7 +50,6 @@ export default function GameUI({
   const [writeInput, setWriteInput] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
   const hasAutoSpokenRef = useRef(false)
-  const [feedback, setFeedback] = useState<boolean | null>(null)
   const { animation, trigger } = useAnimation(300)
   const [heartBlockPulse, setHeartBlockPulse] = useState(false)
   const prevLivesRef = useRef(lives)
@@ -64,7 +63,7 @@ export default function GameUI({
     prevLivesRef.current = lives
   }, [lives])
 
-  const speakSlovak = (text: string) => {
+  const speakSlovak = useCallback((text: string) => {
     if (!text) return
     try {
       const utterance = new SpeechSynthesisUtterance(text)
@@ -75,7 +74,7 @@ export default function GameUI({
     } catch (e) {
       console.warn("Web Speech API не поддерживается", e)
     }
-  }
+  }, [speechRate])
 
   useEffect(() => {
     if (message === "Правильно!" && word && !hasAutoSpokenRef.current && autoSpeakOnCorrect) {
@@ -85,13 +84,7 @@ export default function GameUI({
     if (message === "") {
       hasAutoSpokenRef.current = false
     }
-  }, [message, word, autoSpeakOnCorrect, speechRate])
-
-  useEffect(() => {
-    setFeedback(null)
-  }, [word])
-
-  if (!word) return null
+  }, [message, word, autoSpeakOnCorrect, speakSlovak])
 
   const isAnswered = message !== ""
   const isCorrect = message === "Правильно!"
@@ -99,9 +92,6 @@ export default function GameUI({
   useEffect(() => {
     if (isAnswered && !isCorrect) {
       trigger("shake")
-      setFeedback(false)
-    } else if (isAnswered && isCorrect) {
-      setFeedback(true)
     }
   }, [isAnswered, isCorrect, trigger])
 
@@ -133,7 +123,9 @@ export default function GameUI({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [disabled, isAnswered, gameMode, options, onAnswer, onNext, lives])
 
-  const handleSubmitWrite = (e: React.FormEvent) => {
+  if (!word) return null
+
+  const handleSubmitWrite = (e: FormEvent) => {
     e.preventDefault()
     if (!writeInput.trim() || disabled) return
     onAnswer(writeInput)
@@ -336,7 +328,7 @@ export default function GameUI({
         </div>
       </div>
 
-      <AnimatedFeedback isCorrect={feedback} duration={800} onComplete={() => setFeedback(null)} />
+      <AnimatedFeedback isCorrect={isAnswered ? isCorrect : null} duration={800} />
     </div>
   )
 }

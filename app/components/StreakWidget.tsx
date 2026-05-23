@@ -1,49 +1,31 @@
 "use client"
 
-import { useEffect, useState } from "react"
 
 type StreakProps = {
   streak: number
   activeDates: string[]
 }
 
-type DayInfo = {
-  dayName: string
-  dateStr: string
-  isToday: boolean
-}
-
 export default function StreakWidget({ streak, activeDates }: StreakProps) {
-  const [weekDays, setWeekDays] = useState<DayInfo[]>([])
+  const daysLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+  const current = new Date()
+  const currentDay = current.getDay()
+  const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay
+  const monday = new Date(current)
+  monday.setDate(current.getDate() + distanceToMonday)
 
-  useEffect(() => {
-    const daysLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-    const current = new Date()
-    
-    const currentDay = current.getDay() 
-    const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay
-    const monday = new Date(current)
-    monday.setDate(current.getDate() + distanceToMonday)
+  const todayStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`
 
-    // Локальная строка для сегодняшнего дня
-    const todayStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`
-
-    const days = daysLabels.map((label, index) => {
-      const dayDate = new Date(monday)
-      dayDate.setDate(monday.getDate() + index)
-      
-      // Локальная строка для каждого дня текущей недели
-      const dateStr = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, "0")}-${String(dayDate.getDate()).padStart(2, "0")}`
-      
-      return {
-        dayName: label,
-        dateStr,
-        isToday: dateStr === todayStr
-      }
-    })
-
-    setWeekDays(days)
-  }, [activeDates])
+  const weekDays = daysLabels.map((label, index) => {
+    const dayDate = new Date(monday)
+    dayDate.setDate(monday.getDate() + index)
+    const dateStr = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, "0")}-${String(dayDate.getDate()).padStart(2, "0")}`
+    return {
+      dayName: label,
+      dateStr,
+      isToday: dateStr === todayStr,
+    }
+  })
 
   return (
     <div className="w-full max-w-md bg-white p-5 rounded-2xl border-2 border-b-6 border-gray-200 mb-6 shadow-sm">

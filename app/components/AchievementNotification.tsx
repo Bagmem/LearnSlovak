@@ -1,7 +1,7 @@
 // components/AchievementNotification.tsx
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { type UnlockedAchievement } from "../../hooks/useAchievements"
 
 type Props = {
@@ -10,20 +10,13 @@ type Props = {
 }
 
 export default function AchievementNotification({ achievement, onHide }: Props) {
-  const [visible, setVisible] = useState(false)
-
   useEffect(() => {
-    if (achievement) {
-      setVisible(true)
-      const timer = setTimeout(() => {
-        setVisible(false)
-        onHide?.()
-      }, 4000)
-      return () => clearTimeout(timer)
-    }
+    if (!achievement) return
+    const timer = setTimeout(() => onHide?.(), 4000)
+    return () => clearTimeout(timer)
   }, [achievement, onHide])
 
-  if (!achievement || !visible) return null
+  if (!achievement) return null
 
   return (
     <div className="fixed top-20 right-4 z-50 animate-slideInScale bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl shadow-lg p-4 max-w-sm">

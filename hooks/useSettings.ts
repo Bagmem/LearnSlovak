@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 
 export type Settings = {
   isMuted: boolean
@@ -14,24 +14,29 @@ const DEFAULT_SETTINGS: Settings = {
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
-  const [isLoaded, setIsLoaded] = useState(false)
+  const isMountedRef = useRef(false)
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    if (typeof window === "undefined") return
     const saved = localStorage.getItem("slovak_settings")
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed })
-      } catch (e) {}
+    if (!saved) return
+
+    try {
+      setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) })
+    } catch {
+      setSettings(DEFAULT_SETTINGS)
     }
-    setIsLoaded(true)
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem("slovak_settings", JSON.stringify(settings))
+    if (!isMountedRef.current) {
+      isMountedRef.current = true
+      return
     }
-  }, [settings, isLoaded])
+    localStorage.setItem("slovak_settings", JSON.stringify(settings))
+  }, [settings])
 
   const updateSetting = useCallback(<K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }))
@@ -51,7 +56,6 @@ export function useSettings() {
 
   return {
     settings,
-    isLoaded,
     updateSetting,
     toggleMute,
     setSpeechRate,

@@ -1,5 +1,5 @@
 // hooks/useAchievements.ts
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { achievements, type Achievement, type AchievementState } from "../data/achievements"
 
 export type UnlockedAchievement = Achievement & { unlockedAt: number }
@@ -7,20 +7,26 @@ export type UnlockedAchievement = Achievement & { unlockedAt: number }
 export function useAchievements() {
   const [unlocked, setUnlocked] = useState<UnlockedAchievement[]>([])
   const [lastUnlocked, setLastUnlocked] = useState<UnlockedAchievement | null>(null)
+  const isMountedRef = useRef(false)
 
-  // Загрузка
   useEffect(() => {
+    if (typeof window === "undefined") return
     const saved = localStorage.getItem("slovak_achievements")
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        setUnlocked(parsed)
-      } catch (e) {}
+    if (!saved) return
+
+    try {
+      setUnlocked(JSON.parse(saved))
+    } catch {
+      setUnlocked([])
     }
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Сохранение
   useEffect(() => {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true
+      return
+    }
     localStorage.setItem("slovak_achievements", JSON.stringify(unlocked))
   }, [unlocked])
 
