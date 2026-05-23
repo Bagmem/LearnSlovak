@@ -1,26 +1,83 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Анимации */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+@keyframes fadeOutUp {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-50px); }
+}
+@keyframes slideInScale {
+  0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+.animate-bounce { animation: bounce 0.5s ease-in-out; }
+.animate-shake { animation: shake 0.3s ease-in-out; }
+.animate-fadeOutUp { animation: fadeOutUp 0.8s ease-out forwards; }
+.animate-slideInScale { animation: slideInScale 0.2s ease-out; }
+
+/* Глобальные стили для тёмной темы */
+.dark {
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Переопределение базовых цветов Tailwind для тёмной темы */
+.dark body {
+  background-color: #111827 !important;
+  color: #f9fafb !important;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.dark .bg-white { background-color: #1f2937 !important; }
+.dark .bg-gray-50 { background-color: #1f2937 !important; }
+.dark .bg-gray-100 { background-color: #374151 !important; }
+.dark .bg-gray-200 { background-color: #4b5563 !important; }
+.dark .bg-gray-300 { background-color: #6b7280 !important; }
+
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-gray-600 { color: #f9fafb !important; }
+.dark .text-gray-500 { color: #9ca3af !important; }
+.dark .text-gray-400 { color: #6b7280 !important; }
+
+.dark .border-gray-200,
+.dark .border-gray-300,
+.dark .border-gray-100 { border-color: #374151 !important; }
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1f2937 !important;
+  border-color: #4b5563 !important;
+  color: #f9fafb !important;
 }
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+.dark button.bg-orange-500 { background-color: #ea580c !important; }
+.dark button.bg-green-500 { background-color: #16a34a !important; }
+.dark button.bg-red-500 { background-color: #dc2626 !important; }
+
+/* Карточки и таблицы */
+.dark .bg-white\/50 { background-color: #1f2937cc !important; }
+.dark .divide-gray-100 > * { border-color: #374151 !important; }
+
+/* Прогресс-бары */
+.dark .bg-gray-200 { background-color: #4b5563 !important; }
+.dark .bg-green-500 { background-color: #22c55e !important; }

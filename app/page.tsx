@@ -1,20 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { words, type Word, type LanguageLevel } from "../data/words"
 import { grammarTasks } from "../data/grammar"
-import { checkAnswer } from "../lib/game"
+import { checkAnswer, generateWrongOptions, selectNextWord, updateWordStats, type WordStats, createEmptyWordStats } from "../lib/game"
 import { saveProgress, loadProgress } from "../lib/storage"
+import { playCorrectSound, playWrongSound, playLessonStartSound, playVictorySound, playClickSound, initAudio, setMuted } from "../lib/sounds"
 import GameUI from "./components/GameUI"
 import StartMenu, { type GameMode } from "./components/StartMenu"
 import VictoryScreen from "./components/VictoryScreen"
 import ReferenceView from "./components/ReferenceView"
+import { useSettings } from "../hooks/useSettings"
+import { useTheme } from "../hooks/useTheme"
 
-function shuffleArray<T>(items: T[]) {
+function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
 }
 
-const getLocalDateString = (date = new Date()) => {
+const getLocalDateString = (date = new Date()): string => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
@@ -53,7 +56,14 @@ const calculateStreak = (dates: string[]): number => {
 }
 
 export default function Home() {
-  // Глобальные табы приложения: 'study' (Обучение) или 'reference' (Справочник)
+  const { settings, toggleMute, setSpeechRate, setAutoSpeak } = useSettings()
+  const { theme, toggleTheme } = useTheme()
+  
+  // Синхронизация mute с sounds.ts
+  useEffect(() => {
+    setMuted(settings.isMuted)
+  }, [settings.isMuted])
+
   const [globalTab, setGlobalTab] = useState<"study" | "reference">("study")
   
   const [screen, setScreen] = useState<"menu" | "game" | "victory">("menu")
@@ -62,33 +72,71 @@ export default function Home() {
   const [currentDataSource, setCurrentDataSource] = useState<"vocab" | "grammar">("vocab")
   const [gameMode, setGameMode] = useState<GameMode>("choice")
 
-  const [queue, setQueue] = useState<Word[]>([])
-  const [xp, setXp] = useState(0)
-  const [streak, setStreak] = useState(0)
-  const [lives, setLives] = useState(3)
-  const [message, setMessage] = useState("")
+  const [currentWord, setCurrentWord] = useState<Word | null>(null)
+  const [lessonWords, setLessonWords] = useState<Word[]>([])
+  const [completedWords, setCompletedWords] = useState<Set<string>>(new Set())
+  const [remainingWordsCount, setRemainingWordsCount] = useState(0)
+  
+  const [xp, setXp] = useState<number>(0)
+  const [streak, setStreak] = useState<number>(0)
+  const [lives, setLives] = useState<number>(3)
+  const [message, setMessage] = useState<string>("")
   const [options, setOptions] = useState<string[]>([])
-  const [isAnswering, setIsAnswering] = useState(false)
+  const [isAnswering, setIsAnswering] = useState<boolean>(false)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
 
-  const [totalLessonWords, setTotalLessonWords] = useState(0)
-  const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
-  const [totalClicksCount, setTotalClicksCount] = useState(0)
+  const [totalLessonWords, setTotalLessonWords] = useState<number>(0)
+  const [correctAnswersCount, setCorrectAnswersCount] = useState<number>(0)
+  const [totalClicksCount, setTotalClicksCount] = useState<number>(0)
 
   const [progressData, setProgressData] = useState<Record<string, number>>({})
   const [activeDates, setActiveDates] = useState<string[]>([])
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoaded, setIsLoaded] = useState<boolean>(false)
+  
+  const [wordStatsMap, setWordStatsMap] = useState<Map<string, WordStats>>(new Map())
+  
+  // Инициализация звуков при загрузке
+  useEffect(() => {
+    initAudio()
+  }, [])
 
-  const word = queue[0] ?? null
+  // Загрузка статистики слов
+  useEffect(() => {
+    const savedStats = localStorage.getItem("slovak_word_stats")
+    if (savedStats) {
+      try {
+        const parsed = JSON.parse(savedStats)
+        const map = new Map<string, WordStats>(Object.entries(parsed))
+        setWordStatsMap(map)
+      } catch (e) {
+        console.warn("Failed to load word stats", e)
+      }
+    }
+  }, [])
 
-  const cleanText = (str: string) => {
-    return str
-      .trim()
-      .toLowerCase()
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "")
-      .replace(/\s+/g, " ")
-  }
+  // Сохранение статистики слов
+  useEffect(() => {
+    if (isLoaded) {
+      const obj: Record<string, WordStats> = {}
+      wordStatsMap.forEach((value, key) => {
+        obj[key] = value
+      })
+      localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
+    }
+  }, [wordStatsMap, isLoaded])
 
+  const updateCategoryProgress = useCallback((completedCount: number) => {
+    if (selectedCategory && selectedLevel && currentDataSource) {
+      const storageKey = `cat_progress_${selectedLevel}_${selectedCategory}`
+      const currentSaved = progressData[storageKey] || 0
+      if (completedCount > currentSaved) {
+        saveProgress(storageKey, completedCount)
+        setProgressData(prev => ({ ...prev, [storageKey]: completedCount }))
+      }
+    }
+  }, [selectedCategory, selectedLevel, currentDataSource, progressData])
+
+  // Загрузка профиля и прогресса
   useEffect(() => {
     const savedXp = loadProgress("xp")
     const savedLives = loadProgress("lives")
@@ -118,8 +166,9 @@ export default function Home() {
   useEffect(() => { if (isLoaded) saveProgress("xp", xp) }, [xp, isLoaded])
   useEffect(() => { if (isLoaded) saveProgress("lives", lives) }, [lives, isLoaded])
 
+  // Генерация вариантов для текущего слова
   useEffect(() => {
-    if (!word || !selectedCategory || !selectedLevel) {
+    if (!currentWord || !selectedCategory || !selectedLevel) {
       setOptions([])
       return
     }
@@ -128,62 +177,82 @@ export default function Home() {
       (w) => w.category === selectedCategory && w.level === selectedLevel
     )
     const pool = samePoolWords.length >= 3 ? samePoolWords : poolSource
-    const wrongOptions = pool.filter((w) => w.slovak !== word.slovak).map((w) => w.slovak)
-    setOptions(shuffleArray([...shuffleArray(wrongOptions).slice(0, 2), word.slovak]))
-  }, [word, selectedCategory, selectedLevel, currentDataSource])
+    const wrongOptions = generateWrongOptions(currentWord, pool, 2)
+    setOptions(shuffleArray([...wrongOptions, currentWord.slovak]))
+  }, [currentWord, selectedCategory, selectedLevel, currentDataSource])
 
-  const handleSelectCategory = (category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
+  const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
     const poolSource = dataSource === "vocab" ? words : grammarTasks
     const filteredWords = poolSource.filter((w) => w.category === category && w.level === level)
-    
+    setLessonWords(filteredWords)
+    setTotalLessonWords(filteredWords.length)
+    setCompletedWords(new Set())
+    setRemainingWordsCount(filteredWords.length)
     setCurrentDataSource(dataSource)
     setSelectedCategory(category)
     setSelectedLevel(level)
-    setQueue(shuffleArray(filteredWords))
-    setTotalLessonWords(filteredWords.length)
     setCorrectAnswersCount(0)
     setTotalClicksCount(0)
     setLives(3)
     setMessage("")
     setSelectedOption(null)
     setIsAnswering(false)
+    
+    const firstWord = selectNextWord(filteredWords, wordStatsMap)
+    setCurrentWord(firstWord)
     setScreen("game")
-  }
+    playLessonStartSound()
+  }, [wordStatsMap])
 
-  const checkAnswerHandler = (userInput: string) => {
-    if (isAnswering || !word || lives <= 0) return
+  const checkAnswerHandler = useCallback((userInput: string) => {
+    if (isAnswering || !currentWord || lives <= 0) return
+    
+    initAudio()
+    
     setIsAnswering(true)
     setSelectedOption(userInput)
-    setTotalClicksCount((v) => v + 1)
+    setTotalClicksCount(v => v + 1)
 
-    if (gameMode === "choice") {
-      if (checkAnswer(word, userInput)) {
-        setXp((v) => v + 10)
-        setCorrectAnswersCount((v) => v + 1)
-        setMessage("Правильно!")
-      } else {
-        setLives((v) => v - 1)
-        setMessage("Неправильно!")
+    const isCorrect = checkAnswer(currentWord, userInput)
+    
+    const wordKey = `${currentWord.slovak}|${currentWord.russian}`
+    const oldStats = wordStatsMap.get(wordKey) || createEmptyWordStats(wordKey)
+    const newStats = updateWordStats(oldStats, isCorrect)
+    newStats.id = wordKey
+    const newMap = new Map(wordStatsMap)
+    newMap.set(wordKey, newStats)
+    setWordStatsMap(newMap)
+
+    if (isCorrect) {
+      playCorrectSound()
+      setXp(v => v + (gameMode === "write" ? 15 : 10))
+      setCorrectAnswersCount(v => v + 1)
+      setMessage("Правильно!")
+      
+      if (!completedWords.has(wordKey)) {
+        const newCompleted = new Set(completedWords)
+        newCompleted.add(wordKey)
+        setCompletedWords(newCompleted)
+        const newRemaining = totalLessonWords - newCompleted.size
+        setRemainingWordsCount(newRemaining)
+        updateCategoryProgress(newCompleted.size)
       }
     } else {
-      const clearUser = cleanText(userInput)
-      const clearCorrect = cleanText(word.slovak)
-      if (clearUser === clearCorrect) {
-        setXp((v) => v + 15)
-        setCorrectAnswersCount((v) => v + 1)
-        setMessage("Правильно!")
-      } else {
-        setLives((v) => v - 1)
-        setMessage(`Ошибка! Правильно: ${word.slovak}`)
-      }
+      playWrongSound()
+      setLives(v => v - 1)
+      setMessage(`Ошибка! Правильно: ${currentWord.slovak}`)
     }
-  }
+  }, [isAnswering, currentWord, lives, wordStatsMap, gameMode, completedWords, totalLessonWords, updateCategoryProgress])
 
-  const handleNextWord = () => {
+  const handleNextWord = useCallback(() => {
     const isCorrect = message === "Правильно!"
+    
+    if (lives <= 0) return
+    
     if (isCorrect) {
-      if (queue.length === 1) {
-        setXp((v) => v + 50)
+      if (remainingWordsCount === 0) {
+        playVictorySound()
+        setXp(v => v + 50)
         const todayStr = getLocalDateString()
         let updatedDates = [...activeDates]
         if (!activeDates.includes(todayStr)) {
@@ -192,34 +261,74 @@ export default function Home() {
           localStorage.setItem("slovak_active_dates", JSON.stringify(updatedDates))
         }
         setStreak(calculateStreak(updatedDates))
-
-        if (selectedCategory && selectedLevel) {
-          const storageKey = `cat_progress_${selectedLevel}_${selectedCategory}`
-          saveProgress(storageKey, totalLessonWords)
-          setProgressData((prev) => ({ ...prev, [storageKey]: totalLessonWords }))
-        }
         setScreen("victory")
         return
       }
-      setQueue((prev) => prev.slice(1))
+      
+      const notCompletedWords = lessonWords.filter(w => {
+        const key = `${w.slovak}|${w.russian}`
+        return !completedWords.has(key)
+      })
+      if (notCompletedWords.length === 0) {
+        setScreen("victory")
+        return
+      }
+      const nextWord = selectNextWord(notCompletedWords, wordStatsMap)
+      setCurrentWord(nextWord)
     } else {
-      setQueue((prev) => [...prev.slice(1), prev[0]])
+      setMessage("")
+      setIsAnswering(false)
+      setSelectedOption(null)
+      return
     }
+    
     setMessage("")
     setIsAnswering(false)
     setSelectedOption(null)
-  }
+  }, [message, lives, remainingWordsCount, activeDates, lessonWords, completedWords, wordStatsMap])
 
-  // Рендеринг игрового процесса (занимает весь экран, скрывает меню навигации)
+  const handleRestart = useCallback(() => {
+    playClickSound()
+    if (selectedCategory && selectedLevel && currentDataSource) {
+      handleSelectCategory(selectedCategory, selectedLevel, currentDataSource)
+    } else {
+      setScreen("menu")
+    }
+  }, [selectedCategory, selectedLevel, currentDataSource, handleSelectCategory])
+
+  const handleBack = useCallback(() => {
+    playClickSound()
+    if (screen === "game") {
+      if (confirm("Вы уверены, что хотите выйти? Прогресс текущего урока будет потерян.")) {
+        setScreen("menu")
+      }
+    } else {
+      setScreen("menu")
+    }
+  }, [screen])
+
   if (screen === "game") {
-    const lessonProgressPercent = totalLessonWords > 0 ? ((totalLessonWords - queue.length) / totalLessonWords) * 100 : 0
+    const lessonProgressPercent = totalLessonWords > 0 ? ((totalLessonWords - remainingWordsCount) / totalLessonWords) * 100 : 0
     return (
       <GameUI
-        xp={xp} streak={streak} lives={lives} word={word} options={options} message={message}
-        selectedOption={selectedOption} onAnswer={checkAnswerHandler} onNext={handleNextWord}
-        onRestart={() => handleSelectCategory(selectedCategory!, selectedLevel!, currentDataSource)}
-        onBack={() => setScreen("menu")} disabled={isAnswering || lives <= 0}
-        lessonProgress={lessonProgressPercent} gameMode={gameMode}
+        xp={xp}
+        streak={streak}
+        lives={lives}
+        word={currentWord}
+        options={options}
+        message={message}
+        selectedOption={selectedOption}
+        onAnswer={checkAnswerHandler}
+        onNext={handleNextWord}
+        onRestart={handleRestart}
+        onBack={handleBack}
+        disabled={isAnswering || lives <= 0}
+        lessonProgress={lessonProgressPercent}
+        gameMode={gameMode}
+        wordsLeft={remainingWordsCount}
+        totalWords={totalLessonWords}
+        speechRate={settings.speechRate}
+        autoSpeakOnCorrect={settings.autoSpeakOnCorrect}
       />
     )
   }
@@ -229,27 +338,37 @@ export default function Home() {
     return <VictoryScreen category={selectedCategory || ""} xpEarned={50} accuracy={accuracy} onBack={() => setScreen("menu")} />
   }
 
-  // Главный экран с нижним таб-баром навигации
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      
-      {/* Контент активного глобального таба */}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20 transition-colors duration-200">
       {globalTab === "study" ? (
         <StartMenu
           onSelectCategory={handleSelectCategory}
-          xp={xp} progressData={progressData} streak={streak} activeDates={activeDates}
-          gameMode={gameMode} setGameMode={setGameMode}
+          xp={xp}
+          progressData={progressData}
+          streak={streak}
+          activeDates={activeDates}
+          gameMode={gameMode}
+          setGameMode={setGameMode}
+          settings={settings}
+          onToggleMute={toggleMute}
+          onSetSpeechRate={setSpeechRate}
+          onSetAutoSpeak={setAutoSpeak}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       ) : (
-        <ReferenceView />
+        <ReferenceView
+          progressData={progressData}
+          activeDates={activeDates}
+          wordStatsMap={wordStatsMap}
+        />
       )}
 
-      {/* 📱 НИЖНИЙ ТАБ-БАР НАВИГАЦИИ */}
-      <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t-2 border-gray-200 flex justify-around items-center px-6 z-50 shadow-md">
+      <div className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-gray-800 border-t-2 border-gray-200 dark:border-gray-700 flex justify-around items-center px-6 z-50 shadow-md">
         <button
           onClick={() => setGlobalTab("study")}
           className={`flex flex-col items-center justify-center w-20 h-full transition-all ${
-            globalTab === "study" ? "text-orange-500 scale-105" : "text-gray-400 hover:text-gray-600"
+            globalTab === "study" ? "text-orange-500 scale-105" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           }`}
         >
           <span className="text-xl">🎯</span>
@@ -259,14 +378,13 @@ export default function Home() {
         <button
           onClick={() => setGlobalTab("reference")}
           className={`flex flex-col items-center justify-center w-20 h-full transition-all ${
-            globalTab === "reference" ? "text-orange-500 scale-105" : "text-gray-400 hover:text-gray-600"
+            globalTab === "reference" ? "text-orange-500 scale-105" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           }`}
         >
           <span className="text-xl">📚</span>
           <span className="text-[10px] font-black uppercase mt-0.5 tracking-wider">Справочник</span>
         </button>
       </div>
-
     </div>
   )
 }

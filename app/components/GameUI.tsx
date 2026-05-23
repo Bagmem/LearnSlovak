@@ -4,6 +4,9 @@ import { useState, useEffect, useRef } from "react"
 import { type Word } from "../../data/words"
 import { type GameMode } from "./StartMenu"
 import GrammarHint from "./GrammarHint"
+import { playClickSound } from "../../lib/sounds"
+import { useAnimation } from "../../hooks/useAnimation"
+import AnimatedFeedback from "./AnimatedFeedback"
 
 type GameUIProps = {
   xp: number
@@ -20,6 +23,10 @@ type GameUIProps = {
   disabled: boolean
   lessonProgress: number
   gameMode: GameMode
+  wordsLeft: number
+  totalWords: number
+  speechRate: number
+  autoSpeakOnCorrect: boolean
 }
 
 export default function GameUI({
@@ -35,28 +42,68 @@ export default function GameUI({
   disabled,
   lessonProgress,
   gameMode,
+  wordsLeft,
+  totalWords,
+  speechRate,
+  autoSpeakOnCorrect,
 }: GameUIProps) {
   const [writeInput, setWriteInput] = useState("")
-  const inputRef = useRef<HTMLInputElement>(null) // Ссылка на инпут для автофокуса
+  const inputRef = useRef<HTMLInputElement>(null)
+  const hasAutoSpokenRef = useRef(false)
+  const [feedback, setFeedback] = useState<boolean | null>(null)
+  const { animation, trigger } = useAnimation(300)
+
+  const speakSlovak = (text: string) => {
+    if (!text) return
+    try {
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = "sk-SK"
+      utterance.rate = speechRate
+      window.speechSynthesis.cancel()
+      window.speechSynthesis.speak(utterance)
+    } catch (e) {
+      console.warn("Web Speech API не поддерживается", e)
+    }
+  }
+
+  useEffect(() => {
+    if (message === "Правильно!" && word && !hasAutoSpokenRef.current && autoSpeakOnCorrect) {
+      speakSlovak(word.slovak)
+      hasAutoSpokenRef.current = true
+    }
+    if (message === "") {
+      hasAutoSpokenRef.current = false
+    }
+  }, [message, word, autoSpeakOnCorrect, speechRate])
+
+  useEffect(() => {
+    setFeedback(null)
+  }, [word])
 
   if (!word) return null
 
   const isAnswered = message !== ""
   const isCorrect = message === "Правильно!"
 
-  // 🪄 Улучшение 1: Автоматический фокус на поле ввода при смене слова
+  useEffect(() => {
+    if (isAnswered && !isCorrect) {
+      trigger("shake")
+      setFeedback(false)
+    } else if (isAnswered && isCorrect) {
+      setFeedback(true)
+    }
+  }, [isAnswered, isCorrect, trigger])
+
   useEffect(() => {
     if (gameMode === "write" && !isAnswered && inputRef.current) {
       inputRef.current.focus()
     }
   }, [word, isAnswered, gameMode])
 
-  // ⌨️ Улучшение 2: Горячие клавиши (1, 2, 3 и Enter)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (disabled || lives <= 0) return
 
-      // Если ответ уже дан, кнопка Enter переводит на следующее слово
       if (isAnswered && e.key === "Enter") {
         e.preventDefault()
         setWriteInput("")
@@ -64,7 +111,6 @@ export default function GameUI({
         return
       }
 
-      // Если мы в режиме ТЕСТА и ответ ЕЩЕ НЕ ДАН
       if (gameMode === "choice" && !isAnswered) {
         if (e.key === "1" && options[0]) onAnswer(options[0])
         if (e.key === "2" && options[1]) onAnswer(options[1])
@@ -82,63 +128,97 @@ export default function GameUI({
     onAnswer(writeInput)
   }
 
+  const handleNextClick = () => {
+    playClickSound()
+    setWriteInput("")
+    onNext()
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-between pb-8 animate-fadeIn">
-      
-      {/* ВЕРХНЯЯ ПАНЕЛЬ С УПРАВЛЕНИЕМ */}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-between pb-8 animate-fadeIn">
       <div className="w-full max-w-xl mx-auto px-4 pt-6 flex items-center justify-between gap-4">
         <button
           onClick={onBack}
-          className="text-gray-400 hover:text-gray-600 font-black text-2xl p-1 active:scale-95 transition-transform"
+          className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 font-black text-2xl p-1 active:scale-95 transition-transform"
         >
           ✕
         </button>
 
-        {/* Прогресс-бар */}
-        <div className="flex-1 bg-gray-200 h-4 rounded-full overflow-hidden border border-gray-300 p-0.5">
-          <div
-            className="bg-green-500 h-full rounded-full transition-all duration-300"
-            style={{ width: `${lessonProgress}%` }}
-          />
+        <div className="flex-1 flex flex-col items-center gap-1">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded-full overflow-hidden border border-gray-300 dark:border-gray-600 p-0.5">
+            <div
+              className="bg-green-500 h-full rounded-full transition-all duration-300"
+              style={{ width: `${lessonProgress}%` }}
+            />
+          </div>
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+            {totalWords - wordsLeft}/{totalWords}
+          </span>
         </div>
 
-        {/* Интеграция изолированной подсказки */}
-        {(word as any).hint ? (
-          <GrammarHint hintText={(word as any).hint} />
+        {word.hint ? (
+          isCorrect ? (
+            <GrammarHint hintText={word.hint} />
+          ) : (
+            <div className="w-10 h-10" />
+          )
         ) : (
-          <div className="w-10 h-10" />
+          <button
+            onClick={() => speakSlovak(word.slovak)}
+            disabled={!isCorrect}
+            className={`w-10 h-10 flex items-center justify-center text-xl rounded-full transition-colors ${
+              isCorrect
+                ? "bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 cursor-pointer"
+                : "bg-gray-50 text-gray-300 dark:bg-gray-800 dark:text-gray-600 cursor-not-allowed"
+            }`}
+            aria-label="Прослушать произношение (доступно после правильного ответа)"
+          >
+            🔊
+          </button>
         )}
 
-        {/* Сердечки жизней */}
-        <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border-2 border-gray-200 shadow-sm">
+        <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-sm">
           <span className="text-red-500 text-lg">❤️</span>
-          <span className="font-black text-gray-700 text-sm">{lives}</span>
+          <span className="font-black text-gray-700 dark:text-gray-200 text-sm">{lives}</span>
         </div>
       </div>
 
-      {/* ЦЕНТРАЛЬНЫЙ БЛОК ЗАДАНИЯ */}
       <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full mx-auto px-4 my-8">
         <span className="text-4xl mb-4 animate-bounce">🎓</span>
-        <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Как переводится:</h2>
-        <p className="text-2xl font-black text-gray-800 text-center leading-tight bg-white px-6 py-4 rounded-2xl border-2 border-b-6 border-gray-200 shadow-sm w-full">
-          {word.russian}
-        </p>
+        <h2 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Как переводится:</h2>
+        
+        <div className="flex items-center gap-3 bg-white dark:bg-gray-800 px-6 py-4 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 shadow-sm w-full justify-center animate-slideInScale">
+          <p className="text-2xl font-black text-gray-800 dark:text-white text-center leading-tight">
+            {word.russian}
+          </p>
+          <button
+            onClick={() => speakSlovak(word.slovak)}
+            disabled={!isCorrect}
+            className={`text-xl transition-transform ${
+              isCorrect
+                ? "hover:scale-110 cursor-pointer opacity-100"
+                : "opacity-30 cursor-not-allowed"
+            }`}
+            aria-label="Прослушать произношение (доступно после правильного ответа)"
+          >
+            🔊
+          </button>
+        </div>
 
-        <div className="w-full mt-8">
-          {/* РЕЖИМ 1: ТЕСТ (ВЫБОР ВАРИАНТА) */}
+        <div className={`w-full mt-8 ${animation === "shake" ? "animate-shake" : ""}`}>
           {gameMode === "choice" ? (
             <div className="space-y-3">
               {options.map((option, idx) => {
                 const isCurrentSelected = selectedOption === option
-                let btnStyle = "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 active:translate-y-1"
+                let btnStyle = "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:translate-y-1"
 
                 if (isAnswered) {
                   if (option === word.slovak) {
-                    btnStyle = "border-green-500 bg-green-50 text-green-700 font-black"
+                    btnStyle = "border-green-500 bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300 font-black"
                   } else if (isCurrentSelected) {
-                    btnStyle = "border-red-500 bg-red-50 text-red-700 line-through"
+                    btnStyle = "border-red-500 bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 line-through"
                   } else {
-                    btnStyle = "border-gray-200 bg-white text-gray-400 opacity-60"
+                    btnStyle = "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
                   }
                 }
 
@@ -150,9 +230,8 @@ export default function GameUI({
                     className={`w-full text-left p-4 rounded-xl border-2 border-b-5 font-bold transition-all relative flex items-center justify-between group ${btnStyle}`}
                   >
                     <span>{option}</span>
-                    {/* Визуальная мини-подсказка горячей клавиши */}
                     {!isAnswered && (
-                      <span className="text-[10px] font-black bg-gray-100 text-gray-400 border border-gray-200 w-5 h-5 flex items-center justify-center rounded-md group-hover:border-orange-300 group-hover:text-orange-500">
+                      <span className="text-[10px] font-black bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-600 w-5 h-5 flex items-center justify-center rounded-md group-hover:border-orange-300 group-hover:text-orange-500">
                         {idx + 1}
                       </span>
                     )}
@@ -161,22 +240,23 @@ export default function GameUI({
               })}
             </div>
           ) : (
-            /* РЕЖИМ 2: ПИСЬМО (РУЧНОЙ ВВОД) */
             <form onSubmit={handleSubmitWrite} className="w-full space-y-4">
               <input
-                ref={inputRef} // Подключаем реф для автофокуса
+                ref={inputRef}
                 type="text"
                 disabled={isAnswered || lives <= 0}
                 placeholder="Введите перевод на словацком..."
                 value={writeInput}
                 onChange={(e) => setWriteInput(e.target.value)}
-                className="w-full px-4 py-4 bg-white border-2 border-b-6 border-gray-200 rounded-xl font-bold text-gray-700 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition-all text-center text-lg"
+                className={`w-full px-4 py-4 bg-white dark:bg-gray-800 border-2 border-b-6 border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-orange-400 transition-all text-center text-lg ${
+                  animation === "shake" ? "border-red-500" : ""
+                }`}
               />
               {!isAnswered && (
                 <button
                   type="submit"
                   disabled={!writeInput.trim() || disabled}
-                  className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:border-gray-300 disabled:text-gray-400 text-white font-black rounded-xl border-b-4 border-orange-700 transition-all transform active:scale-[0.99]"
+                  className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:border-gray-300 dark:disabled:border-gray-600 disabled:text-gray-400 dark:disabled:text-gray-500 text-white font-black rounded-xl border-b-4 border-orange-700 transition-all transform active:scale-[0.99]"
                 >
                   Проверить ответ (Enter)
                 </button>
@@ -186,8 +266,7 @@ export default function GameUI({
         </div>
       </div>
 
-      {/* НИЖНЯЯ ПАНЕЛЬ С РЕЗУЛЬТАТАМИ И КНОПКОЙ ДАЛЕЕ */}
-      <div className="w-full border-t-2 border-gray-200 bg-white py-4 px-4 shadow-inner">
+      <div className="w-full border-t-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-4 px-4 shadow-inner">
         <div className="max-w-md mx-auto flex flex-col gap-3">
           {lives <= 0 ? (
             <div className="text-center space-y-3 py-2">
@@ -205,28 +284,28 @@ export default function GameUI({
           ) : isAnswered ? (
             <div className="space-y-3">
               <div className={`p-3 rounded-xl font-bold text-center border text-sm ${
-                isCorrect ? "bg-green-100 border-green-200 text-green-700" : "bg-red-100 border-red-200 text-red-700"
+                isCorrect 
+                  ? "bg-green-100 dark:bg-green-900 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300" 
+                  : "bg-red-100 dark:bg-red-900 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300"
               }`}>
                 {message} {!isCorrect && `Правильный ответ: ${word.slovak}`}
               </div>
               <button
-                onClick={() => {
-                  setWriteInput("")
-                  onNext()
-                }}
+                onClick={handleNextClick}
                 className="w-full py-3.5 bg-green-500 hover:bg-green-600 text-white font-black rounded-xl border-b-4 border-green-700 transition-all transform active:scale-[0.99]"
               >
-                {lessonProgress >= 100 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
+                {wordsLeft === 0 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
               </button>
             </div>
           ) : (
-            <p className="text-center text-xs font-bold text-gray-400 py-2">
+            <p className="text-center text-xs font-bold text-gray-400 dark:text-gray-500 py-2">
               Используй мышь или клавиатуру для быстрого ответа
             </p>
           )}
         </div>
       </div>
 
+      <AnimatedFeedback isCorrect={feedback} duration={800} onComplete={() => setFeedback(null)} />
     </div>
   )
 }
