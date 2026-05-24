@@ -54,7 +54,8 @@ export default function RegisterPage() {
       title="Регистрация"
       subtitle="Создай аккаунт и сохраняй свой прогресс"
       icon={<FaUserPlus className="text-2xl text-white" />}
-    >
+      backgroundImage="/bratislava2.png"
+  >
       <form onSubmit={handleRegister} className="space-y-4">
         <label className="block">
           <span className="mb-2 block text-sm font-bold text-gray-100">Имя</span>
