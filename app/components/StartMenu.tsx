@@ -1,6 +1,9 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import Link from "next/link"
+import { onAuthStateChanged, type User } from "firebase/auth"
+import { auth } from "../../lib/firebase"
 import { FaBook, FaGraduationCap, FaKeyboard, FaRegSmile, FaCog, FaPencilAlt, FaLayerGroup, FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaUserCircle, FaStar } from "react-icons/fa"
 import { words, type LanguageLevel } from "../../data/words"
 import { grammarTasks } from "../../data/grammar"
@@ -60,6 +63,16 @@ export default function StartMenu({
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [avatar, setAvatar] = useState<string>("default")
   const { unlocked } = useAchievements()
+
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+
+    useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    setCurrentUser(user)
+  })
+
+  return () => unsubscribe()
+}, [])
 
   useEffect(() => {
     const savedAvatar = localStorage.getItem("slovak_avatar")
@@ -130,9 +143,36 @@ export default function StartMenu({
   }
 
   return (
-    <>
-      <div className="w-full max-w-md mx-auto px-4 py-6 pb-24 animate-fadeIn">
-        {/* Плашка прогресса с кликабельным аватаром */}
+  <>
+    <div className="fixed top-4 right-4 z-50 flex gap-2">
+      {currentUser ? (
+        <Link
+          href="/profile"
+          className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-bold shadow hover:bg-orange-600 transition-colors"
+        >
+          Мой профиль
+        </Link>
+      ) : (
+        <>
+          <Link
+            href="/login"
+            className="px-4 py-2 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 text-sm font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          >
+            Войти
+          </Link>
+
+          <Link
+            href="/register"
+            className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-bold shadow hover:bg-orange-600 transition-colors"
+          >
+            Регистрация
+          </Link>
+        </>
+      )}
+    </div>
+
+    <div className="w-full max-w-md mx-auto px-4 py-6 pb-24 animate-fadeIn">
+      {/* Плашка прогресса с кликабельным аватаром */}
         <button
           onClick={() => setIsProfileOpen(true)}
           className="w-full bg-gradient-to-r from-orange-500 to-amber-500 dark:from-orange-600 dark:to-amber-600 rounded-2xl p-4 mb-6 shadow-md card-hover transition-transform"

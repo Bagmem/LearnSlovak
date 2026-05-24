@@ -139,7 +139,7 @@ export default function GameUI({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-between pb-8 animate-fadeIn">
+    <div className="min-h-screen bg-gray-50 npmdark:bg-gray-900 flex flex-col justify-between pb-8 animate-fadeIn">
       {/* Верхняя панель */}
       <div className="w-full max-w-xl mx-auto px-4 pt-6 flex items-center justify-between gap-4">
         <button
