@@ -11,6 +11,7 @@ type SettingsModalProps = {
   onToggleMute: () => void
   onSetSpeechRate: (rate: number) => void
   onSetAutoSpeak: (enabled: boolean) => void
+  onSetVolume: (volume: number) => void
   theme: Theme
   onToggleTheme: () => void
 }
@@ -22,6 +23,7 @@ export default function SettingsModal({
   onToggleMute,
   onSetSpeechRate,
   onSetAutoSpeak,
+  onSetVolume,
   theme,
   onToggleTheme,
 }: SettingsModalProps) {
@@ -78,6 +80,26 @@ export default function SettingsModal({
             >
               {settings.isMuted ? "Выключены" : "Включены"}
             </button>
+          </div>
+
+          <div>
+            <div className="flex justify-between mb-1">
+              <label className="font-bold text-gray-700 dark:text-gray-300">🔊 Громкость звуков</label>
+              <span className="text-sm font-bold text-orange-500">{Math.round(settings.volume * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={settings.volume}
+              onChange={(e) => onSetVolume(parseFloat(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
+            />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>Тише</span>
+              <span>Громче</span>
+            </div>
           </div>
 
           <div>

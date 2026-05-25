@@ -2,97 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== Анимации ===== */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+@layer base {
+  html {
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  }
+  body {
+    @apply bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-200;
+  }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-8px); }
 }
-
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
 }
-
 @keyframes fadeOutUp {
   0% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-50px); }
+  100% { opacity: 0; transform: translateY(-40px); }
 }
-
 @keyframes slideInScale {
-  0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+  0% { opacity: 0; transform: scale(0.96) translateY(8px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
-
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.animate-bounce {
-  animation: bounce 0.5s ease-in-out;
+.animate-fadeIn { animation: fadeIn 0.25s ease-out; }
+.animate-bounce { animation: bounce 0.4s ease-in-out; }
+.animate-shake { animation: shake 0.3s ease-in-out; }
+.animate-fadeOutUp { animation: fadeOutUp 0.7s ease-out forwards; }
+.animate-slideInScale { animation: slideInScale 0.2s ease-out; }
+.animate-fadeInUp { animation: fadeInUp 0.4s ease-out; }
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800 rounded-full;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-orange-400 dark:bg-orange-600 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-orange-500;
 }
 
-.animate-shake {
-  animation: shake 0.3s ease-in-out;
-}
-
-.animate-fadeOutUp {
-  animation: fadeOutUp 0.8s ease-out forwards;
-}
-
-.animate-slideInScale {
-  animation: slideInScale 0.2s ease-out;
-}
-
-/* ===== Тёмная тема (глобальные переопределения) ===== */
-.dark {
-  color-scheme: dark;
-}
-
-.dark body {
-  background-color: #111827;
-  color: #f9fafb;
-}
-
-.dark .bg-white {
-  background-color: #1f2937;
-}
-
-.dark .bg-gray-50,
-.dark .bg-gray-100 {
-  background-color: #1f2937;
-}
-
-.dark .bg-gray-200 {
-  background-color: #374151;
-}
-
-.dark .text-gray-800,
-.dark .text-gray-700 {
-  color: #f9fafb;
-}
-
-.dark .text-gray-500,
-.dark .text-gray-400 {
-  color: #9ca3af;
-}
-
-.dark .border-gray-200,
-.dark .border-gray-100 {
-  border-color: #374151;
-}
-
-/* Плавный переход для фона и цвета при смене темы */
-* {
-  transition-property: background-color, border-color, color, fill, stroke;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-  /* Градиентные кнопки */
 .gradient-orange {
   @apply bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black rounded-xl transition-all duration-200 transform active:scale-95;
 }
@@ -103,14 +68,41 @@
   @apply bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-black rounded-xl transition-all duration-200 transform active:scale-95;
 }
 
-/* Карточка с ховером */
 .card-hover {
   @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
 }
 
-/* Кастомный скроллбар */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { @apply bg-gray-100 dark:bg-gray-800 rounded-full; }
-::-webkit-scrollbar-thumb { @apply bg-orange-400 dark:bg-orange-600 rounded-full; }
-::-webkit-scrollbar-thumb:hover { @apply bg-orange-500 dark:bg-orange-500; }
+.dark {
+  color-scheme: dark;
+}
+.dark body {
+  background-color: #111827;
+  color: #f9fafb;
+}
+.dark .bg-white {
+  background-color: #1f2937;
+}
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: #1f2937;
+}
+.dark .bg-gray-200 {
+  background-color: #374151;
+}
+.dark .text-gray-800,
+.dark .text-gray-700 {
+  color: #f9fafb;
+}
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: #9ca3af;
+}
+.dark .border-gray-200,
+.dark .border-gray-100 {
+  border-color: #374151;
+}
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
 }

@@ -1,7 +1,9 @@
+import { Inter } from 'next/font/google'
 import "./globals.css"
-import type { Metadata } from "next"
 
-export const metadata: Metadata = {
+const inter = Inter({ subsets: ['latin', 'cyrillic'], variable: '--font-inter' })
+
+export const metadata = {
   title: "Slovak Game",
   description: "Изучение словацкого языка",
 }
@@ -12,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ru">
-      <body className="min-h-screen">{children}</body>
+    <html lang="ru" className={inter.variable}>
+      <body className="min-h-screen font-sans">{children}</body>
     </html>
   )
 }

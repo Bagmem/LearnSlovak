@@ -1,28 +1,31 @@
 let audioContext: AudioContext | null = null
 let isMutedGlobal = false
+let globalVolume = 0.7
 
 export function setMuted(muted: boolean) {
   isMutedGlobal = muted
 }
 
+export function setGlobalVolume(volume: number) {
+  globalVolume = Math.min(1, Math.max(0, volume))
+}
+
 function getAudioContext(): AudioContext {
   if (!audioContext) {
-    const AudioCtor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!AudioCtor) {
-      throw new Error("Web Audio API is not supported")
-    }
-    audioContext = new AudioCtor()
+    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
   }
   return audioContext
 }
 
 function playTone(frequency: number, duration: number, volume: number = 0.3, type: OscillatorType = "sine") {
   if (isMutedGlobal) return
+  const finalVolume = Math.min(1, volume * globalVolume)
+  if (finalVolume <= 0) return
   try {
     const ctx = getAudioContext()
     const now = ctx.currentTime
     const gainNode = ctx.createGain()
-    gainNode.gain.setValueAtTime(volume, now)
+    gainNode.gain.setValueAtTime(finalVolume, now)
     gainNode.gain.exponentialRampToValueAtTime(0.00001, now + duration)
 
     const oscillator = ctx.createOscillator()
@@ -37,34 +40,34 @@ function playTone(frequency: number, duration: number, volume: number = 0.3, typ
   }
 }
 
-export function playCorrectSound(): void {
+export function playCorrectSound() {
   playTone(880, 0.2, 0.3)
 }
 
-export function playWrongSound(): void {
+export function playWrongSound() {
   playTone(440, 0.3, 0.3, "sawtooth")
 }
 
-export function playClickSound(): void {
+export function playClickSound() {
   playTone(1200, 0.05, 0.2)
 }
 
-export function playModeSwitchSound(): void {
+export function playModeSwitchSound() {
   playTone(800, 0.1, 0.25)
 }
 
-export function playLessonStartSound(): void {
+export function playLessonStartSound() {
   playTone(600, 0.2, 0.3)
   setTimeout(() => playTone(800, 0.2, 0.3), 150)
 }
 
-export function playVictorySound(): void {
+export function playVictorySound() {
   playTone(523.25, 0.3, 0.3)
   setTimeout(() => playTone(659.25, 0.3, 0.3), 200)
   setTimeout(() => playTone(783.99, 0.5, 0.3), 400)
 }
 
-export function initAudio(): void {
+export function initAudio() {
   const ctx = getAudioContext()
   if (ctx.state === "suspended") {
     ctx.resume()

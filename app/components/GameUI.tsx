@@ -55,7 +55,6 @@ export default function GameUI({
   const [heartBlockPulse, setHeartBlockPulse] = useState(false)
   const prevLivesRef = useRef(lives)
 
-  // Анимация пульсации блока при потере жизни
   useEffect(() => {
     if (lives < prevLivesRef.current) {
       setHeartBlockPulse(true)
@@ -73,7 +72,7 @@ export default function GameUI({
       window.speechSynthesis.cancel()
       window.speechSynthesis.speak(utterance)
     } catch (e) {
-      console.warn("Web Speech API не поддерживается", e)
+      console.warn(e)
     }
   }, [speechRate])
 
@@ -82,44 +81,35 @@ export default function GameUI({
       speakSlovak(word.slovak)
       hasAutoSpokenRef.current = true
     }
-    if (message === "") {
-      hasAutoSpokenRef.current = false
-    }
+    if (message === "") hasAutoSpokenRef.current = false
   }, [message, word, autoSpeakOnCorrect, speakSlovak])
 
   const isAnswered = message !== ""
   const isCorrect = message === "Правильно!"
 
   useEffect(() => {
-    if (isAnswered && !isCorrect) {
-      trigger("shake")
-    }
+    if (isAnswered && !isCorrect) trigger("shake")
   }, [isAnswered, isCorrect, trigger])
 
   useEffect(() => {
-    if (gameMode === "write" && !isAnswered && inputRef.current) {
-      inputRef.current.focus()
-    }
+    if (gameMode === "write" && !isAnswered && inputRef.current) inputRef.current.focus()
   }, [word, isAnswered, gameMode])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (disabled || lives <= 0) return
-
       if (isAnswered && e.key === "Enter") {
         e.preventDefault()
         setWriteInput("")
         onNext()
         return
       }
-
       if (gameMode === "choice" && !isAnswered) {
         if (e.key === "1" && options[0]) onAnswer(options[0])
         if (e.key === "2" && options[1]) onAnswer(options[1])
         if (e.key === "3" && options[2]) onAnswer(options[2])
       }
     }
-
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [disabled, isAnswered, gameMode, options, onAnswer, onNext, lives])
@@ -139,203 +129,109 @@ export default function GameUI({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 npmdark:bg-gray-900 flex flex-col justify-between pb-8 animate-fadeIn">
-      {/* Верхняя панель */}
-      <div className="w-full max-w-xl mx-auto px-4 pt-6 flex items-center justify-between gap-4">
-        <button
-          onClick={onBack}
-          className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 font-black text-2xl p-1 active:scale-95 transition-transform"
-        >
-          ✕
-        </button>
-
-        {/* Прогресс-бар + счётчик */}
-        <div className="flex-1 flex flex-col items-center gap-1">
-          <div className="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded-full overflow-hidden border border-gray-300 dark:border-gray-600 p-0.5">
-            <div
-              className="bg-gradient-to-r from-green-500 to-green-600 h-full rounded-full transition-all duration-300 ease-out"
-              style={{ width: `${lessonProgress}%` }}
-            />
-          </div>
-          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tabular-nums min-w-[3rem] text-center">
-            {totalWords - wordsLeft}/{totalWords}
-          </span>
-        </div>
-
-        {/* Подсказка / кнопка озвучки */}
-        {word.hint ? (
-          isCorrect ? (
-            <GrammarHint hintText={word.hint} />
-          ) : (
-            <div className="w-10 h-10" />
-          )
-        ) : (
-          <button
-            onClick={() => speakSlovak(word.slovak)}
-            disabled={!isCorrect}
-            className={`w-10 h-10 flex items-center justify-center text-xl rounded-full transition-colors ${
-              isCorrect
-                ? "bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 cursor-pointer"
-                : "bg-gray-50 text-gray-300 dark:bg-gray-800 dark:text-gray-600 cursor-not-allowed"
-            }`}
-            aria-label="Прослушать произношение (доступно после правильного ответа)"
-          >
-            <FaVolumeUp />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-8 px-4">
+      <div className="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 space-y-6">
+        {/* Верхняя панель */}
+        <div className="flex items-center justify-between gap-4">
+          <button onClick={onBack} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl">
+            ✕
           </button>
-        )}
-
-        {/* Сердечки */}
-        <div
-          className={`flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-sm transition-all ${
-            heartBlockPulse ? "animate-pulse" : ""
-          }`}
-        >
-          {[1, 2, 3].map((_, idx) => {
-            const isAlive = idx < lives
-            return (
-              <span
-                key={idx}
-                className={`inline-block transition-all duration-200 ${
-                  isAlive
-                    ? "text-red-500 scale-100"
-                    : "text-gray-300 dark:text-gray-600 scale-75 opacity-50"
-                }`}
-                style={{ fontSize: "1.5rem" }}
-              >
-                ❤️
-              </span>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Центральная часть – вопрос */}
-      <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full mx-auto px-4 my-8">
-        <span className="text-4xl mb-4 animate-bounce">🎓</span>
-        <h2 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Как переводится:</h2>
-
-        <div className="flex items-center gap-3 bg-white dark:bg-gray-800 px-6 py-4 rounded-2xl border-2 border-b-6 border-gray-200 dark:border-gray-700 shadow-md w-full justify-center animate-slideInScale">
-          <p className="text-2xl font-black text-gray-800 dark:text-white text-center leading-tight">
-            {word.russian}
-          </p>
-          <button
-            onClick={() => speakSlovak(word.slovak)}
-            disabled={!isCorrect}
-            className={`text-xl transition-transform ${
-              isCorrect
-                ? "hover:scale-110 cursor-pointer opacity-100"
-                : "opacity-30 cursor-not-allowed"
-            }`}
-            aria-label="Прослушать произношение (доступно после правильного ответа)"
-          >
-            <FaVolumeUp />
-          </button>
-        </div>
-
-        <div className={`w-full mt-8 ${animation === "shake" ? "animate-shake" : ""}`}>
-          {gameMode === "choice" ? (
-            <div className="space-y-3">
-              {options.map((option, idx) => {
-                const isCurrentSelected = selectedOption === option
-                let btnStyle = "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:translate-y-1"
-
-                if (isAnswered) {
-                  if (option === word.slovak) {
-                    btnStyle = "border-green-500 bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300 font-black"
-                  } else if (isCurrentSelected) {
-                    btnStyle = "border-red-500 bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 line-through"
-                  } else {
-                    btnStyle = "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-60"
-                  }
-                }
-
-                return (
-                  <button
-                    key={idx}
-                    disabled={disabled || isAnswered}
-                    onClick={() => onAnswer(option)}
-                    className={`w-full text-left p-4 rounded-xl border-2 border-b-5 font-bold transition-all relative flex items-center justify-between group ${btnStyle}`}
-                  >
-                    <span>{option}</span>
-                    {!isAnswered && (
-                      <span className="text-[10px] font-black bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-600 w-5 h-5 flex items-center justify-center rounded-md group-hover:border-orange-300 group-hover:text-orange-500">
-                        {idx + 1}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
+          <div className="flex-1 flex flex-col items-center gap-1">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+              <div className="bg-gradient-to-r from-green-500 to-green-600 h-full rounded-full transition-all duration-300" style={{ width: `${lessonProgress}%` }} />
             </div>
+            <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{totalWords - wordsLeft}/{totalWords}</span>
+          </div>
+          {word.hint ? (
+            isCorrect ? <GrammarHint hintText={word.hint} /> : <div className="w-10 h-10" />
           ) : (
-            <form onSubmit={handleSubmitWrite} className="w-full space-y-4">
+            <button
+              onClick={() => speakSlovak(word.slovak)}
+              disabled={!isCorrect}
+              className={`w-10 h-10 flex items-center justify-center rounded-full transition ${
+                isCorrect ? "bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600" : "bg-gray-50 text-gray-300 dark:bg-gray-800"
+              }`}
+            >
+              <FaVolumeUp />
+            </button>
+          )}
+          <div className={`flex gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-xl border transition ${heartBlockPulse ? "animate-pulse" : ""}`}>
+            {[1,2,3].map((_, idx) => (
+              <span key={idx} className={`text-xl transition ${idx < lives ? "text-red-500 scale-100" : "text-gray-300 scale-75 opacity-50"}`}>❤️</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Вопрос */}
+        <div className="text-center space-y-4">
+          <h2 className="text-xs font-bold text-gray-400 uppercase">Как переводится:</h2>
+          <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl shadow-inner">
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{word.russian}</p>
+          </div>
+        </div>
+
+        {/* Варианты ответа */}
+        <div className={`space-y-3 ${animation === "shake" ? "animate-shake" : ""}`}>
+          {gameMode === "choice" ? (
+            options.map((opt, idx) => {
+              let btnClass = "w-full text-left p-3 rounded-xl border-2 font-bold transition hover:shadow-md"
+              if (isAnswered) {
+                if (opt === word.slovak) btnClass += " border-green-500 bg-green-50 dark:bg-green-900 text-green-700"
+                else if (selectedOption === opt) btnClass += " border-red-500 bg-red-50 dark:bg-red-900 text-red-700 line-through"
+                else btnClass += " border-gray-200 dark:border-gray-700 opacity-50"
+              } else {
+                btnClass += " border-gray-200 dark:border-gray-700 hover:border-orange-300"
+              }
+              return (
+                <button key={idx} disabled={disabled || isAnswered} onClick={() => onAnswer(opt)} className={btnClass}>
+                  <span>{opt}</span>
+                  {!isAnswered && <span className="float-right text-xs text-gray-400">{idx+1}</span>}
+                </button>
+              )
+            })
+          ) : (
+            <form onSubmit={handleSubmitWrite} className="space-y-4">
               <input
                 ref={inputRef}
                 type="text"
                 disabled={isAnswered || lives <= 0}
-                placeholder="Введите перевод на словацком..."
                 value={writeInput}
-                onChange={(e) => setWriteInput(e.target.value)}
-                className={`w-full px-4 py-4 bg-white dark:bg-gray-800 border-2 border-b-6 border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-orange-400 transition-all text-center text-lg ${
-                  animation === "shake" ? "border-red-500" : ""
-                }`}
+                onChange={e => setWriteInput(e.target.value)}
+                className="w-full p-3 border-2 rounded-xl focus:border-orange-400 transition"
+                placeholder="Введите перевод..."
               />
               {!isAnswered && (
-                <button
-                  type="submit"
-                  disabled={!writeInput.trim() || disabled}
-                  className="w-full py-3.5 gradient-orange disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  Проверить ответ (Enter)
+                <button type="submit" disabled={!writeInput.trim() || disabled} className="w-full py-3 gradient-orange">
+                  Проверить (Enter)
                 </button>
               )}
             </form>
           )}
         </div>
-      </div>
 
-      {/* Нижняя панель – результат и кнопка далее */}
-      <div className="w-full border-t-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-4 px-4 shadow-inner">
-        <div className="max-w-md mx-auto flex flex-col gap-3">
+        {/* Нижняя панель результата */}
+        <div className="border-t pt-4 space-y-3">
           {lives <= 0 ? (
-            <div className="text-center space-y-3 py-2">
-              <p className="text-red-500 font-black text-lg">Закончились жизни 😢</p>
-              <button
-                onClick={() => {
-                  setWriteInput("")
-                  onRestart()
-                }}
-                className="w-full py-3.5 gradient-red"
-              >
-                Попробовать снова
-              </button>
-            </div>
+            <button onClick={() => { setWriteInput(""); onRestart(); }} className="w-full py-3 gradient-red">
+              Попробовать снова
+            </button>
           ) : isAnswered ? (
-            <div className="space-y-3">
-              <div
-                className={`p-3 rounded-xl font-bold text-center border text-sm flex items-center justify-center gap-2 ${
-                  isCorrect
-                    ? "bg-green-100 dark:bg-green-900 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300"
-                    : "bg-red-100 dark:bg-red-900 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300"
-                }`}
-              >
-                {isCorrect ? <FaCheck className="inline" /> : <FaTimes className="inline" />}
-                {message} {!isCorrect && `Правильный ответ: ${word.slovak}`}
+            <>
+              <div className={`p-3 rounded-xl text-center font-bold flex items-center justify-center gap-2 ${
+                isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+              }`}>
+                {isCorrect ? <FaCheck /> : <FaTimes />} {message}
+                {!isCorrect && ` Правильный ответ: ${word.slovak}`}
               </div>
-              <button
-                onClick={handleNextClick}
-                className="w-full py-3.5 gradient-green"
-              >
+              <button onClick={handleNextClick} className="w-full py-3 gradient-green">
                 {wordsLeft === 0 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
               </button>
-            </div>
+            </>
           ) : (
-            <p className="text-center text-xs font-bold text-gray-400 dark:text-gray-500 py-2">
-              Используй мышь или клавиатуру для быстрого ответа
-            </p>
+            <p className="text-center text-xs text-gray-400">Используй мышь или клавиатуру (1,2,3, Enter)</p>
           )}
         </div>
       </div>
-
       <AnimatedFeedback isCorrect={isAnswered ? isCorrect : null} duration={800} />
     </div>
   )

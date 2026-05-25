@@ -5,6 +5,7 @@ import { FaUserCircle, FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaStar, Fa
 import { type UnlockedAchievement } from "../../hooks/useAchievements"
 import { achievements } from "../../data/achievements"
 import { getIconForAchievement } from "../../utils/achievementIcons"
+import { useTheme } from "../../hooks/useTheme"
 
 type ProfileModalProps = {
   isOpen: boolean
@@ -43,6 +44,7 @@ export default function ProfileModal({
   onAvatarChange,
 }: ProfileModalProps) {
   const [activeTab, setActiveTab] = useState<"stats" | "achievements">("stats")
+  const { theme } = useTheme()
 
   const accuracy = totalClicks > 0 ? Math.round((correctAnswers / totalClicks) * 100) : 0
   const unlockedIds = new Set(unlockedAchievements.map(a => a.id))
@@ -62,23 +64,25 @@ export default function ProfileModal({
 
   if (!isOpen) return null
 
+  const isDark = theme === "dark"
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 animate-fadeIn">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-slideInScale">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-          <h2 className="text-lg font-black text-gray-800 dark:text-white">Профиль</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          >
+      <div className={`rounded-2xl w-full max-w-md shadow-2xl border overflow-hidden animate-slideInScale ${
+        isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+      }`}>
+        <div className={`flex items-center justify-between p-4 border-b ${
+          isDark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"
+        }`}>
+          <h2 className={`text-lg font-black ${isDark ? "text-white" : "text-gray-800"}`}>Профиль</h2>
+          <button onClick={onClose} className={`${isDark ? "text-gray-400 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}>
             <FaTimes size={20} />
           </button>
         </div>
 
         <div className="p-5 space-y-5">
-          {/* Выбор аватара */}
           <div className="text-center">
-            <div className="inline-block p-2 rounded-full bg-gray-100 dark:bg-gray-700">
+            <div className={`inline-block p-2 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
               {avatarOptions.find(a => a.id === avatar)?.icon || avatarOptions[0].icon}
             </div>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
@@ -89,7 +93,7 @@ export default function ProfileModal({
                   className={`p-2 rounded-full transition-all ${
                     avatar === opt.id
                       ? "ring-2 ring-orange-500 scale-110"
-                      : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                      : isDark ? "hover:bg-gray-700" : "hover:bg-gray-100"
                   }`}
                 >
                   {opt.icon}
@@ -98,14 +102,15 @@ export default function ProfileModal({
             </div>
           </div>
 
-          {/* Табы */}
-          <div className="flex rounded-xl bg-gray-100 dark:bg-gray-700 p-1">
+          <div className={`flex rounded-xl p-1 ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
             <button
               onClick={() => setActiveTab("stats")}
               className={`flex-1 py-2 text-sm font-black rounded-lg transition-all ${
                 activeTab === "stats"
-                  ? "bg-white dark:bg-gray-600 text-orange-500 shadow-sm"
-                  : "text-gray-500 dark:text-gray-400"
+                  ? isDark
+                    ? "bg-gray-600 text-orange-500 shadow-sm"
+                    : "bg-white text-orange-500 shadow-sm"
+                  : isDark ? "text-gray-400" : "text-gray-500"
               }`}
             >
               Статистика
@@ -114,38 +119,39 @@ export default function ProfileModal({
               onClick={() => setActiveTab("achievements")}
               className={`flex-1 py-2 text-sm font-black rounded-lg transition-all ${
                 activeTab === "achievements"
-                  ? "bg-white dark:bg-gray-600 text-orange-500 shadow-sm"
-                  : "text-gray-500 dark:text-gray-400"
+                  ? isDark
+                    ? "bg-gray-600 text-orange-500 shadow-sm"
+                    : "bg-white text-orange-500 shadow-sm"
+                  : isDark ? "text-gray-400" : "text-gray-500"
               }`}
             >
               Достижения ({unlockedCount}/{totalAchievements})
             </button>
           </div>
 
-          {/* Контент вкладок */}
           {activeTab === "stats" && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                <div className={`rounded-xl p-3 text-center ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
                   <p className="text-2xl font-black text-orange-500">{xp}</p>
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Опыт (XP)</p>
+                  <p className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Опыт (XP)</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                <div className={`rounded-xl p-3 text-center ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
                   <p className="text-2xl font-black text-orange-500">{streak}</p>
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Дней подряд</p>
+                  <p className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Дней подряд</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                <div className={`rounded-xl p-3 text-center ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
                   <p className="text-2xl font-black text-green-500">{accuracy}%</p>
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Точность</p>
+                  <p className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Точность</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+                <div className={`rounded-xl p-3 text-center ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
                   <p className="text-2xl font-black text-blue-500">{learnedWords}</p>
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Выучено слов</p>
+                  <p className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Выучено слов</p>
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-center">
+              <div className={`rounded-xl p-3 text-center ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
                 <p className="text-2xl font-black text-purple-500">{completedCategories}</p>
-                <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Пройдено категорий</p>
+                <p className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Пройдено категорий</p>
               </div>
             </div>
           )}
@@ -159,15 +165,19 @@ export default function ProfileModal({
                     key={ach.id}
                     className={`p-3 rounded-xl border transition-all ${
                       isUnlocked
-                        ? "bg-yellow-50 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700"
-                        : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 opacity-60"
+                        ? isDark
+                          ? "bg-yellow-900/30 border-yellow-700"
+                          : "bg-yellow-50 border-yellow-300"
+                        : isDark
+                          ? "bg-gray-700/50 border-gray-600 opacity-60"
+                          : "bg-gray-50 border-gray-200 opacity-60"
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="text-2xl">{getIconForAchievement(ach.id, 20)}</div>
                       <div>
-                        <p className="font-black text-sm text-gray-800 dark:text-white">{ach.title}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{ach.description}</p>
+                        <p className={`font-black text-sm ${isDark ? "text-white" : "text-gray-800"}`}>{ach.title}</p>
+                        <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{ach.description}</p>
                         {ach.reward && <p className="text-[10px] font-bold text-orange-500">+{ach.reward} XP</p>}
                       </div>
                     </div>
@@ -178,10 +188,10 @@ export default function ProfileModal({
           )}
         </div>
 
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+        <div className={`p-4 border-t ${isDark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"}`}>
           <button
             onClick={onClose}
-            className="w-full py-3 gradient-orange"
+            className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black rounded-xl"
           >
             Закрыть
           </button>

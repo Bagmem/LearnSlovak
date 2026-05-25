@@ -1,72 +1,124 @@
 "use client"
 
-
-type StreakProps = {
+type StreakWidgetProps = {
   streak: number
   activeDates: string[]
 }
 
-export default function StreakWidget({ streak, activeDates }: StreakProps) {
+// Функция для получения локальной даты в формате YYYY-MM-DD
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+export default function StreakWidget({ streak, activeDates }: StreakWidgetProps) {
   const daysLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-  const current = new Date()
-  const currentDay = current.getDay()
-  const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay
-  const monday = new Date(current)
-  monday.setDate(current.getDate() + distanceToMonday)
+  const now = new Date()
+  const todayStr = getLocalDateString(now)
 
-  const todayStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`
+  // Определяем понедельник текущей недели в локальном времени
+  const currentDay = now.getDay() // 0 = воскресенье, 1 = понедельник, ..., 6 = суббота
+  const monday = new Date(now)
+  // Если сегодня воскресенье (0), то отнимаем 6 дней, иначе отнимаем (currentDay - 1) дней
+  const offset = currentDay === 0 ? 6 : currentDay - 1
+  monday.setDate(now.getDate() - offset)
 
-  const weekDays = daysLabels.map((label, index) => {
-    const dayDate = new Date(monday)
-    dayDate.setDate(monday.getDate() + index)
-    const dateStr = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, "0")}-${String(dayDate.getDate()).padStart(2, "0")}`
-    return {
-      dayName: label,
-      dateStr,
-      isToday: dateStr === todayStr,
-    }
+  const weekDays = daysLabels.map((label, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    const dateStr = getLocalDateString(d)
+    return { label, dateStr, isToday: dateStr === todayStr }
   })
 
+  const activeDaysThisWeek = weekDays.filter(day => activeDates.includes(day.dateStr)).length
+  const nextMilestone = Math.ceil(streak / 7) * 7
+  const progressToNext = ((streak % 7) / 7) * 100
+  const daysLeft = nextMilestone - streak
+
+  const getDaysWord = (n: number, one: string, two: string, five: string) => {
+    const mod10 = n % 10
+    const mod100 = n % 100
+    if (mod100 >= 11 && mod100 <= 19) return five
+    if (mod10 === 1) return one
+    if (mod10 >= 2 && mod10 <= 4) return two
+    return five
+  }
+
+  const streakWord = getDaysWord(streak, "день", "дня", "дней")
+  const daysLeftWord = getDaysWord(daysLeft, "день", "дня", "дней")
+  const activeDaysWord = getDaysWord(activeDaysThisWeek, "день", "дня", "дней")
+
   return (
-    <div className="w-full max-w-md bg-white p-5 rounded-2xl border-2 border-b-6 border-gray-200 mb-6 shadow-sm">
+    <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-md transition-all hover:shadow-lg">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <span className="text-4xl animate-bounce" style={{ animationDuration: '3s' }}>🔥</span>
+          <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center shadow-md animate-pulse">
+            <span className="text-2xl">🔥</span>
+          </div>
           <div>
-            <h3 className="text-lg font-black text-gray-800 leading-tight">Ударный режим</h3>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Занимайся каждый день</p>
+            <h3 className="font-black text-lg text-gray-800 dark:text-white">Ударный режим</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Занимайся каждый день</p>
           </div>
         </div>
         <div className="text-right">
-          <span className="text-2xl font-black text-orange-500">{streak}</span>
-          <span className="text-sm font-bold text-gray-500">
-            {" "}{streak === 1 ? "день" : streak > 1 && streak < 5 ? "дня" : "дней"}
-          </span>
+          <span className="text-4xl font-black text-orange-500">{streak}</span>
+          <span className="text-sm font-bold text-gray-500 dark:text-gray-400 ml-1">{streakWord}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {weekDays.map((day) => {
-          const isCompleted = activeDates.includes(day.dateStr)
-          
-          let circleStyles = "bg-gray-100 text-gray-300 border-gray-200 text-xs"
-          if (isCompleted) {
-            circleStyles = "bg-orange-500 text-white border-orange-600 shadow-sm shadow-orange-200"
-          } else if (day.isToday) {
-            circleStyles = "bg-white text-orange-500 border-orange-400 border-2"
-          }
+      <div className="mb-4">
+        <div className="flex justify-between text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">
+          <span>🏆 До следующей награды</span>
+          <span>{streak} / {nextMilestone}</span>
+        </div>
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+          <div
+            className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-500"
+            style={{ width: `${progressToNext}%` }}
+          />
+        </div>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+          {daysLeft} {daysLeftWord} до следующей награды
+        </p>
+      </div>
 
+      <div className="grid grid-cols-7 gap-0 text-center">
+        {weekDays.map(day => {
+          const isActive = activeDates.includes(day.dateStr)
+          let circleClass = "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all mx-auto"
+          if (isActive) circleClass += " bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md"
+          else if (day.isToday) circleClass += " border-2 border-orange-500 text-orange-500 bg-white dark:bg-gray-800"
+          else circleClass += " bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
           return (
-            <div key={day.dateStr} className="flex flex-col items-center gap-1.5">
-              <span className={`text-xs font-black ${day.isToday ? "text-orange-500" : "text-gray-400"}`}>
-                {day.dayName}
-              </span>
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black border-b-4 transition-all duration-300 ${circleStyles}`}>
-                {isCompleted ? "🔥" : "•"}
+            <div key={day.dateStr} className="flex flex-col items-center">
+              <div className={circleClass}>
+                {isActive ? "🔥" : day.isToday ? "•" : ""}
               </div>
+              <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mt-1">{day.label}</div>
             </div>
           )
         })}
+      </div>
+
+      <div className="mt-4 pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400">Активность на этой неделе</span>
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{activeDaysThisWeek} {activeDaysWord}</span>
+        </div>
+        <div className="flex justify-between gap-1">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div
+              key={i}
+              className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                i < activeDaysThisWeek
+                  ? "bg-gradient-to-r from-orange-500 to-amber-500"
+                  : "bg-gray-200 dark:bg-gray-700"
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )

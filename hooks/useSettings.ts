@@ -1,42 +1,39 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 
 export type Settings = {
   isMuted: boolean
   speechRate: number
   autoSpeakOnCorrect: boolean
+  volume: number
 }
 
 const DEFAULT_SETTINGS: Settings = {
   isMuted: false,
   speechRate: 0.9,
   autoSpeakOnCorrect: true,
+  volume: 0.7,
 }
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
-  const isMountedRef = useRef(false)
+  const [isLoaded, setIsLoaded] = useState(false)
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (typeof window === "undefined") return
     const saved = localStorage.getItem("slovak_settings")
-    if (!saved) return
-
-    try {
-      setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) })
-    } catch {
-      setSettings(DEFAULT_SETTINGS)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setSettings({ ...DEFAULT_SETTINGS, ...parsed })
+      } catch (e) {}
     }
+    setIsLoaded(true)
   }, [])
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
-    if (!isMountedRef.current) {
-      isMountedRef.current = true
-      return
+    if (isLoaded) {
+      localStorage.setItem("slovak_settings", JSON.stringify(settings))
     }
-    localStorage.setItem("slovak_settings", JSON.stringify(settings))
-  }, [settings])
+  }, [settings, isLoaded])
 
   const updateSetting = useCallback(<K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }))
@@ -54,11 +51,17 @@ export function useSettings() {
     setSettings(prev => ({ ...prev, autoSpeakOnCorrect: enabled }))
   }, [])
 
+  const setVolume = useCallback((volume: number) => {
+    setSettings(prev => ({ ...prev, volume: Math.min(1, Math.max(0, volume)) }))
+  }, [])
+
   return {
     settings,
+    isLoaded,
     updateSetting,
     toggleMute,
     setSpeechRate,
     setAutoSpeak,
+    setVolume,
   }
 }
