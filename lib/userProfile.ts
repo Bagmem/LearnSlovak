@@ -14,7 +14,7 @@ export async function ensureUserProfile(user: User, fallbackName?: string) {
     uid: user.uid,
     name: fallbackName || user.displayName || "Без имени",
     email: user.email || "",
-    photoURL: user.photoURL || "",
+    photoURL: user.photoURL || "", // Will be updated when user uploads a profile picture
     xp: 0,
     level: "A1",
     createdAt: serverTimestamp(),

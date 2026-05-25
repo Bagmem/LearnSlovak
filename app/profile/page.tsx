@@ -68,6 +68,7 @@ export default function ProfilePage() {
   const [editingName, setEditingName] = useState(false)
   const [newName, setNewName] = useState("")
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [uploadError, setUploadError] = useState<string>("")
 
   const [progressData, setProgressData] = useState<Record<string, number>>({})
   const [activeDates, setActiveDates] = useState<string[]>([])
@@ -172,9 +173,24 @@ export default function ProfilePage() {
     if (!user) return
     const file = event.target.files?.[0]
     if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Пожалуйста, выберите изображение")
+      return
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      setUploadError("Размер файла не должен превышать 5MB")
+      return
+    }
+
     try {
+      setUploadError("")
       setUploadingAvatar(true)
-      const storageRef = ref(storage, `avatars/${user.uid}`)
+      const storageRef = ref(storage, `avatars/${user.uid}/${Date.now()}_${file.name}`)
       await uploadBytes(storageRef, file)
       const downloadURL = await getDownloadURL(storageRef)
       const userRef = doc(db, "users", user.uid)
@@ -182,6 +198,7 @@ export default function ProfilePage() {
       setProfile((prev) => (prev ? { ...prev, photoURL: downloadURL } : null))
     } catch (error) {
       console.error("Ошибка загрузки аватара:", error)
+      setUploadError("Ошибка при загрузке аватара. Попробуйте снова.")
     } finally {
       setUploadingAvatar(false)
     }
@@ -318,6 +335,11 @@ export default function ProfilePage() {
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
                 <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-3xl border-4 border-white/25 bg-white/15 shadow-xl">
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur">
+                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white"></div>
+                    </div>
+                  )}
                   {photoURL ? (
                     <img src={photoURL} alt="Аватар" className="h-full w-full object-cover" />
                   ) : (
@@ -325,13 +347,16 @@ export default function ProfilePage() {
                       <FaUserCircle className="text-7xl text-white" />
                     </div>
                   )}
-                  <label className="absolute bottom-2 right-2 cursor-pointer rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/60">
+                  <label className={`absolute bottom-2 right-2 cursor-pointer rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/60 ${uploadingAvatar ? "opacity-50 cursor-not-allowed" : ""}`}>
                     <FaCamera className="text-xs" />
-                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
                   </label>
                 </div>
                 <div>
                   <p className="mb-2 text-sm font-bold uppercase tracking-[0.2em] text-white/80">Профиль пользователя</p>
+                  {uploadError && (
+                    <p className="mb-3 rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-200">{uploadError}</p>
+                  )}
                   {editingName ? (
                     <div className="flex flex-wrap items-center gap-3">
                       <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Новое имя" className="rounded-2xl border border-white/20 bg-black/20 px-4 py-2 text-white outline-none" />
