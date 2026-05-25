@@ -53,13 +53,13 @@ export default function RegisterPage() {
     <AuthShell
       title="Регистрация"
       subtitle="Создай аккаунт и сохраняй свой прогресс"
+      backgroundImage="/images/auth-bg.jpg"   
       icon={<FaUserPlus className="text-2xl text-white" />}
-      backgroundImage="/bratislava2.png"
-  >
+    >
       <form onSubmit={handleRegister} className="space-y-4">
         <label className="block">
           <span className="mb-2 block text-sm font-bold text-gray-100">Имя</span>
-          <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/25 px-4 py-3 focus-within:border-orange-400">
+          <div className="flex items-center gap-  3 rounded-2xl border border-white/15 bg-black/25 px-4 py-3 focus-within:border-orange-400">
             <FaUser className="text-gray-300" />
             <input
               value={name}
