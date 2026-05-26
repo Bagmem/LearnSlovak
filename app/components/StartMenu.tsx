@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { FaKeyboard, FaPencilAlt, FaLayerGroup, FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaUserCircle, FaStar, FaGraduationCap, FaRegSmile } from "react-icons/fa"
 import { words, type LanguageLevel } from "../../data/words"
 import { grammarTasks } from "../../data/grammar"
@@ -117,21 +118,44 @@ export default function StartMenu({
   }
 
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6 -mt-4"
+    >
+      {/* Заголовок */}
+      <div className="text-center px-2">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-black flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
+          <span className="text-2xl sm:text-3xl md:text-4xl">🎯</span>
+          <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent break-words">
+            Изучение
+          </span>
+        </h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-2 text-xs sm:text-sm md:text-base px-2">
+          Выбери тему и уровень, чтобы начать
+        </p>
+      </div>
+
       <StreakWidget streak={streak} activeDates={activeDates} />
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-5 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
         <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wide flex items-center gap-2">
           <span>🎮</span> Режимы обучения
         </h3>
         <div className="grid grid-cols-3 gap-4">
-          {(["choice", "write", "flashcard"] as const).map(mode => (
-            <button
+          {(["choice", "write", "flashcard"] as const).map((mode, idx) => (
+            <motion.button
               key={mode}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: idx * 0.05 }}
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => handleModeChange(mode)}
               className={`py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
                 gameMode === mode
-                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md scale-[1.02]"
+                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md"
                   : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
             >
@@ -141,7 +165,7 @@ export default function StartMenu({
               {mode === "choice" && "Тест"}
               {mode === "write" && "Письмо"}
               {mode === "flashcard" && "Карточки"}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -155,7 +179,8 @@ export default function StartMenu({
               : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
           }`}
         >
-          📚 Лексика
+          <span className="text-xl mr-2">📚</span>
+          Лексика
         </button>
         <button
           onClick={() => setStudyTab("grammar")}
@@ -165,34 +190,47 @@ export default function StartMenu({
               : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
           }`}
         >
-          ⚙️ Грамматика
+          <span className="text-xl mr-2">⚙️</span>
+          Грамматика
         </button>
       </div>
 
       <div className="space-y-8">
-        {levels.map(level => {
+        {levels.map((level, levelIdx) => {
           const categories = getCategoriesForLevel(level.code)
           if (!categories.length) return null
           return (
-            <div key={level.code}>
+            <motion.div
+              key={level.code}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: levelIdx * 0.1 }}
+            >
               <div className="flex items-center gap-3 mb-4">
                 {level.icon}
                 <h2 className="text-2xl font-black text-gray-800 dark:text-white">{level.title}</h2>
                 <span className="text-sm text-gray-500">{level.desc}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {categories.map(cat => (
-                  <CategoryCard
+                {categories.map((cat, catIdx) => (
+                  <motion.div
                     key={cat.name}
-                    name={cat.name}
-                    passedCount={cat.passedCount}
-                    totalCount={cat.totalCount}
-                    isCompleted={cat.isCompleted}
-                    onSelect={() => onSelectCategory(cat.name, level.code, studyTab)}
-                  />
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: levelIdx * 0.05 + catIdx * 0.03 }}
+                    whileHover={{ y: -4 }}
+                  >
+                    <CategoryCard
+                      name={cat.name}
+                      passedCount={cat.passedCount}
+                      totalCount={cat.totalCount}
+                      isCompleted={cat.isCompleted}
+                      onSelect={() => onSelectCategory(cat.name, level.code, studyTab)}
+                    />
+                  </motion.div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           )
         })}
       </div>
@@ -210,6 +248,6 @@ export default function StartMenu({
         avatar={avatar}
         onAvatarChange={handleAvatarChange}
       />
-    </div>
+    </motion.div>
   )
 }

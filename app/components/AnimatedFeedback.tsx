@@ -1,5 +1,6 @@
 "use client"
 
+import { motion, AnimatePresence } from "framer-motion"
 
 type AnimatedFeedbackProps = {
   isCorrect: boolean | null
@@ -11,14 +12,19 @@ export default function AnimatedFeedback({ isCorrect, duration = 800, onComplete
   if (isCorrect === null) return null
 
   return (
-    <div
-      className="fixed inset-0 pointer-events-none flex items-center justify-center z-50 animate-fadeOutUp"
-      style={{ animationDuration: `${duration}ms` }}
-      onAnimationEnd={onComplete}
-    >
-      <div className={`text-8xl font-black drop-shadow-2xl ${isCorrect ? "text-green-500" : "text-red-500"} animate-bounce`}>
-        {isCorrect ? "✓" : "✗"}
-      </div>
-    </div>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.5, y: 0 }}
+        animate={{ opacity: 1, scale: 1.5, y: -50 }}
+        exit={{ opacity: 0, scale: 0.5 }}
+        transition={{ duration: duration / 1000 }}
+        onAnimationComplete={onComplete}
+        className="fixed inset-0 pointer-events-none flex items-center justify-center z-50"
+      >
+        <div className={`text-8xl font-black drop-shadow-2xl ${isCorrect ? "text-green-500" : "text-red-500"}`}>
+          {isCorrect ? "✓" : "✗"}
+        </div>
+      </motion.div>
+    </AnimatePresence>
   )
 }

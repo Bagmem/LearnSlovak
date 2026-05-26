@@ -1,70 +1,83 @@
-// hooks/useTextProgress.ts
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from 'react'
 
-export type TextProgress = {
-  [textId: string]: {
-    read: boolean
-    quizCompleted: boolean
-    quizScore: number
-    xpEarned: boolean
-  }
+type TextProgress = {
+  read: Record<string, boolean>        // id текста -> прочитан ли
+  quizCompleted: Record<string, { score: number; xpEarned: boolean }> // id текста -> результат
 }
 
-export function useTextProgress() {
-  const [progress, setProgress] = useState<TextProgress>({})
+const STORAGE_KEY = 'slovak_text_progress'
 
+export function useTextProgress() {
+  const [progress, setProgress] = useState<TextProgress>({
+    read: {},
+    quizCompleted: {},
+  })
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  // Загрузка сохранённых данных при монтировании
   useEffect(() => {
-    const saved = localStorage.getItem("slovak_text_progress")
+    if (typeof window === 'undefined') return
+    const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        setProgress(JSON.parse(saved))
-      } catch {}
+        const parsed = JSON.parse(saved)
+        setProgress({
+          read: parsed.read || {},
+          quizCompleted: parsed.quizCompleted || {},
+        })
+      } catch (e) {
+        console.error('Ошибка загрузки прогресса текстов', e)
+      }
     }
+    setIsLoaded(true)
   }, [])
 
+  // Сохранение при каждом изменении прогресса
   useEffect(() => {
-    localStorage.setItem("slovak_text_progress", JSON.stringify(progress))
-  }, [progress])
+    if (!isLoaded) return
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress))
+  }, [progress, isLoaded])
 
-  const markAsRead = (textId: string) => {
+  const markAsRead = useCallback((textId: string) => {
     setProgress(prev => ({
       ...prev,
-      [textId]: {
-        read: true,
-        quizCompleted: prev[textId]?.quizCompleted || false,
-        quizScore: prev[textId]?.quizScore || 0,
-        xpEarned: prev[textId]?.xpEarned || false,
-      },
+      read: { ...prev.read, [textId]: true },
     }))
-  }
+  }, [])
 
-  const markQuizCompleted = (textId: string, score: number, xpAwarded: boolean = true) => {
+  const isRead = useCallback((textId: string): boolean => {
+    return !!progress.read[textId]
+  }, [progress.read])
+
+  const markQuizCompleted = useCallback((textId: string, score: number, xpEarned: boolean) => {
     setProgress(prev => ({
       ...prev,
-      [textId]: {
-        read: prev[textId]?.read || false,
-        quizCompleted: true,
-        quizScore: score,
-        xpEarned: xpAwarded,
+      quizCompleted: {
+        ...prev.quizCompleted,
+        [textId]: { score, xpEarned },
       },
     }))
-  }
+  }, [])
 
-  const isRead = (textId: string) => !!progress[textId]?.read
-  const isQuizCompleted = (textId: string) => !!progress[textId]?.quizCompleted
-  const getQuizScore = (textId: string) => {
-    const data = progress[textId]
-    return data?.quizCompleted ? data.quizScore : null
-  }
-  const hasXpEarned = (textId: string) => !!progress[textId]?.xpEarned
+  const getQuizScore = useCallback((textId: string): number | null => {
+    return progress.quizCompleted[textId]?.score ?? null
+  }, [progress.quizCompleted])
+
+  const hasXpEarned = useCallback((textId: string): boolean => {
+    return progress.quizCompleted[textId]?.xpEarned ?? false
+  }, [progress.quizCompleted])
+
+  const isQuizCompleted = useCallback((textId: string): boolean => {
+    return !!progress.quizCompleted[textId]
+  }, [progress.quizCompleted])
 
   return {
-    progress,
     markAsRead,
-    markQuizCompleted,
     isRead,
-    isQuizCompleted,
+    markQuizCompleted,
     getQuizScore,
     hasXpEarned,
+    isQuizCompleted,
+    isLoaded,
   }
 }

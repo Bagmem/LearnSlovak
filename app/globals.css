@@ -2,107 +2,231 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
-  }
-  body {
-    @apply bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-200;
-  }
-}
+/* ===== Базовые анимации ===== */
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-6px); }
-  75% { transform: translateX(6px); }
-}
-@keyframes fadeOutUp {
-  0% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-40px); }
-}
-@keyframes slideInScale {
-  0% { opacity: 0; transform: scale(0.96) translateY(8px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
-}
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.animate-fadeIn { animation: fadeIn 0.25s ease-out; }
-.animate-bounce { animation: bounce 0.4s ease-in-out; }
-.animate-shake { animation: shake 0.3s ease-in-out; }
-.animate-fadeOutUp { animation: fadeOutUp 0.7s ease-out forwards; }
-.animate-slideInScale { animation: slideInScale 0.2s ease-out; }
-.animate-fadeInUp { animation: fadeInUp 0.4s ease-out; }
+@keyframes slideInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+@keyframes fadeOutUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(-25%);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== Классы анимаций ===== */
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-slideInScale {
+  animation: slideInScale 0.2s ease-out forwards;
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+.animate-fadeOutUp {
+  animation: fadeOutUp 0.3s ease-out forwards;
+}
+
+.animate-bounce {
+  animation: bounce 0.6s infinite;
+}
+
+.animate-pulse {
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+
+/* ===== Утилиты для 3D-перспективы (флип-карточки) ===== */
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* ===== Кастомный скроллбар для современных браузеров ===== */
 
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-gray-800 rounded-full;
+  background: #f1f1f1;
+  border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb {
-  @apply bg-orange-400 dark:bg-orange-600 rounded-full;
+  background: #fdba74;
+  border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-orange-500;
+  background: #f97316;
 }
+
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #f97316;
+}
+
+/* ===== Кнопки с градиентом ===== */
 
 .gradient-orange {
-  @apply bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-black rounded-xl transition-all duration-200 transform active:scale-95;
+  background: linear-gradient(135deg, #f97316, #f59e0b);
+  transition: all 0.2s ease;
 }
+
+.gradient-orange:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
 .gradient-green {
-  @apply bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-black rounded-xl transition-all duration-200 transform active:scale-95;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  transition: all 0.2s ease;
 }
+
+.gradient-green:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
 .gradient-red {
-  @apply bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-black rounded-xl transition-all duration-200 transform active:scale-95;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  transition: all 0.2s ease;
 }
+
+.gradient-red:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* ===== Анимация для карточек при наведении ===== */
 
 .card-hover {
-  @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+  transition: all 0.2s ease;
 }
 
-.dark {
-  color-scheme: dark;
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
 }
-.dark body {
-  background-color: #111827;
-  color: #f9fafb;
+
+/* ===== Дополнительные утилиты ===== */
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
 }
-.dark .bg-white {
-  background-color: #1f2937;
+
+/* Улучшенная читаемость текста */
+.prose {
+  max-width: 65ch;
+  line-height: 1.6;
 }
-.dark .bg-gray-50,
-.dark .bg-gray-100 {
-  background-color: #1f2937;
+
+/* Анимация для уведомлений */
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out forwards;
 }
-.dark .bg-gray-200 {
-  background-color: #374151;
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
-.dark .text-gray-800,
-.dark .text-gray-700 {
-  color: #f9fafb;
+body {
+  @apply bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100;
 }
-.dark .text-gray-500,
-.dark .text-gray-400 {
-  color: #9ca3af;
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
 }
-.dark .border-gray-200,
-.dark .border-gray-100 {
-  border-color: #374151;
+.custom-scroll::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 10px;
 }
-* {
-  transition-property: background-color, border-color, color, fill, stroke;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #f97316;
+  border-radius: 10px;
+}
+.dark .custom-scroll::-webkit-scrollbar-track {
+  background: #334155;
+}
+.dark .custom-scroll::-webkit-scrollbar-thumb {
+  background: #f97316;
 }

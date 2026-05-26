@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
 import { words } from "./../data/words"
 
 // Строим карту переводов из words.ts
@@ -15,7 +16,6 @@ words.forEach(word => {
 
 // Расширенный словарь для всех слов из текстов A1-B2
 const extendedTranslations: [string, string][] = [
-  // Местоимения, предлоги, союзы
   ["som", "я есть / являюсь"],
   ["si", "ты есть / являешься"],
   ["je", "он/она/оно есть / является"],
@@ -83,8 +83,6 @@ const extendedTranslations: [string, string][] = [
   ["vtedy", "тогда"],
   ["odvtedy", "с тех пор"],
   ["potiaľ", "до сих пор"],
-
-  // Глаголы (инфинитивы и формы)
   ["byť", "быть"],
   ["mať", "иметь"],
   ["ísť", "идти"],
@@ -116,7 +114,6 @@ const extendedTranslations: [string, string][] = [
   ["letieť", "лететь"],
   ["plávať", "плавать"],
   ["sedieť", "сидеть"],
-  ["stáť", "стоять"],
   ["ležať", "лежать"],
   ["otvoriť", "открыть"],
   ["zavrieť", "закрыть"],
@@ -145,14 +142,10 @@ const extendedTranslations: [string, string][] = [
   ["dotknúť sa", "тронуть"],
   ["cítiť", "чувствовать"],
   ["myslieť", "думать"],
-  ["veriť", "верить"],
-  ["dúfať", "надеяться"],
   ["báť sa", "бояться"],
   ["smiať sa", "смеяться"],
   ["plakať", "плакать"],
   ["usmievať sa", "улыбаться"],
-
-  // Существительные
   ["chlieb", "хлеб"],
   ["mlieko", "молоко"],
   ["voda", "вода"],
@@ -250,8 +243,6 @@ const extendedTranslations: [string, string][] = [
   ["Dunaj", "Дунай"],
   ["korunovácia", "коронация"],
   ["uhorský kráľ", "венгерский король"],
-
-  // Прилагательные
   ["dobrý", "хороший"],
   ["pekný", "красивый"],
   ["milý", "милый"],
@@ -321,17 +312,25 @@ export default function InteractiveText({ text }: InteractiveTextProps) {
       {wordsArray.map((token, idx) => {
         if (isWord(token)) {
           return (
-            <button
+            <motion.button
               key={idx}
+              whileHover={{ scale: 1.05, backgroundColor: "rgba(249, 115, 22, 0.15)" }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ duration: 0.1 }}
               onClick={() => handleWordClick(token)}
-              className="cursor-pointer hover:bg-yellow-200 dark:hover:bg-yellow-800 rounded px-0.5 transition-colors inline-block"
+              className="cursor-pointer rounded-md px-0.5 transition-all inline-block font-medium text-gray-800 dark:text-gray-200 hover:text-orange-600 dark:hover:text-orange-400"
               title={`Нажми для перевода (${token})`}
             >
               {token}
-            </button>
+            </motion.button>
           )
         } else {
-          return <span key={idx}>{token}</span>
+          // Обычный текст (пробелы, знаки препинания)
+          return (
+            <span key={idx} className="text-gray-800 dark:text-gray-200">
+              {token}
+            </span>
+          )
         }
       })}
     </div>

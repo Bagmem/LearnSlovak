@@ -1,9 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import { motion } from "framer-motion"
 import { type SlovakText } from "../../data/texts"
 import { playClickSound } from "../../lib/sounds"
 import InteractiveText from "../InteractiveText"
+import { FaArrowLeft, FaVolumeUp, FaLanguage, FaCheckCircle, FaBrain } from "react-icons/fa"
 
 type TextViewerProps = {
   text: SlovakText
@@ -25,42 +27,84 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <button onClick={() => { playClickSound(); onBack() }} className="text-gray-400 hover:text-gray-600 mb-4 inline-flex items-center gap-1">
-        ← Назад
-      </button>
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 space-y-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              {text.title}
-              {isRead && <span className="text-green-500 text-sm">✅</span>}
-            </h1>
-            <p className="text-sm text-gray-500">{text.wordCount} слов · уровень {text.level}</p>
-          </div>
-          <button onClick={() => speakText(text.content)} className="p-2 rounded-full hover:bg-gray-100 transition">
-            🔊
-          </button>
-        </div>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <motion.button
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        onClick={() => { playClickSound(); onBack() }}
+        className="mb-6 inline-flex items-center gap-2 text-gray-500 hover:text-orange-500 transition font-medium"
+      >
+        <FaArrowLeft /> Назад к списку
+      </motion.button>
 
-        <InteractiveText text={text.content} />
-
-        <div className="space-y-3">
-          <button onClick={() => setShowTranslation(!showTranslation)} className="w-full py-2 bg-orange-500 text-white rounded-xl font-bold">
-            {showTranslation ? "Скрыть перевод" : "Показать перевод"}
-          </button>
-          {showTranslation && (
-            <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-xl">
-              <p>{text.translation}</p>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-xl overflow-hidden border border-gray-200/50 dark:border-gray-700/50"
+      >
+        <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-2">
+                {text.title}
+                {isRead && <FaCheckCircle className="text-green-200 text-xl" />}
+              </h1>
+              <div className="flex gap-3 mt-1 text-white/80 text-sm">
+                <span>{text.wordCount} слов</span>
+                <span>Уровень {text.level}</span>
+                <span>{text.questions?.length || 0} вопросов</span>
+              </div>
             </div>
-          )}
-          {hasQuestions && (
-            <button onClick={() => { playClickSound(); onQuiz(); }} className="w-full py-2 bg-green-500 text-white rounded-xl font-bold">
-              📝 Пройти викторину
+            <button
+              onClick={() => speakText(text.content)}
+              className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition text-white"
+              title="Озвучить текст"
+            >
+              <FaVolumeUp size={20} />
             </button>
+          </div>
+        </div>
+
+        <div className="p-6 md:p-8 space-y-6">
+          <div className="prose prose-lg dark:prose-invert max-w-none">
+            <InteractiveText text={text.content} />
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <button
+              onClick={() => setShowTranslation(!showTranslation)}
+              className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              <FaLanguage />
+              {showTranslation ? "Скрыть перевод" : "Показать перевод"}
+            </button>
+            {hasQuestions && (
+              <button
+                onClick={() => { playClickSound(); onQuiz(); }}
+                className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md hover:shadow-lg hover:scale-[1.02]"
+              >
+                <FaBrain />
+                Пройти викторину
+              </button>
+            )}
+          </div>
+
+          {showTranslation && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="p-5 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-l-4 border-orange-500">
+                <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{text.translation}</p>
+              </div>
+            </motion.div>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

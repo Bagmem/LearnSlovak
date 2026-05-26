@@ -1,5 +1,6 @@
 "use client"
 
+import { motion } from "framer-motion"
 import { FaArrowRight, FaCheckCircle, FaComments, FaUtensils, FaShoppingCart, FaHome, FaBus, FaBriefcase, FaHeartbeat, FaEnvelope, FaUsers, FaFutbol, FaCloudSun, FaSmile } from "react-icons/fa"
 
 type CategoryCardProps = {
@@ -34,11 +35,16 @@ export default function CategoryCard({ name, passedCount, totalCount, isComplete
   const icon = getIcon(name)
 
   return (
-    <button onClick={onSelect} className={`w-full flex items-center justify-between p-5 rounded-xl border transition-all transform active:scale-[0.98] card-hover ${
-      isCompleted
-        ? "border-green-400 dark:border-green-600 bg-gradient-to-r from-green-50 to-white dark:from-green-900/30 dark:to-gray-800"
-        : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-md"
-    }`}>
+    <motion.button
+      whileHover={{ scale: 1.02, y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onSelect}
+      className={`w-full flex items-center justify-between p-5 rounded-xl border transition-all shadow-sm ${
+        isCompleted
+          ? "border-green-400 dark:border-green-600 bg-gradient-to-r from-green-50 to-white dark:from-green-900/30 dark:to-gray-800"
+          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-md"
+      }`}
+    >
       <div className="flex-1 text-left">
         <div className="flex items-center gap-3">
           {icon}
@@ -47,12 +53,17 @@ export default function CategoryCard({ name, passedCount, totalCount, isComplete
         </div>
         <div className="mt-3 flex items-center gap-3">
           <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-            <div className="bg-gradient-to-r from-orange-400 to-orange-500 h-full rounded-full transition-all" style={{ width: `${percent}%` }} />
+            <motion.div
+              className="bg-gradient-to-r from-orange-400 to-orange-500 h-full rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${percent}%` }}
+              transition={{ duration: 0.5 }}
+            />
           </div>
           <span className="text-sm font-bold text-gray-600 dark:text-gray-400">{passedCount}/{totalCount}</span>
         </div>
       </div>
       <FaArrowRight className="text-gray-400 dark:text-gray-500 group-hover:text-orange-500 transition-colors ml-4 text-xl" />
-    </button>
+    </motion.button>
   )
 }

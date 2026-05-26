@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, type FormEvent } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { type Word } from "../../data/words"
 import { type GameMode } from "./StartMenu"
 import GrammarHint from "./GrammarHint"
@@ -129,23 +130,40 @@ export default function GameUI({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-8 px-4">
-      <div className="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex flex-col items-center py-8 px-4"
+    >
+      <div className="w-full max-w-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 space-y-6 border border-gray-200/50 dark:border-gray-700/50">
         {/* Верхняя панель */}
         <div className="flex items-center justify-between gap-4">
-          <button onClick={onBack} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onBack}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl"
+          >
             ✕
-          </button>
+          </motion.button>
           <div className="flex-1 flex flex-col items-center gap-1">
             <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
-              <div className="bg-gradient-to-r from-green-500 to-green-600 h-full rounded-full transition-all duration-300" style={{ width: `${lessonProgress}%` }} />
+              <motion.div
+                className="bg-gradient-to-r from-green-500 to-green-600 h-full rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${lessonProgress}%` }}
+                transition={{ duration: 0.3 }}
+              />
             </div>
             <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{totalWords - wordsLeft}/{totalWords}</span>
           </div>
           {word.hint ? (
             isCorrect ? <GrammarHint hintText={word.hint} /> : <div className="w-10 h-10" />
           ) : (
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => speakSlovak(word.slovak)}
               disabled={!isCorrect}
               className={`w-10 h-10 flex items-center justify-center rounded-full transition ${
@@ -153,25 +171,44 @@ export default function GameUI({
               }`}
             >
               <FaVolumeUp />
-            </button>
+            </motion.button>
           )}
           <div className={`flex gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-xl border transition ${heartBlockPulse ? "animate-pulse" : ""}`}>
             {[1,2,3].map((_, idx) => (
-              <span key={idx} className={`text-xl transition ${idx < lives ? "text-red-500 scale-100" : "text-gray-300 scale-75 opacity-50"}`}>❤️</span>
+              <motion.span
+                key={idx}
+                initial={{ scale: 1 }}
+                animate={{ scale: idx < lives ? [1, 1.2, 1] : 1 }}
+                transition={{ duration: 0.2 }}
+                className={`text-xl transition ${idx < lives ? "text-red-500" : "text-gray-300 opacity-50"}`}
+              >
+                ❤️
+              </motion.span>
             ))}
           </div>
         </div>
 
-        {/* Вопрос */}
+        {/* Блок вопроса с фиксированной минимальной высотой */}
         <div className="text-center space-y-4">
           <h2 className="text-xs font-bold text-gray-400 uppercase">Как переводится:</h2>
-          <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl shadow-inner">
-            <p className="text-2xl font-bold text-gray-800 dark:text-white">{word.russian}</p>
+          <div className="min-h-[120px] bg-gray-50 dark:bg-gray-700 p-6 rounded-xl shadow-inner flex items-center justify-center">
+            <motion.p
+              key={word.russian}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-2xl font-bold text-gray-800 dark:text-white text-center"
+            >
+              {word.russian}
+            </motion.p>
           </div>
         </div>
 
-        {/* Варианты ответа */}
-        <div className={`space-y-3 ${animation === "shake" ? "animate-shake" : ""}`}>
+        {/* Блок вариантов ответа с фиксированной минимальной высотой */}
+        <motion.div
+          className={`space-y-3 min-h-[200px] ${animation === "shake" ? "animate-shake" : ""}`}
+          animate={animation === "shake" ? { x: [-5, 5, -5, 5, 0] } : {}}
+          transition={{ duration: 0.2 }}
+        >
           {gameMode === "choice" ? (
             options.map((opt, idx) => {
               let btnClass = "w-full text-left p-3 rounded-xl border-2 font-bold transition hover:shadow-md"
@@ -183,15 +220,27 @@ export default function GameUI({
                 btnClass += " border-gray-200 dark:border-gray-700 hover:border-orange-300"
               }
               return (
-                <button key={idx} disabled={disabled || isAnswered} onClick={() => onAnswer(opt)} className={btnClass}>
+                <motion.button
+                  key={idx}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  disabled={disabled || isAnswered}
+                  onClick={() => onAnswer(opt)}
+                  className={btnClass}
+                >
                   <span>{opt}</span>
                   {!isAnswered && <span className="float-right text-xs text-gray-400">{idx+1}</span>}
-                </button>
+                </motion.button>
               )
             })
           ) : (
             <form onSubmit={handleSubmitWrite} className="space-y-4">
-              <input
+              <motion.input
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
                 ref={inputRef}
                 type="text"
                 disabled={isAnswered || lives <= 0}
@@ -201,38 +250,69 @@ export default function GameUI({
                 placeholder="Введите перевод..."
               />
               {!isAnswered && (
-                <button type="submit" disabled={!writeInput.trim() || disabled} className="w-full py-3 gradient-orange">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={!writeInput.trim() || disabled}
+                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold shadow-md"
+                >
                   Проверить (Enter)
-                </button>
+                </motion.button>
               )}
             </form>
           )}
-        </div>
+        </motion.div>
 
-        {/* Нижняя панель результата */}
-        <div className="border-t pt-4 space-y-3">
+        {/* Нижняя панель с фиксированной минимальной высотой */}
+        <div className="border-t pt-4 space-y-3 min-h-[110px]">
           {lives <= 0 ? (
-            <button onClick={() => { setWriteInput(""); onRestart(); }} className="w-full py-3 gradient-red">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { setWriteInput(""); onRestart(); }}
+              className="w-full py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl font-bold shadow-md"
+            >
               Попробовать снова
-            </button>
-          ) : isAnswered ? (
-            <>
-              <div className={`p-3 rounded-xl text-center font-bold flex items-center justify-center gap-2 ${
-                isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-              }`}>
-                {isCorrect ? <FaCheck /> : <FaTimes />} {message}
-                {!isCorrect && ` Правильный ответ: ${word.slovak}`}
-              </div>
-              <button onClick={handleNextClick} className="w-full py-3 gradient-green">
-                {wordsLeft === 0 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
-              </button>
-            </>
+            </motion.button>
           ) : (
-            <p className="text-center text-xs text-gray-400">Используй мышь или клавиатуру (1,2,3, Enter)</p>
+            <>
+              <AnimatePresence mode="wait">
+                {isAnswered && (
+                  <motion.div
+                    key="message"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className={`p-3 rounded-xl text-center font-bold flex items-center justify-center gap-2 ${
+                      isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {isCorrect ? <FaCheck /> : <FaTimes />} {message}
+                    {!isCorrect && ` Правильный ответ: ${word.slovak}`}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {isAnswered && (
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleNextClick}
+                  className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold shadow-md"
+                >
+                  {wordsLeft === 0 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
+                </motion.button>
+              )}
+              {!isAnswered && (
+                <p className="text-center text-xs text-gray-400">Используй мышь или клавиатуру (1,2,3, Enter)</p>
+              )}
+            </>
           )}
         </div>
       </div>
       <AnimatedFeedback isCorrect={isAnswered ? isCorrect : null} duration={800} />
-    </div>
+    </motion.div>
   )
 }

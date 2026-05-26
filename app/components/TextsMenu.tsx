@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../data/texts"
-import { FaCheckCircle } from "react-icons/fa"
+import { FaCheckCircle, FaBookOpen, FaFilter, FaTimes, FaSearch, FaLanguage, FaChartLine } from "react-icons/fa"
 
 type TextsMenuProps = {
   onSelectText: (text: SlovakText) => void
@@ -24,12 +25,28 @@ const topicLabels: Record<TextTopic, string> = {
   sport: "Спорт",
 }
 
+const levelColors: Record<TextLevel, string> = {
+  A1: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  A2: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  B1: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+  B2: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+}
+
 export default function TextsMenu({ onSelectText, readStatus }: TextsMenuProps) {
   const [selectedLevel, setSelectedLevel] = useState<TextLevel | "all">("all")
   const [selectedTopic, setSelectedTopic] = useState<TextTopic | "all">("all")
+  const [searchQuery, setSearchQuery] = useState("")
 
-  const filteredByLevel = selectedLevel === "all" ? texts : texts.filter(t => t.level === selectedLevel)
-  const filteredTexts = selectedTopic === "all" ? filteredByLevel : filteredByLevel.filter(t => t.topic === selectedTopic)
+  const filteredTexts = useMemo(() => {
+    let result = texts
+    if (selectedLevel !== "all") result = result.filter(t => t.level === selectedLevel)
+    if (selectedTopic !== "all") result = result.filter(t => t.topic === selectedTopic)
+    if (searchQuery.trim()) {
+      const lowerQuery = searchQuery.toLowerCase()
+      result = result.filter(t => t.title.toLowerCase().includes(lowerQuery))
+    }
+    return result
+  }, [selectedLevel, selectedTopic, searchQuery])
 
   const levels: { value: TextLevel | "all"; label: string }[] = [
     { value: "all", label: "Все уровни" },
@@ -42,60 +59,144 @@ export default function TextsMenu({ onSelectText, readStatus }: TextsMenuProps) 
     ...Object.entries(topicLabels).map(([key, label]) => ({ value: key as TextTopic, label })),
   ]
 
+  const clearFilters = () => {
+    setSelectedLevel("all")
+    setSelectedTopic("all")
+    setSearchQuery("")
+  }
+
+  const hasActiveFilters = selectedLevel !== "all" || selectedTopic !== "all" || searchQuery !== ""
+
   return (
-    <div className="w-full px-4 py-8">
-      <h1 className="text-3xl font-black text-center mb-8">📖 Тексты для чтения</h1>
-      <div className="flex flex-wrap gap-2 justify-center mb-4">
-        {levels.map(l => (
-          <button
-            key={l.value}
-            onClick={() => setSelectedLevel(l.value)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
-              selectedLevel === l.value ? "bg-orange-500 text-white shadow" : "bg-gray-200 dark:bg-gray-700"
-            }`}
-          >
-            {l.label}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2 justify-center mb-8 border-t pt-4">
-        {topics.map(t => (
-          <button
-            key={t.value}
-            onClick={() => setSelectedTopic(t.value)}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition ${
-              selectedTopic === t.value ? "bg-blue-500 text-white" : "bg-gray-100 dark:bg-gray-800"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredTexts.map(text => {
-          const isRead = readStatus[text.id] || false
-          return (
+    <div className="w-full px-4 py-8 max-w-7xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="text-center mb-10"
+      >
+        <h1 className="text-4xl md:text-5xl font-black flex items-center justify-center gap-2">
+          <span className="text-4xl md:text-5xl">📖</span>
+          <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
+            Тексты для чтения
+          </span>
+        </h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">Улучшай словацкий с интересными текстами</p>
+      </motion.div>
+
+      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-5 mb-8 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+            <FaFilter />
+            <span className="font-bold">Фильтры</span>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="ml-2 text-xs flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 transition"
+              >
+                <FaTimes size={10} /> Сбросить
+              </button>
+            )}
+          </div>
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Поиск по названию..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-orange-500 outline-none transition"
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {levels.map(l => (
             <button
-              key={text.id}
-              onClick={() => onSelectText(text)}
-              className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 text-left hover:border-orange-400 transition-all shadow-md hover:shadow-lg flex justify-between items-center"
+              key={l.value}
+              onClick={() => setSelectedLevel(l.value)}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 ${
+                selectedLevel === l.value
+                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md scale-105"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
             >
-              <div>
-                <h3 className="text-xl font-black flex items-center gap-2">
-                  {text.title}
-                  {isRead && <FaCheckCircle className="text-green-500" size={18} />}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {text.wordCount} слов · {text.level} · {topicLabels[text.topic]} · {text.questions?.length || 0} вопросов
-                </p>
-              </div>
-              <span className="text-3xl text-gray-300 group-hover:text-orange-500 transition">→</span>
+              {l.label}
             </button>
-          )
-        })}
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {topics.map(t => (
+            <button
+              key={t.value}
+              onClick={() => setSelectedTopic(t.value)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
+                selectedTopic === t.value
+                  ? "bg-blue-500 text-white shadow-md scale-105"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
-      {filteredTexts.length === 0 && (
-        <p className="text-center py-10 text-gray-500">Нет текстов по выбранным фильтрам.</p>
+
+      {filteredTexts.length === 0 ? (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
+          <p className="text-gray-500 text-lg">Нет текстов по выбранным фильтрам.</p>
+          <button onClick={clearFilters} className="mt-4 text-orange-500 font-bold underline">Сбросить фильтры</button>
+        </motion.div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence>
+            {filteredTexts.map((text, idx) => {
+              const isRead = readStatus[text.id] || false
+              return (
+                <motion.button
+                  key={text.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05, duration: 0.4 }}
+                  whileHover={{ scale: 1.02, y: -5 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onSelectText(text)}
+                  className="group relative bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 text-left border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-500 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="p-6">
+                    <div className="flex justify-between items-start gap-2">
+                      <h3 className="text-xl font-black text-gray-800 dark:text-white flex items-center gap-2">
+                        {text.title}
+                        {isRead && <FaCheckCircle className="text-green-500 text-sm" />}
+                      </h3>
+                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${levelColors[text.level]}`}>
+                        {text.level}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                        {text.wordCount} слов
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                        {topicLabels[text.topic]}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                        📝 {text.questions?.length || 0} вопросов
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-3 line-clamp-2">
+                      {text.content.substring(0, 100)}...
+                    </p>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-xs text-orange-500 font-bold">Читать →</span>
+                      {!isRead && <span className="text-xs text-gray-400">Новое</span>}
+                    </div>
+                  </div>
+                </motion.button>
+              )
+            })}
+          </AnimatePresence>
+        </div>
       )}
     </div>
   )
