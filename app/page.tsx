@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog } from "react-icons/fa"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { auth } from "../lib/firebase"
+import { auth, db } from "../lib/firebase"
 import { onAuthStateChanged, signOut } from "firebase/auth"
+import { doc, getDoc } from "firebase/firestore"
+import { canAccessLevel, normalizeUserLevel } from "../lib/levels"
 import { words, type Word, type LanguageLevel } from "../data/words"
 import { grammarTasks } from "../data/grammar"
 import { texts, type SlovakText } from "../data/texts"
@@ -89,16 +91,38 @@ export default function Home() {
   const { theme, toggleTheme } = useTheme()
   const { unlocked, lastUnlocked, checkAchievements, isLoaded: achievementsLoaded } = useAchievements()
   const { isRead, markAsRead, isQuizCompleted, getQuizScore, markQuizCompleted, hasXpEarned } = useTextProgress()
-  const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+const router = useRouter()
+const [user, setUser] = useState<any>(null)
+const [userLevel, setUserLevel] = useState<LanguageLevel>("A1")
+const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user)
-    })
-    return () => unsubscribe()
-  }, [])
+  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    setUser(currentUser)
+
+    if (!currentUser) {
+      setUserLevel("A1")
+      return
+    }
+
+    try {
+      const profileRef = doc(db, "users", currentUser.uid)
+      const profileSnap = await getDoc(profileRef)
+
+      if (profileSnap.exists()) {
+        const data = profileSnap.data()
+        setUserLevel(normalizeUserLevel(data.level))
+      } else {
+        setUserLevel("A1")
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки уровня пользователя:", error)
+      setUserLevel("A1")
+    }
+  })
+
+  return () => unsubscribe()
+}, [])
 
   // ---------- Все useState (объявлены до всех useCallback/useEffect) ----------
   const [globalTab, setGlobalTab] = useState<"study" | "reference" | "texts">("study")
@@ -267,24 +291,30 @@ export default function Home() {
     })
   }, [])
 
-  const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
-    const poolSource = dataSource === "vocab" ? words : grammarTasks
-    const filteredWords = poolSource.filter((w) => w.category === category && w.level === level)
-    setLessonWords(filteredWords)
-    setCompletedWords(new Set())
-    setCurrentDataSource(dataSource)
-    setSelectedCategory(category)
-    setSelectedLevel(level)
-    setCorrectAnswersCount(0)
-    setTotalClicksCount(0)
-    setLives(3)
-    setMessage("")
-    setSelectedOption(null)
-    setIsAnswering(false)
-    setCurrentWord(filteredWords.length > 0 ? selectNextWord(filteredWords, wordStatsMap) : null)
-    setScreen("game")
-    playLessonStartSound()
-  }, [wordStatsMap])
+ const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
+  if (!canAccessLevel(userLevel, level)) {
+    setMessage(`Уровень ${level} пока закрыт. Твой текущий уровень: ${userLevel}`)
+    return
+  }
+
+  const poolSource = dataSource === "vocab" ? words : grammarTasks
+  const filteredWords = poolSource.filter((w) => w.category === category && w.level === level)
+
+  setLessonWords(filteredWords)
+  setCompletedWords(new Set())
+  setCurrentDataSource(dataSource)
+  setSelectedCategory(category)
+  setSelectedLevel(level)
+  setCorrectAnswersCount(0)
+  setTotalClicksCount(0)
+  setLives(3)
+  setMessage("")
+  setSelectedOption(null)
+  setIsAnswering(false)
+  setCurrentWord(filteredWords.length > 0 ? selectNextWord(filteredWords, wordStatsMap) : null)
+  setScreen("game")
+  playLessonStartSound()
+}, [wordStatsMap, userLevel])
 
   const triggerAchievementCheck = useCallback(() => {
     const state: AchievementState = {
@@ -602,26 +632,26 @@ export default function Home() {
       <main className="ml-64 min-h-screen p-8">
         <div className="max-w-7xl mx-auto">
           {globalTab === "study" && (
-            <StartMenu
-              onSelectCategory={handleSelectCategory}
-              xp={xp}
-              progressData={progressData}
-              streak={streak}
-              activeDates={activeDates}
-              gameMode={gameMode}
-              setGameMode={setGameMode}
-              settings={settings}
-              onToggleMute={toggleMute}
-              onSetSpeechRate={setSpeechRate}
-              onSetAutoSpeak={setAutoSpeak}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              correctAnswersCount={correctAnswersCount}
-              totalClicksCount={totalClicksCount}
-              learnedWordsCount={learnedWordsCount}
-              completedCategoriesCount={completedCategoriesCount}
-            />
-          )}
+           <StartMenu
+  onSelectCategory={handleSelectCategory}
+  userLevel={userLevel}
+  xp={xp}
+  progressData={progressData}
+  streak={streak}
+  activeDates={activeDates}
+  gameMode={gameMode}
+  setGameMode={setGameMode}
+  settings={settings}
+  onToggleMute={toggleMute}
+  onSetSpeechRate={setSpeechRate}
+  onSetAutoSpeak={setAutoSpeak}
+  theme={theme}
+  onToggleTheme={toggleTheme}
+  correctAnswersCount={correctAnswersCount}
+  totalClicksCount={totalClicksCount}
+  learnedWordsCount={learnedWordsCount}
+  completedCategoriesCount={completedCategoriesCount}
+/>)}
           {globalTab === "reference" && (
             <ReferenceView
               progressData={progressData}
@@ -647,9 +677,10 @@ export default function Home() {
               />
             ) : (
               <TextsMenu
-                onSelectText={setSelectedText}
-                readStatus={Object.fromEntries(texts.map(t => [t.id, isRead(t.id)]))}
-              />
+  onSelectText={setSelectedText}
+  readStatus={Object.fromEntries(texts.map(t => [t.id, isRead(t.id)]))}
+  userLevel={userLevel}
+/>
             )
           )}
         </div>

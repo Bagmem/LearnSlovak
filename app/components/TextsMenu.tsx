@@ -1,13 +1,16 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../data/texts"
-import { FaCheckCircle, FaBookOpen, FaFilter, FaTimes, FaSearch, FaLanguage, FaChartLine } from "react-icons/fa"
+import type { LanguageLevel } from "../../data/words"
+import { canAccessLevel } from "../../lib/levels"
+import { FaCheckCircle, FaFilter, FaTimes, FaSearch } from "react-icons/fa"
 
 type TextsMenuProps = {
   onSelectText: (text: SlovakText) => void
   readStatus: Record<string, boolean>
+  userLevel: LanguageLevel
 }
 
 const topicLabels: Record<TextTopic, string> = {
@@ -32,31 +35,56 @@ const levelColors: Record<TextLevel, string> = {
   B2: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
 }
 
-export default function TextsMenu({ onSelectText, readStatus }: TextsMenuProps) {
+export default function TextsMenu({ onSelectText, readStatus, userLevel }: TextsMenuProps) {
   const [selectedLevel, setSelectedLevel] = useState<TextLevel | "all">("all")
   const [selectedTopic, setSelectedTopic] = useState<TextTopic | "all">("all")
   const [searchQuery, setSearchQuery] = useState("")
 
+  const levels: { value: TextLevel | "all"; label: string }[] = useMemo(() => {
+    const allLevels: { value: TextLevel | "all"; label: string }[] = [
+      { value: "all", label: "Все доступные" },
+      { value: "A1", label: "A1" },
+      { value: "A2", label: "A2" },
+      { value: "B1", label: "B1" },
+      { value: "B2", label: "B2" },
+    ]
+
+    return allLevels.filter((level) => {
+      return level.value === "all" || canAccessLevel(userLevel, level.value as LanguageLevel)
+    })
+  }, [userLevel])
+
+  useEffect(() => {
+    if (selectedLevel !== "all" && !canAccessLevel(userLevel, selectedLevel as LanguageLevel)) {
+      setSelectedLevel("all")
+    }
+  }, [userLevel, selectedLevel])
+
   const filteredTexts = useMemo(() => {
-    let result = texts
-    if (selectedLevel !== "all") result = result.filter(t => t.level === selectedLevel)
-    if (selectedTopic !== "all") result = result.filter(t => t.topic === selectedTopic)
+    let result = texts.filter((text) => canAccessLevel(userLevel, text.level as LanguageLevel))
+
+    if (selectedLevel !== "all") {
+      result = result.filter((text) => text.level === selectedLevel)
+    }
+
+    if (selectedTopic !== "all") {
+      result = result.filter((text) => text.topic === selectedTopic)
+    }
+
     if (searchQuery.trim()) {
       const lowerQuery = searchQuery.toLowerCase()
-      result = result.filter(t => t.title.toLowerCase().includes(lowerQuery))
+      result = result.filter((text) => text.title.toLowerCase().includes(lowerQuery))
     }
-    return result
-  }, [selectedLevel, selectedTopic, searchQuery])
 
-  const levels: { value: TextLevel | "all"; label: string }[] = [
-    { value: "all", label: "Все уровни" },
-    { value: "A1", label: "A1" }, { value: "A2", label: "A2" },
-    { value: "B1", label: "B1" }, { value: "B2", label: "B2" },
-  ]
+    return result
+  }, [selectedLevel, selectedTopic, searchQuery, userLevel])
 
   const topics: { value: TextTopic | "all"; label: string }[] = [
     { value: "all", label: "Все темы" },
-    ...Object.entries(topicLabels).map(([key, label]) => ({ value: key as TextTopic, label })),
+    ...Object.entries(topicLabels).map(([key, label]) => ({
+      value: key as TextTopic,
+      label,
+    })),
   ]
 
   const clearFilters = () => {
@@ -110,32 +138,32 @@ export default function TextsMenu({ onSelectText, readStatus }: TextsMenuProps) 
           </div>
         </div>
         <div className="flex flex-wrap gap-2 mb-4">
-          {levels.map(l => (
+          {levels.map((level) => (
             <button
-              key={l.value}
-              onClick={() => setSelectedLevel(l.value)}
+              key={level.value}
+              onClick={() => setSelectedLevel(level.value)}
               className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 ${
-                selectedLevel === l.value
+                selectedLevel === level.value
                   ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md scale-105"
                   : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
             >
-              {l.label}
+              {level.label}
             </button>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          {topics.map(t => (
+          {topics.map((topic) => (
             <button
-              key={t.value}
-              onClick={() => setSelectedTopic(t.value)}
+              key={topic.value}
+              onClick={() => setSelectedTopic(topic.value)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
-                selectedTopic === t.value
+                selectedTopic === topic.value
                   ? "bg-blue-500 text-white shadow-md scale-105"
                   : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
             >
-              {t.label}
+              {topic.label}
             </button>
           ))}
         </div>
@@ -151,6 +179,7 @@ export default function TextsMenu({ onSelectText, readStatus }: TextsMenuProps) 
           <AnimatePresence>
             {filteredTexts.map((text, idx) => {
               const isRead = readStatus[text.id] || false
+
               return (
                 <motion.button
                   key={text.id}
