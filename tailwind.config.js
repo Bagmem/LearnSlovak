@@ -1,13 +1,9 @@
-/** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: 'class',
   content: [
-    "./app/**/*.{js,ts,jsx,tsx}",
-    "./components/**/*.{js,ts,jsx,tsx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    // если файла нет, удалите строку:
+    // "./app/components/TextsMenu.tsx",
   ],
-  theme: {
-    extend: {},
-  },
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  plugins: [require('@tailwindcss/typography')],
+  // ... остальные настройки
 }
