@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { type SlovakText } from "../../data/texts"
 import { playClickSound, playCorrectSound, playWrongSound, playVictorySound } from "../../lib/sounds"
 import confetti from "canvas-confetti"
-import { FaArrowLeft, FaCheckCircle, FaTimesCircle, FaTrophy } from "react-icons/fa"
+import { FaArrowLeft } from "react-icons/fa"
 import { motion, AnimatePresence } from "framer-motion"
 
 type TextQuizProps = {
@@ -19,7 +19,7 @@ export default function TextQuiz({ text, onComplete, onBack, existingScore, xpAl
   if (!text.questions?.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <p className="text-gray-500">Для этого текста пока нет вопросов.</p>
+        <p className="text-gray-500 dark:text-gray-400">Для этого текста пока нет вопросов.</p>
         <button onClick={onBack} className="mt-6 px-6 py-3 bg-orange-500 text-white rounded-xl font-bold">Назад</button>
       </div>
     )
@@ -47,7 +47,6 @@ export default function TextQuiz({ text, onComplete, onBack, existingScore, xpAl
   const handleNext = () => {
     if (finished) return
     if (selected === -1) {
-      // можно показать тост, но для простоты оставим alert
       alert("Выберите ответ!")
       return
     }
@@ -63,7 +62,7 @@ export default function TextQuiz({ text, onComplete, onBack, existingScore, xpAl
       setShowResult(true)
       const xp = correct * 5
       const firstTime = !xpAlreadyEarned
-      if (correct === total) { 
+      if (correct === total) {
         playVictorySound()
         confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } })
       } else if (correct > 0) playCorrectSound()
@@ -74,7 +73,6 @@ export default function TextQuiz({ text, onComplete, onBack, existingScore, xpAl
 
   const progressPercent = ((currentIndex + 1) / total) * 100
 
-  // Экран результатов
   if (finished && showResult) {
     const accuracy = Math.round((correctCount / total) * 100)
     const xpAmount = correctCount * 5
@@ -88,20 +86,20 @@ export default function TextQuiz({ text, onComplete, onBack, existingScore, xpAl
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-200 dark:border-gray-700">
           <div className="text-6xl mb-4">📊</div>
           <h2 className="text-2xl font-black text-green-600 dark:text-green-400">Викторина завершена!</h2>
-          <p className="text-gray-500 mb-6">{text.title}</p>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">{text.title}</p>
           <div className="space-y-3 text-left">
             <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-              <span className="font-bold">Награда</span>
+              <span className="font-bold text-gray-700 dark:text-gray-300">Награда</span>
               <span className={isFirstTime ? "text-amber-500 font-bold" : "text-gray-400"}>
                 {isFirstTime ? `+${xpAmount} XP` : `${xpAmount} XP (уже получены)`}
               </span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-              <span className="font-bold">Точность</span>
+              <span className="font-bold text-gray-700 dark:text-gray-300">Точность</span>
               <span className="text-green-500 font-bold">{accuracy}%</span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="font-bold">Правильные ответы</span>
+              <span className="font-bold text-gray-700 dark:text-gray-300">Правильные ответы</span>
               <span className="text-blue-500 font-bold">{correctCount}/{total}</span>
             </div>
           </div>
@@ -119,10 +117,10 @@ export default function TextQuiz({ text, onComplete, onBack, existingScore, xpAl
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-4">
-        <button onClick={() => { playClickSound(); onBack() }} className="text-gray-400 hover:text-gray-600 flex items-center gap-1">
+        <button onClick={() => { playClickSound(); onBack() }} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 flex items-center gap-1">
           <FaArrowLeft size={14} /> Назад
         </button>
-        <span className="text-sm font-bold bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full">
+        <span className="text-sm font-bold bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full text-gray-800 dark:text-white">
           {currentIndex+1} / {total}
         </span>
       </div>
@@ -159,7 +157,7 @@ export default function TextQuiz({ text, onComplete, onBack, existingScore, xpAl
                     : "border-gray-200 dark:border-gray-700 hover:border-orange-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 } ${selected !== -1 && !isSelected ? "opacity-60" : ""}`}
               >
-                <span className="font-medium">{opt}</span>
+                <span className="font-medium text-gray-800 dark:text-white">{opt}</span>
               </button>
             )
           })}

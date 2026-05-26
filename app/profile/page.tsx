@@ -37,7 +37,7 @@ type UserProfile = {
   email: string
   photoURL: string
   xp: number
-  level: string
+  level: string | null
 }
 
 type StatCardProps = {
@@ -61,7 +61,7 @@ function StatCard({ icon, label, value, accentClass, isDark, onClick, clickable 
     >
       <div className={`mb-2 flex items-center gap-2 text-sm font-bold ${accentClass}`}>
         {icon}
-        <span>{label}</span>
+        <span className="text-gray-700 dark:text-gray-200">{label}</span>
       </div>
       <p className={`text-3xl font-black ${isDark ? "text-white" : "text-gray-800"}`}>{value}</p>
     </Wrapper>
@@ -272,7 +272,7 @@ export default function ProfilePage() {
   const displayName = profile?.name || user?.displayName || "Без имени"
   const displayEmail = profile?.email || user?.email || "Email не найден"
   const photoURL = profile?.photoURL || user?.photoURL || ""
-  const level = profile?.level || "A1"
+  const level = profile?.level || null
   const streak = activeDates.length
 
   const levelBase = Math.floor(xp / 100) * 100
@@ -316,7 +316,8 @@ export default function ProfilePage() {
       <div className="mx-auto w-full max-w-6xl px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <Link href="/" className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-bold shadow transition ${isDark ? "border-gray-700 bg-gray-900/80 hover:bg-gray-800" : "border-gray-200 bg-white/80 hover:bg-gray-100"}`}>
-            <FaArrowLeft /> На главную
+            <FaArrowLeft className="text-gray-800 dark:text-white" /> 
+            <span className="text-gray-800 dark:text-white">На главную</span>
           </Link>
           <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300 shadow transition hover:bg-red-500/20">
             <FaSignOutAlt /> Выйти
@@ -375,7 +376,7 @@ export default function ProfilePage() {
           <div className="p-6 md:p-8">
             <div className="grid gap-4 md:grid-cols-4">
               <StatCard icon={<FaStar />} label="XP" value={xp} accentClass="text-orange-300" isDark={isDark} />
-              <StatCard icon={<FaTrophy />} label="Уровень" value={level} accentClass="text-blue-300" isDark={isDark} />
+              <StatCard icon={<FaTrophy />} label="Уровень" value={level || "—"} accentClass="text-blue-300" isDark={isDark} />
               <StatCard icon={<FaFire />} label="Серия" value={`${streak} дн.`} accentClass="text-red-300" isDark={isDark} />
               <StatCard
                 icon={<FaCheckCircle />}
@@ -390,15 +391,17 @@ export default function ProfilePage() {
 
             <div className="mt-6 grid gap-6 md:grid-cols-2">
               <div className={`rounded-3xl border p-5 shadow-lg ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}>
-                <h3 className="flex items-center gap-2 text-lg font-black"><FaGraduationCap className="text-purple-500" /> Прогресс по уровням</h3>
+                <h3 className="flex items-center gap-2 text-lg font-black text-gray-800 dark:text-white">
+                  <FaGraduationCap className="text-purple-500" /> Прогресс по уровням
+                </h3>
                 <div className="mt-3 space-y-3">
                   {levelStats.map(stat => (
                     <div key={stat.level}>
                       <div className="flex justify-between text-sm font-bold">
-                        <span>{stat.level}</span>
-                        <span>{stat.learned}/{stat.total} слов</span>
+                        <span className="text-gray-700 dark:text-gray-300">{stat.level}</span>
+                        <span className="text-gray-500 dark:text-gray-400">{stat.learned}/{stat.total} слов</span>
                       </div>
-                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-700">
+                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                         <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all" style={{ width: `${stat.percent}%` }} />
                       </div>
                     </div>
@@ -407,29 +410,41 @@ export default function ProfilePage() {
               </div>
 
               <div className={`rounded-3xl border p-5 shadow-lg ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}>
-                <h3 className="flex items-center gap-2 text-lg font-black"><FaSkull className="text-red-500" /> Самые сложные слова</h3>
+                <h3 className="flex items-center gap-2 text-lg font-black text-gray-800 dark:text-white">
+                  <FaSkull className="text-red-500" /> Самые сложные слова
+                </h3>
                 {hardWords.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {hardWords.map((item, idx) => (
-                      <div key={idx} className="flex justify-between border-b pb-2 last:border-0">
-                        <div><p className="font-bold">{item.word}</p><p className="text-xs text-gray-500">{item.translation}</p></div>
-                        <div className="text-right"><span className="text-sm text-red-500">Ошибок: {item.wrong}</span><br /><span className="text-xs text-green-500">Правильно: {item.correct}</span></div>
+                      <div key={idx} className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2 last:border-0">
+                        <div>
+                          <p className="font-bold text-gray-800 dark:text-white">{item.word}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{item.translation}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm text-red-500">Ошибок: {item.wrong}</span><br />
+                          <span className="text-xs text-green-500">Правильно: {item.correct}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
-                ) : <p className="mt-3 text-sm text-gray-500">Пока нет данных</p>}
+                ) : (
+                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Пока нет данных</p>
+                )}
               </div>
             </div>
 
             <div className={`mt-6 rounded-3xl border p-5 shadow-lg ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}>
-              <h3 className="flex items-center gap-2 text-lg font-black"><FaCalendarAlt className="text-orange-500" /> Активность за 30 дней</h3>
-              <p className="mt-1 text-sm text-gray-500">Занимались {activeDaysCount} из 30 дней</p>
+              <h3 className="flex items-center gap-2 text-lg font-black text-gray-800 dark:text-white">
+                <FaCalendarAlt className="text-orange-500" /> Активность за 30 дней
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Занимались {activeDaysCount} из 30 дней</p>
               <div className="mt-3 flex flex-wrap gap-1">
                 {last30Days.map(day => {
                   const isActive = activitySet.has(day)
                   const dayNum = new Date(day).getDate()
                   return (
-                    <div key={day} className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold ${isActive ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-500"}`} title={day}>
+                    <div key={day} className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold ${isActive ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"}`} title={day}>
                       {dayNum}
                     </div>
                   )
@@ -440,23 +455,22 @@ export default function ProfilePage() {
             <div className={`mt-6 rounded-3xl border p-5 shadow-lg ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}>
               <div className="flex flex-wrap justify-between gap-2">
                 <div>
-                  <h2 className="text-lg font-black">Прогресс до следующего уровня</h2>
-                  <p className="text-sm text-gray-500">Продолжай учиться и зарабатывай XP.</p>
+                  <h2 className="text-lg font-black text-gray-800 dark:text-white">Прогресс до следующего уровня</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Продолжай учиться и зарабатывай XP.</p>
                 </div>
                 <div className={`rounded-2xl px-4 py-2 text-sm font-bold ${isDark ? "bg-gray-800 text-white" : "bg-gray-200 text-gray-800"}`}>
                   {xp} / {nextLevelXp} XP
                 </div>
               </div>
-              <div className="mt-3 h-4 overflow-hidden rounded-full bg-gray-700">
+              <div className="mt-3 h-4 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                 <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
               </div>
-              <p className="mt-2 text-sm text-gray-500">Осталось <span className="font-bold text-white">{xpLeft} XP</span> до следующего уровня.</p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Осталось <span className="font-bold text-white">{xpLeft} XP</span> до следующего уровня.</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Модальное окно достижений */}
       {showAchievements && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50" onClick={() => setShowAchievements(false)}>
           <div

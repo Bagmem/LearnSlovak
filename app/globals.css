@@ -5,12 +5,8 @@
 /* ===== Базовые анимации ===== */
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideInScale {
@@ -64,75 +60,46 @@
 }
 
 @keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* ===== Классы анимаций ===== */
 
-.animate-fadeIn {
-  animation: fadeIn 0.2s ease-out forwards;
-}
+.animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
+.animate-slideInScale { animation: slideInScale 0.2s ease-out forwards; }
+.animate-shake { animation: shake 0.3s ease-in-out; }
+.animate-fadeOutUp { animation: fadeOutUp 0.3s ease-out forwards; }
+.animate-bounce { animation: bounce 0.6s infinite; }
+.animate-pulse { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-spin-slow { animation: spin-slow 2s linear infinite; }
 
-.animate-slideInScale {
-  animation: slideInScale 0.2s ease-out forwards;
-}
-
-.animate-shake {
-  animation: shake 0.3s ease-in-out;
-}
-
-.animate-fadeOutUp {
-  animation: fadeOutUp 0.3s ease-out forwards;
-}
-
-.animate-bounce {
-  animation: bounce 0.6s infinite;
-}
-
-.animate-pulse {
-  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.animate-spin-slow {
-  animation: spin-slow 2s linear infinite;
-}
-
-/* ===== Утилиты для 3D-перспективы (флип-карточки) ===== */
+/* ===== Утилиты для 3D-перспективы ===== */
 
 .perspective-1000 {
   perspective: 1000px;
 }
 
-/* ===== Кастомный скроллбар для современных браузеров ===== */
+/* ===== Кастомный скроллбар ===== */
 
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-
 ::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 10px;
 }
-
 ::-webkit-scrollbar-thumb {
   background: #fdba74;
   border-radius: 10px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: #f97316;
 }
-
 .dark ::-webkit-scrollbar-track {
   background: #1f2937;
 }
-
 .dark ::-webkit-scrollbar-thumb {
   background: #f97316;
 }
@@ -143,41 +110,33 @@
   background: linear-gradient(135deg, #f97316, #f59e0b);
   transition: all 0.2s ease;
 }
-
 .gradient-orange:hover {
   filter: brightness(1.05);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
 }
-
 .gradient-green {
   background: linear-gradient(135deg, #22c55e, #16a34a);
-  transition: all 0.2s ease;
 }
-
 .gradient-green:hover {
   filter: brightness(1.05);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
-
 .gradient-red {
   background: linear-gradient(135deg, #ef4444, #dc2626);
-  transition: all 0.2s ease;
 }
-
 .gradient-red:hover {
   filter: brightness(1.05);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
-/* ===== Анимация для карточек при наведении ===== */
+/* ===== Анимация для карточек ===== */
 
 .card-hover {
   transition: all 0.2s ease;
 }
-
 .card-hover:hover {
   transform: translateY(-4px);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
@@ -188,18 +147,13 @@
 .backdrop-blur-sm {
   backdrop-filter: blur(4px);
 }
-
-/* Улучшенная читаемость текста */
 .prose {
   max-width: 65ch;
   line-height: 1.6;
 }
-
-/* Анимация для уведомлений */
 .animate-slideInRight {
   animation: slideInRight 0.3s ease-out forwards;
 }
-
 @keyframes slideInRight {
   from {
     opacity: 0;
@@ -210,9 +164,30 @@
     transform: translateX(0);
   }
 }
+
+/* ===== Глобальный фон ===== */
+
 body {
-  @apply bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100;
+  @apply text-gray-900 dark:text-gray-100;
+  background: radial-gradient(circle at 10% 20%, rgba(255, 245, 235, 0.8) 0%, rgba(255, 235, 215, 0.2) 100%);
+  background-attachment: fixed;
 }
+.dark body {
+  background: 
+    linear-gradient(135deg, #2a2a3a 0%, #0a0f2a 100%),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(120, 140, 220, 0.03) 2px,
+      rgba(120, 140, 220, 0.03) 4px
+    );
+  background-blend-mode: overlay;
+  background-attachment: fixed;
+}
+
+/* ===== Кастомный скроллбар для словаря ===== */
+
 .custom-scroll::-webkit-scrollbar {
   width: 6px;
 }
@@ -229,4 +204,11 @@ body {
 }
 .dark .custom-scroll::-webkit-scrollbar-thumb {
   background: #f97316;
+}
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.2s ease-in-out,
+              border-color 0.2s ease-in-out,
+              color 0.1s ease-in-out,
+              box-shadow 0.2s ease-in-out !important;
 }

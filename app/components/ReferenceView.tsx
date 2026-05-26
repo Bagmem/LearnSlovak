@@ -137,7 +137,6 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
 
   return (
     <div className="w-full px-4 py-6 pb-24">
-      {/* Заголовок с отдельным эмодзи */}
       <motion.div
         ref={headerRef}
         initial={{ opacity: 0, y: 30 }}
@@ -154,7 +153,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         <p className="text-gray-500 dark:text-gray-400 mt-2">Статистика, алфавит и словарь</p>
       </motion.div>
 
-      {/* Новая статистика */}
+      {/* Статистика */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -192,7 +191,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+        className="bg-gradient-to-br from-white to-orange-50/50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
       >
         <h3 className="font-black text-xl text-gray-800 dark:text-white mb-3 flex items-center gap-2">
           <FaCalendarAlt className="text-orange-500" /> Активность за 30 дней
@@ -229,7 +228,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+        className="bg-gradient-to-br from-white to-amber-50/50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
       >
         <h3 className="font-black text-xl text-gray-800 dark:text-white mb-4 flex items-center gap-2">
           <FaGraduationCap className="text-indigo-500" /> Прогресс по уровням
@@ -262,7 +261,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+          className="bg-gradient-to-br from-white to-red-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
         >
           <h3 className="font-black text-xl text-gray-800 dark:text-white mb-3 flex items-center gap-2">
             <FaSkull className="text-red-500" /> Самые сложные слова
@@ -291,7 +290,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+        className="bg-gradient-to-br from-white to-purple-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
       >
         <h3 className="font-black text-xl text-gray-800 dark:text-white mb-4 flex items-center gap-2">
           <FaQuestionCircle className="text-purple-500" /> Часто задаваемые вопросы
@@ -311,13 +310,13 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         </div>
       </motion.div>
 
-      {/* Алфавит - исправлена гидратация */}
+      {/* Алфавит */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+        className="bg-gradient-to-br from-white to-blue-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
       >
         <h3 className="font-black text-xl text-gray-800 dark:text-white mb-3 flex items-center gap-2">🔤 Особые буквы и произношение</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Значок над буквой (dĺžeň) удлиняет звук, птичка (mäkčeň) смягчает.</p>
@@ -343,13 +342,13 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         </div>
       </motion.div>
 
-      {/* Словарь - без оранжевой линии при наведении */}
+      {/* Словарь */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg"
+        className="bg-gradient-to-br from-white to-orange-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg"
       >
         <h3 className="font-black text-xl text-gray-800 dark:text-white mb-4 flex items-center gap-2">
           <FaSearch className="text-orange-500" /> Интерактивный словарь ({allItems.length})
@@ -395,10 +394,10 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
               </motion.div>
             ))
           ) : (
-            <p className="text-center py-10 text-gray-500">Ничего не найдено</p>
+            <p className="text-center py-10 text-gray-500 dark:text-gray-400">Ничего не найдено</p>
           )}
         </div>
       </motion.div>
     </div>
   )
-} 
+}

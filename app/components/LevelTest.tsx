@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaCheckCircle, FaChartLine } from "react-icons/fa"
-import { type LanguageLevel } from "../../data/words"
+import { FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaCheckCircle, FaBookOpen, FaLayerGroup } from "react-icons/fa"
+
+type TestLevel = "A1" | "A2" | "B1" | "B2" | "C1"
 
 type LevelTestProps = {
-  onStartTest: (level: LanguageLevel) => void
+  onStartTest: (level: TestLevel) => void
 }
 
-type LevelsCompletion = {
+type CompletedLevels = {
   A1: boolean
   A2: boolean
   B1: boolean
@@ -17,16 +18,16 @@ type LevelsCompletion = {
   C1: boolean
 }
 
-const levelsData = [
-  { id: "A1" as const, title: "A1", name: "Начинающий", icon: FaSeedling, color: "green", bgGradient: "from-green-500 to-emerald-600", desc: "Базовые слова и фразы", questionCount: 30 },
-  { id: "A2" as const, title: "A2", name: "Элементарный", icon: FaRocket, color: "blue", bgGradient: "from-blue-500 to-indigo-600", desc: "Простые диалоги", questionCount: 35 },
-  { id: "B1" as const, title: "B1", name: "Пороговый", icon: FaTrophy, color: "yellow", bgGradient: "from-yellow-500 to-amber-600", desc: "Уверенное общение", questionCount: 40 },
-  { id: "B2" as const, title: "B2", name: "Продвинутый", icon: FaFire, color: "orange", bgGradient: "from-orange-500 to-red-600", desc: "Свободное владение", questionCount: 45 },
-  { id: "C1" as const, title: "C1", name: "Экспертный", icon: FaGem, color: "purple", bgGradient: "from-purple-500 to-pink-600", desc: "Нюансы и сложные тексты", questionCount: 50 },
+const levelsData: { id: TestLevel; title: string; name: string; icon: any; bgGradient: string; desc: string; questionCount: number; testWordCount: number }[] = [
+  { id: "A1", title: "A1", name: "Начинающий", icon: FaSeedling, bgGradient: "from-green-500 to-emerald-600", desc: "Базовые слова и фразы", questionCount: 30, testWordCount: 12 },
+  { id: "A2", title: "A2", name: "Элементарный", icon: FaRocket, bgGradient: "from-blue-500 to-indigo-600", desc: "Простые диалоги", questionCount: 35, testWordCount: 10 },
+  { id: "B1", title: "B1", name: "Пороговый", icon: FaTrophy, bgGradient: "from-yellow-500 to-amber-600", desc: "Уверенное общение", questionCount: 40, testWordCount: 8 },
+  { id: "B2", title: "B2", name: "Продвинутый", icon: FaFire, bgGradient: "from-orange-500 to-red-600", desc: "Свободное владение", questionCount: 45, testWordCount: 6 },
+  { id: "C1", title: "C1", name: "Экспертный", icon: FaGem, bgGradient: "from-purple-500 to-pink-600", desc: "Нюансы и сложные тексты", questionCount: 50, testWordCount: 5 },
 ]
 
 export default function LevelTest({ onStartTest }: LevelTestProps) {
-  const [completed, setCompleted] = useState<LevelsCompletion>({
+  const [completed, setCompleted] = useState<CompletedLevels>({
     A1: false,
     A2: false,
     B1: false,
@@ -38,26 +39,29 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
     const saved = localStorage.getItem("test_completed_levels")
     if (saved) {
       try {
-        const parsed = JSON.parse(saved)
+        const parsed = JSON.parse(saved) as Partial<CompletedLevels>
         setCompleted(prev => ({ ...prev, ...parsed }))
-      } catch (e) {
-        console.error("Ошибка загрузки прогресса тестов", e)
-      }
+      } catch (e) {}
     }
   }, [])
 
   const completedCount = Object.values(completed).filter(Boolean).length
   const totalLevels = levelsData.length
+  const overallProgress = (completedCount / totalLevels) * 100
+  const circumference = 2 * Math.PI * 70
 
   return (
-    <div className="min-h-screen relative">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-orange-200/20 dark:bg-orange-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-200/20 dark:bg-purple-500/5 rounded-full blur-3xl" />
+    <div className="relative max-w-7xl mx-auto px-4 py-8 overflow-x-visible overflow-y-visible">
+      {/* Декоративные фоновые элементы – уходят за экран */}
+      <div className="absolute inset-0 pointer-events-none overflow-visible">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-orange-200/20 dark:bg-orange-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-200/20 dark:bg-purple-500/5 rounded-full blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-200/10 dark:bg-amber-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-blue-200/10 dark:bg-blue-500/5 rounded-full blur-2xl" />
+        <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-green-200/10 dark:bg-green-500/5 rounded-full blur-2xl" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 py-12">
+      <div className="relative z-10 overflow-visible">
         <div className="text-center mb-8">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -72,81 +76,213 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
           <p className="text-gray-500 dark:text-gray-400 mt-3 text-lg">Проверь свои знания по уровням</p>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 mb-10 shadow-lg border border-gray-200/50 dark:border-gray-700/50"
-        >
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center">
-                <FaChartLine className="text-white text-xl" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-500 dark:text-gray-400">Ваш прогресс</p>
-                <p className="text-2xl font-black text-gray-800 dark:text-white">{completedCount}/{totalLevels} уровней пройдено</p>
+        <div className="flex flex-col items-center overflow-visible">
+          <div className="flex flex-wrap justify-center items-start gap-8 mb-8 overflow-visible">
+            {/* Левая колонка: A1, A2 */}
+            <div className="flex flex-col gap-6 w-96 overflow-visible">
+              {levelsData.slice(0, 2).map((level) => {
+                const Icon = level.icon
+                const isCompleted = completed[level.id]
+                const percent = isCompleted ? 100 : 0
+                return (
+                  <motion.button
+                    key={level.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onStartTest(level.id)}
+                    className="group w-full rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className={`h-1 w-full bg-gradient-to-r ${level.bgGradient}`} />
+                    <div className="p-5">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${level.bgGradient} flex items-center justify-center shadow-md`}>
+                            <Icon className="text-white text-2xl" />
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-black text-gray-800 dark:text-white">{level.title}</h3>
+                            <p className="text-sm font-bold text-gray-500 dark:text-gray-400">{level.name}</p>
+                          </div>
+                        </div>
+                        {isCompleted && <FaCheckCircle className="text-green-500 text-2xl" />}
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 leading-relaxed">{level.desc}</p>
+                    </div>
+                    <div className="px-5 py-3 bg-white/50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        <span className="flex items-center gap-1"><FaBookOpen size={10} /> {level.testWordCount} слов</span>
+                        <span className="flex items-center gap-1"><FaLayerGroup size={10} /> {level.questionCount} вопр.</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium">Прогресс</span>
+                        <span className="text-xs font-bold text-orange-500">{percent}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1 overflow-hidden">
+                        <div className={`h-full rounded-full ${isCompleted ? "bg-green-500" : "bg-gradient-to-r from-orange-500 to-amber-500"}`} style={{ width: `${percent}%` }} />
+                      </div>
+                      <div className="mt-2 text-right">
+                        <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
+                          Начать тест →
+                        </span>
+                      </div>
+                    </div>
+                  </motion.button>
+                )
+              })}
+            </div>
+
+            {/* Круговая диаграмма – смещена вниз */}
+            <div className="flex items-start justify-center mt-8 md:mt-12 lg:mt-16">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-gray-200/50 dark:border-gray-700/50">
+                <div className="relative w-64 h-64 md:w-72 md:h-72">
+                  <svg className="w-full h-full" viewBox="0 0 160 160">
+                    <circle className="text-gray-200 dark:text-gray-700" strokeWidth="10" stroke="currentColor" fill="transparent" r="70" cx="80" cy="80" />
+                    <motion.circle
+                      className="text-orange-500"
+                      strokeWidth="10"
+                      strokeDasharray={circumference}
+                      initial={{ strokeDashoffset: circumference }}
+                      animate={{ strokeDashoffset: circumference - (circumference * overallProgress) / 100 }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="transparent"
+                      r="70"
+                      cx="80"
+                      cy="80"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-5xl font-black text-gray-800 dark:text-white">{completedCount}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">из {totalLevels}</span>
+                    <span className="text-2xl font-bold text-orange-500 mt-2">{Math.round(overallProgress)}%</span>
+                  </div>
+                </div>
+                <p className="text-center text-sm font-bold text-gray-500 dark:text-gray-400 mt-3">Общий прогресс</p>
               </div>
             </div>
-            <div className="w-full sm:w-64 bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-              <motion.div
-                className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${(completedCount / totalLevels) * 100}%` }}
-                transition={{ duration: 0.5 }}
-              />
+
+            {/* Правая колонка: B1, B2 */}
+            <div className="flex flex-col gap-6 w-96 overflow-visible">
+              {levelsData.slice(2, 4).map((level) => {
+                const Icon = level.icon
+                const isCompleted = completed[level.id]
+                const percent = isCompleted ? 100 : 0
+                return (
+                  <motion.button
+                    key={level.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onStartTest(level.id)}
+                    className="group w-full rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className={`h-1 w-full bg-gradient-to-r ${level.bgGradient}`} />
+                    <div className="p-5">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${level.bgGradient} flex items-center justify-center shadow-md`}>
+                            <Icon className="text-white text-2xl" />
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-black text-gray-800 dark:text-white">{level.title}</h3>
+                            <p className="text-sm font-bold text-gray-500 dark:text-gray-400">{level.name}</p>
+                          </div>
+                        </div>
+                        {isCompleted && <FaCheckCircle className="text-green-500 text-2xl" />}
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 leading-relaxed">{level.desc}</p>
+                    </div>
+                    <div className="px-5 py-3 bg-white/50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        <span className="flex items-center gap-1"><FaBookOpen size={10} /> {level.testWordCount} слов</span>
+                        <span className="flex items-center gap-1"><FaLayerGroup size={10} /> {level.questionCount} вопр.</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium">Прогресс</span>
+                        <span className="text-xs font-bold text-orange-500">{percent}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1 overflow-hidden">
+                        <div className={`h-full rounded-full ${isCompleted ? "bg-green-500" : "bg-gradient-to-r from-orange-500 to-amber-500"}`} style={{ width: `${percent}%` }} />
+                      </div>
+                      <div className="mt-2 text-right">
+                        <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
+                          Начать тест →
+                        </span>
+                      </div>
+                    </div>
+                  </motion.button>
+                )
+              })}
             </div>
           </div>
-        </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {levelsData.map((level, idx) => {
-            const Icon = level.icon
-            const isCompleted = completed[level.id]
-            return (
-              <motion.button
-                key={level.id}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                whileHover={{ y: -6, scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => onStartTest(level.id)}
-                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
-              >
-                <div className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${level.bgGradient}`} />
-                <div className="p-6 pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${level.bgGradient} flex items-center justify-center shadow-md`}>
-                      <Icon className="text-white text-3xl" />
-                    </div>
-                    {isCompleted && (
-                      <div className="bg-green-100 dark:bg-green-900/40 rounded-full p-1.5">
-                        <FaCheckCircle className="text-green-600 dark:text-green-400 text-xl" />
+          {/* C1 снизу по центру */}
+          <div className="flex justify-center w-full max-w-md mt-8 overflow-visible">
+            {levelsData.slice(4, 5).map((level) => {
+              const Icon = level.icon
+              const isCompleted = completed[level.id]
+              const percent = isCompleted ? 100 : 0
+              return (
+                <motion.button
+                  key={level.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onStartTest(level.id)}
+                  className="group w-full rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
+                >
+                  <div className={`h-1 w-full bg-gradient-to-r ${level.bgGradient}`} />
+                  <div className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${level.bgGradient} flex items-center justify-center shadow-md`}>
+                          <Icon className="text-white text-2xl" />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-black text-gray-800 dark:text-white">{level.title}</h3>
+                          <p className="text-sm font-bold text-gray-500 dark:text-gray-400">{level.name}</p>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  <div className="mt-4">
-                    <h3 className="text-2xl font-black text-gray-800 dark:text-white">{level.title}</h3>
-                    <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-0.5">{level.name}</p>
+                      {isCompleted && <FaCheckCircle className="text-green-500 text-2xl" />}
+                    </div>
                     <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 leading-relaxed">{level.desc}</p>
                   </div>
-                </div>
-                <div className="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{level.questionCount} вопросов</span>
-                  <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
-                    Начать тест →
-                  </span>
-                </div>
-              </motion.button>
-            )
-          })}
+                  <div className="px-5 py-3 bg-white/50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      <span className="flex items-center gap-1"><FaBookOpen size={10} /> {level.testWordCount} слов</span>
+                      <span className="flex items-center gap-1"><FaLayerGroup size={10} /> {level.questionCount} вопр.</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-medium">Прогресс</span>
+                      <span className="text-xs font-bold text-orange-500">{percent}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1 overflow-hidden">
+                      <div className={`h-full rounded-full ${isCompleted ? "bg-green-500" : "bg-gradient-to-r from-orange-500 to-amber-500"}`} style={{ width: `${percent}%` }} />
+                    </div>
+                    <div className="mt-2 text-right">
+                      <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
+                        Начать тест →
+                      </span>
+                    </div>
+                  </div>
+                </motion.button>
+              )
+            })}
+          </div>
         </div>
 
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.4 }}
           className="mt-12 text-center"
         >
           <p className="text-sm text-gray-400 dark:text-gray-500">

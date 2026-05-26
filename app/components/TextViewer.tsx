@@ -32,7 +32,7 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         onClick={() => { playClickSound(); onBack() }}
-        className="mb-6 inline-flex items-center gap-2 text-gray-500 hover:text-orange-500 transition font-medium"
+        className="mb-6 inline-flex items-center gap-2 text-gray-500 hover:text-orange-500 dark:text-gray-400 transition font-medium"
       >
         <FaArrowLeft /> Назад к списку
       </motion.button>

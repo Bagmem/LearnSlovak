@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { motion } from "framer-motion"
 import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog, FaClipboardList } from "react-icons/fa"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { auth, db } from "../lib/firebase"
 import { onAuthStateChanged, signOut } from "firebase/auth"
-import { doc, getDoc } from "firebase/firestore"
-import { canAccessLevel, normalizeUserLevel } from "../lib/levels"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
+import { canAccessLevel, normalizeUserLevel, getNextLevel, type UserLevel } from "../lib/levels"
 import { words, type Word, type LanguageLevel } from "../data/words"
 import { grammarTasks } from "../data/grammar"
 import { texts, type SlovakText } from "../data/texts"
@@ -86,38 +87,34 @@ export default function Home() {
   const { theme, toggleTheme } = useTheme()
   const { unlocked, lastUnlocked, checkAchievements, isLoaded: achievementsLoaded } = useAchievements()
   const { isRead, markAsRead, isQuizCompleted, getQuizScore, markQuizCompleted, hasXpEarned } = useTextProgress()
-const router = useRouter()
-const [user, setUser] = useState<any>(null)
-const [userLevel, setUserLevel] = useState<LanguageLevel>("A1")
-const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [userLevel, setUserLevel] = useState<UserLevel>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-    setUser(currentUser)
-
-    if (!currentUser) {
-      setUserLevel("A1")
-      return
-    }
-
-    try {
-      const profileRef = doc(db, "users", currentUser.uid)
-      const profileSnap = await getDoc(profileRef)
-
-      if (profileSnap.exists()) {
-        const data = profileSnap.data()
-        setUserLevel(normalizeUserLevel(data.level))
-      } else {
-        setUserLevel("A1")
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser)
+      if (!currentUser) {
+        setUserLevel(null)
+        return
       }
-    } catch (error) {
-      console.error("Ошибка загрузки уровня пользователя:", error)
-      setUserLevel("A1")
-    }
-  })
-
-  return () => unsubscribe()
-}, [])
+      try {
+        const profileRef = doc(db, "users", currentUser.uid)
+        const profileSnap = await getDoc(profileRef)
+        if (profileSnap.exists()) {
+          const data = profileSnap.data()
+          setUserLevel(normalizeUserLevel(data.level))
+        } else {
+          setUserLevel(null)
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки уровня пользователя:", error)
+        setUserLevel(null)
+      }
+    })
+    return () => unsubscribe()
+  }, [])
 
   // ---------- Все useState ----------
   const [globalTab, setGlobalTab] = useState<"study" | "texts" | "test" | "reference">("study")
@@ -148,7 +145,6 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [selectedText, setSelectedText] = useState<SlovakText | null>(null)
   const [quizText, setQuizText] = useState<SlovakText | null>(null)
 
-  // Состояния для теста
   const [testLevel, setTestLevel] = useState<LanguageLevel | null>(null)
   // ---------------------------------------------------------------------------
 
@@ -277,30 +273,28 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
     })
   }, [])
 
- const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
-  if (!canAccessLevel(userLevel, level)) {
-    setMessage(`Уровень ${level} пока закрыт. Твой текущий уровень: ${userLevel}`)
-    return
-  }
-
-  const poolSource = dataSource === "vocab" ? words : grammarTasks
-  const filteredWords = poolSource.filter((w) => w.category === category && w.level === level)
-
-  setLessonWords(filteredWords)
-  setCompletedWords(new Set())
-  setCurrentDataSource(dataSource)
-  setSelectedCategory(category)
-  setSelectedLevel(level)
-  setCorrectAnswersCount(0)
-  setTotalClicksCount(0)
-  setLives(3)
-  setMessage("")
-  setSelectedOption(null)
-  setIsAnswering(false)
-  setCurrentWord(filteredWords.length > 0 ? selectNextWord(filteredWords, wordStatsMap) : null)
-  setScreen("game")
-  playLessonStartSound()
-}, [wordStatsMap, userLevel])
+  const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
+    if (!canAccessLevel(userLevel, level)) {
+      setMessage(`Уровень ${level} пока закрыт. Твой текущий уровень: ${userLevel || "не задан"}`)
+      return
+    }
+    const poolSource = dataSource === "vocab" ? words : grammarTasks
+    const filteredWords = poolSource.filter((w) => w.category === category && w.level === level)
+    setLessonWords(filteredWords)
+    setCompletedWords(new Set())
+    setCurrentDataSource(dataSource)
+    setSelectedCategory(category)
+    setSelectedLevel(level)
+    setCorrectAnswersCount(0)
+    setTotalClicksCount(0)
+    setLives(3)
+    setMessage("")
+    setSelectedOption(null)
+    setIsAnswering(false)
+    setCurrentWord(filteredWords.length > 0 ? selectNextWord(filteredWords, wordStatsMap) : null)
+    setScreen("game")
+    playLessonStartSound()
+  }, [wordStatsMap, userLevel])
 
   const triggerAchievementCheck = useCallback(() => {
     const state: AchievementState = {
@@ -364,10 +358,8 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
     initAudio()
     setIsAnswering(true)
     setTotalClicksCount((v) => v + 1)
-
     const wordKey = getWordKey(currentWord)
     setStatsForWord(wordKey, known)
-
     let nextCompleted = completedWords
     if (known && !completedWords.has(wordKey)) {
       nextCompleted = new Set(completedWords)
@@ -381,7 +373,6 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
     } else if (!known) {
       playWrongSound()
     }
-
     const remainingWords = lessonWords.filter((w) => !nextCompleted.has(getWordKey(w)))
     if (remainingWords.length === 0) {
       playVictorySound()
@@ -404,7 +395,6 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
       setIsAnswering(false)
       return
     }
-
     setCurrentWord(selectNextWord(remainingWords, wordStatsMap))
     setIsAnswering(false)
   }, [isAnswering, currentWord, completedWords, lessonWords, updateCategoryProgress, setStatsForWord, wordStatsMap, activeDates, selectedLevel, selectedCategory, currentDataSource, totalLessonWords])
@@ -417,12 +407,10 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
       setSelectedOption(null)
       return
     }
-
     if (remainingWordsCount === 0) {
       playVictorySound()
       const categoryKey = `${selectedLevel}_${selectedCategory}_${currentDataSource}`
       if (canEarnLessonBonus(categoryKey)) setXp((v) => v + 50)
-
       const todayStr = getLocalDateString()
       const nextDates = activeDates.includes(todayStr) ? activeDates : [...activeDates, todayStr]
       if (!activeDates.includes(todayStr)) {
@@ -433,12 +421,10 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
       setScreen("victory")
       return
     }
-
     if (notCompletedWords.length === 0) {
       setScreen("victory")
       return
     }
-
     setCurrentWord(selectNextWord(notCompletedWords, wordStatsMap))
     setMessage("")
     setIsAnswering(false)
@@ -485,15 +471,28 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
     setTestLevel(level)
   }
 
-  const handleTestComplete = (score: number, total: number, xpEarned: number) => {
+  const handleTestComplete = async (score: number, total: number, xpEarned: number) => {
     setXp(prev => prev + xpEarned)
     const saved = localStorage.getItem("test_completed_levels")
     const completed = saved ? JSON.parse(saved) : {}
     if (testLevel) {
-      // Уровень считается пройденным только при 100% правильных ответов
       if (score === total) {
         completed[testLevel] = true
         localStorage.setItem("test_completed_levels", JSON.stringify(completed))
+        const expectedLevel = userLevel === null ? "A1" : getNextLevel(userLevel)
+        if (testLevel === expectedLevel && user) {
+          const nextLevel = getNextLevel(userLevel)
+          if (nextLevel) {
+            try {
+              const userRef = doc(db, "users", user.uid)
+              await updateDoc(userRef, { level: nextLevel })
+              setUserLevel(nextLevel)
+              alert(`🎉 Поздравляем! Ваш уровень повышен до ${nextLevel}!`)
+            } catch (error) {
+              console.error("Ошибка повышения уровня:", error)
+            }
+          }
+        }
       }
     }
     setTestLevel(null)
@@ -548,82 +547,78 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <aside className="fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-800 shadow-xl z-30 flex flex-col">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🇸🇰</span>
-            <h1 className="text-xl font-black bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
-              LearnSlovak
-            </h1>
-          </div>
-        </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <button
-            onClick={() => setGlobalTab("study")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              globalTab === "study" ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            }`}
-          >
-            <FaBullseye size={20} />
-            <span>Изучение</span>
-          </button>
-          <button
-            onClick={() => setGlobalTab("texts")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              globalTab === "texts" ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            }`}
-          >
-            <FaScroll size={20} />
-            <span>Тексты</span>
-          </button>
-          <button
-            onClick={() => setGlobalTab("test")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              globalTab === "test" ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            }`}
-          >
-            <FaClipboardList size={20} />
-            <span>Тест</span>
-          </button>
-          <button
-            onClick={() => setGlobalTab("reference")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              globalTab === "reference" ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            }`}
-          >
-            <FaBookOpen size={20} />
-            <span>Справочник</span>
-          </button>
+    <div className="min-h-screen">
+      <aside className="fixed left-0 top-0 h-full w-64 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-2xl z-30 flex flex-col border-r border-gray-200/50 dark:border-gray-700/50">
+        {/* Минималистичный заголовок */}
+        <div className="px-5 pt-6 pb-4 border-b border-gray-200/50 dark:border-gray-700/50">
+  <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
+    LearnSlovak
+  </h1>
+</div>
+
+        <nav className="flex-1 p-4 space-y-1.5">
+          {[
+            { id: "study", label: "Изучение", icon: <FaBullseye size={20} />, active: globalTab === "study" },
+            { id: "texts", label: "Тексты", icon: <FaScroll size={20} />, active: globalTab === "texts" },
+            { id: "test", label: "Тест", icon: <FaClipboardList size={20} />, active: globalTab === "test" },
+            { id: "reference", label: "Справочник", icon: <FaBookOpen size={20} />, active: globalTab === "reference" },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setGlobalTab(item.id as any)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                item.active
+                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+              }`}
+            >
+              <span className={`${item.active ? "text-white" : "text-gray-500 dark:text-gray-400 group-hover:text-orange-500 transition-colors"}`}>
+                {item.icon}
+              </span>
+              <span className="font-bold text-sm">{item.label}</span>
+              {item.active && (
+                <motion.div
+                  layoutId="activeNav"
+                  className="ml-auto w-1.5 h-1.5 rounded-full bg-white/80"
+                  transition={{ duration: 0.2 }}
+                />
+              )}
+            </button>
+          ))}
         </nav>
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+
+        <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3">
           {user ? (
             <>
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all mb-2"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all group"
               >
-                <FaCog size={20} />
-                <span>Настройки</span>
+                <FaCog size={20} className="group-hover:rotate-90 transition-transform duration-300" />
+                <span className="font-bold text-sm">Настройки</span>
               </button>
               <Link
                 href="/profile"
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all mb-2"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all group"
               >
-                <FaUserCircle size={20} />
-                <span>Мой профиль</span>
+                <FaUserCircle size={20} className="group-hover:scale-105 transition-transform" />
+                <span className="font-bold text-sm">Мой профиль</span>
               </Link>
-              <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-200/50 dark:border-gray-700/50">
                 <div className="flex items-center gap-2">
-                  <FaUserCircle size={24} className="text-gray-500" />
-                  <span className="text-sm font-medium truncate">{user.displayName || user.email?.split('@')[0]}</span>
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-md">
+                    <FaUserCircle size={16} className="text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[120px]">
+                    {user.displayName || user.email?.split('@')[0]}
+                  </span>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400"
                   title="Выйти"
                 >
-                  <FaSignOutAlt size={18} />
+                  <FaSignOutAlt size={16} />
                 </button>
               </div>
             </>
@@ -631,13 +626,13 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
             <div className="space-y-2">
               <button
                 onClick={() => router.push("/login")}
-                className="w-full py-2 text-center text-sm font-bold bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition"
+                className="w-full py-2.5 text-center text-sm font-bold bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl shadow-md hover:shadow-lg transition"
               >
                 Войти
               </button>
               <button
                 onClick={() => router.push("/register")}
-                className="w-full py-2 text-center text-sm font-bold border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                className="w-full py-2.5 text-center text-sm font-bold border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition text-gray-800 dark:text-gray-200"
               >
                 Регистрация
               </button>
@@ -649,26 +644,27 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
       <main className="ml-64 min-h-screen p-8">
         <div className="max-w-7xl mx-auto">
           {globalTab === "study" && (
-           <StartMenu
-  onSelectCategory={handleSelectCategory}
-  userLevel={userLevel}
-  xp={xp}
-  progressData={progressData}
-  streak={streak}
-  activeDates={activeDates}
-  gameMode={gameMode}
-  setGameMode={setGameMode}
-  settings={settings}
-  onToggleMute={toggleMute}
-  onSetSpeechRate={setSpeechRate}
-  onSetAutoSpeak={setAutoSpeak}
-  theme={theme}
-  onToggleTheme={toggleTheme}
-  correctAnswersCount={correctAnswersCount}
-  totalClicksCount={totalClicksCount}
-  learnedWordsCount={learnedWordsCount}
-  completedCategoriesCount={completedCategoriesCount}
-/>)}
+            <StartMenu
+              onSelectCategory={handleSelectCategory}
+              userLevel={userLevel}
+              xp={xp}
+              progressData={progressData}
+              streak={streak}
+              activeDates={activeDates}
+              gameMode={gameMode}
+              setGameMode={setGameMode}
+              settings={settings}
+              onToggleMute={toggleMute}
+              onSetSpeechRate={setSpeechRate}
+              onSetAutoSpeak={setAutoSpeak}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              correctAnswersCount={correctAnswersCount}
+              totalClicksCount={totalClicksCount}
+              learnedWordsCount={learnedWordsCount}
+              completedCategoriesCount={completedCategoriesCount}
+            />
+          )}
           {globalTab === "reference" && (
             <ReferenceView
               progressData={progressData}
@@ -694,10 +690,10 @@ const [isSettingsOpen, setIsSettingsOpen] = useState(false)
               />
             ) : (
               <TextsMenu
-  onSelectText={setSelectedText}
-  readStatus={Object.fromEntries(texts.map(t => [t.id, isRead(t.id)]))}
-  userLevel={userLevel}
-/>
+                onSelectText={setSelectedText}
+                readStatus={Object.fromEntries(texts.map(t => [t.id, isRead(t.id)]))}
+                userLevel={userLevel}
+              />
             )
           )}
           {globalTab === "test" && (

@@ -3,14 +3,13 @@
 import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../data/texts"
-import type { LanguageLevel } from "../../data/words"
-import { canAccessLevel } from "../../lib/levels"
+import { type UserLevel, canAccessLevel } from "../../lib/levels"
 import { FaCheckCircle, FaFilter, FaTimes, FaSearch } from "react-icons/fa"
 
 type TextsMenuProps = {
   onSelectText: (text: SlovakText) => void
   readStatus: Record<string, boolean>
-  userLevel: LanguageLevel
+  userLevel: UserLevel
 }
 
 const topicLabels: Record<TextTopic, string> = {
@@ -48,34 +47,29 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
       { value: "B1", label: "B1" },
       { value: "B2", label: "B2" },
     ]
-
     return allLevels.filter((level) => {
-      return level.value === "all" || canAccessLevel(userLevel, level.value as LanguageLevel)
+      return level.value === "all" || canAccessLevel(userLevel, level.value as any)
     })
   }, [userLevel])
 
   useEffect(() => {
-    if (selectedLevel !== "all" && !canAccessLevel(userLevel, selectedLevel as LanguageLevel)) {
+    if (selectedLevel !== "all" && !canAccessLevel(userLevel, selectedLevel as any)) {
       setSelectedLevel("all")
     }
   }, [userLevel, selectedLevel])
 
   const filteredTexts = useMemo(() => {
-    let result = texts.filter((text) => canAccessLevel(userLevel, text.level as LanguageLevel))
-
+    let result = texts.filter((text) => canAccessLevel(userLevel, text.level as any))
     if (selectedLevel !== "all") {
       result = result.filter((text) => text.level === selectedLevel)
     }
-
     if (selectedTopic !== "all") {
       result = result.filter((text) => text.topic === selectedTopic)
     }
-
     if (searchQuery.trim()) {
       const lowerQuery = searchQuery.toLowerCase()
       result = result.filter((text) => text.title.toLowerCase().includes(lowerQuery))
     }
-
     return result
   }, [selectedLevel, selectedTopic, searchQuery, userLevel])
 
@@ -112,7 +106,7 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
         <p className="text-gray-500 dark:text-gray-400 mt-2">Улучшай словацкий с интересными текстами</p>
       </motion.div>
 
-      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-5 mb-8 border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="bg-gradient-to-br from-white to-orange-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-5 mb-8 border border-gray-200/50 dark:border-gray-700/50 shadow-md">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
             <FaFilter />
@@ -133,7 +127,7 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
               placeholder="Поиск по названию..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-orange-500 outline-none transition"
+              className="pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-orange-500 outline-none transition text-gray-900 dark:text-white"
             />
           </div>
         </div>
@@ -171,7 +165,7 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
 
       {filteredTexts.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
-          <p className="text-gray-500 text-lg">Нет текстов по выбранным фильтрам.</p>
+          <p className="text-gray-500 dark:text-gray-400 text-lg">Нет текстов по выбранным фильтрам.</p>
           <button onClick={clearFilters} className="mt-4 text-orange-500 font-bold underline">Сбросить фильтры</button>
         </motion.div>
       ) : (
@@ -179,7 +173,6 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
           <AnimatePresence>
             {filteredTexts.map((text, idx) => {
               const isRead = readStatus[text.id] || false
-
               return (
                 <motion.button
                   key={text.id}
@@ -218,7 +211,7 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
                     </p>
                     <div className="mt-4 flex items-center justify-between">
                       <span className="text-xs text-orange-500 font-bold">Читать →</span>
-                      {!isRead && <span className="text-xs text-gray-400">Новое</span>}
+                      {!isRead && <span className="text-xs text-gray-400 dark:text-gray-500">Новое</span>}
                     </div>
                   </div>
                 </motion.button>

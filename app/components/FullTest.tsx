@@ -14,13 +14,6 @@ type FullTestProps = {
   onBack: () => void
 }
 
-type SectionResult = {
-  title: string
-  score: number
-  maxScore: number
-  percentage: number
-}
-
 export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
   const [section, setSection] = useState(0)
   const [sectionScores, setSectionScores] = useState<{ score: number; max: number }[]>([])
@@ -32,9 +25,24 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
     const textSection = getTextSection(level)
     const translationWords = getTranslationWords(level)
     const verbQuestions = getVerbQuestions(level, 6)
-    const matchPairs = getMatchPairs(level, 6)
-    const tfStatements = getTrueFalseQuestions(6)
-    setTestData({ textSection, translationWords, verbQuestions, matchPairs, tfStatements })
+    const matchPairsRaw = getMatchPairs(level, 6)
+    let matchPairsData: { left: string[]; right: string[]; pairs: { slovak: string; russian: string }[] } = {
+      left: [],
+      right: [],
+      pairs: [],
+    }
+    if (matchPairsRaw && typeof matchPairsRaw === 'object' && 'pairs' in matchPairsRaw) {
+      matchPairsData = matchPairsRaw as typeof matchPairsData
+    } else if (Array.isArray(matchPairsRaw)) {
+      const pairs = matchPairsRaw as { slovak: string; russian: string }[]
+      matchPairsData = {
+        left: pairs.map(p => p.slovak),
+        right: pairs.map(p => p.russian),
+        pairs,
+      }
+    }
+   const tfStatements = getTrueFalseQuestions(level, 6)
+    setTestData({ textSection, translationWords, verbQuestions, matchPairs: matchPairsData, tfStatements })
     setLoading(false)
   }, [level])
 
@@ -42,7 +50,6 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
     const newScores = [...sectionScores]
     newScores[section] = { score, max: maxScore }
     setSectionScores(newScores)
-
     if (section < 4) {
       setSection(section + 1)
     } else {
@@ -83,7 +90,7 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
       "Правда / Ложь",
     ]
 
-    const results: SectionResult[] = sectionScores.map((s, idx) => ({
+    const results = sectionScores.map((s, idx) => ({
       title: sectionNames[idx],
       score: s.score,
       maxScore: s.max,
@@ -206,7 +213,13 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => { playClickSound(); onBack() }} className="text-gray-400 hover:text-gray-600 transition">
+        <button
+          onClick={() => {
+            playClickSound()
+            onBack()
+          }}
+          className="text-gray-400 hover:text-gray-600 transition"
+        >
           <FaArrowLeft className="inline mr-1" /> Назад к уровням
         </button>
         <div className="flex-1 text-center">
@@ -239,10 +252,18 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
           {currentSection === 0 && testData.textSection && (
             <SectionText text={testData.textSection.text} questions={testData.textSection.questions} onComplete={handleSectionComplete} />
           )}
-          {currentSection === 1 && <SectionTranslation words={testData.translationWords} onComplete={handleSectionComplete} />}
-          {currentSection === 2 && <SectionVerb questions={testData.verbQuestions} onComplete={handleSectionComplete} />}
-          {currentSection === 3 && <SectionMatch matchData={testData.matchPairs} onComplete={handleSectionComplete} />}
-          {currentSection === 4 && <SectionTrueFalse statements={testData.tfStatements} onComplete={handleSectionComplete} />}
+          {currentSection === 1 && (
+            <SectionTranslation words={testData.translationWords} onComplete={handleSectionComplete} />
+          )}
+          {currentSection === 2 && (
+            <SectionVerb questions={testData.verbQuestions} onComplete={handleSectionComplete} />
+          )}
+          {currentSection === 3 && testData.matchPairs && (
+            <SectionMatch matchData={testData.matchPairs} onComplete={handleSectionComplete} />
+          )}
+          {currentSection === 4 && (
+            <SectionTrueFalse statements={testData.tfStatements} onComplete={handleSectionComplete} />
+          )}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -405,54 +426,82 @@ function SectionVerb({ questions, onComplete }: { questions: any[]; onComplete: 
     </div>
   )
 }
-
-// Секция 4: Сопоставление пар (обновлённая версия)
+// ========== Секция 4 (сопоставление пар) – без отображения результата, просто переход ==========
 function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; right: string[]; pairs: { slovak: string; russian: string }[] }; onComplete: (score: number, maxScore: number) => void }) {
   const { left, right, pairs } = matchData
+  const [connections, setConnections] = useState<Map<number, number>>(new Map())
   const [selectedLeft, setSelectedLeft] = useState<number | null>(null)
-  const [matches, setMatches] = useState<{ leftIdx: number; rightIdx: number }[]>([])
-  const [showResult, setShowResult] = useState(false)
+
+  const allConnected = left.length === connections.size
 
   const handleLeftClick = (idx: number) => {
-    if (showResult) return
-    setSelectedLeft(idx)
+    if (connections.has(idx)) {
+      const newConn = new Map(connections)
+      newConn.delete(idx)
+      setConnections(newConn)
+      if (selectedLeft === idx) setSelectedLeft(null)
+    } else {
+      setSelectedLeft(idx)
+    }
   }
 
   const handleRightClick = (idx: number) => {
-    if (showResult || selectedLeft === null) return
-    // Проверяем, не соединён ли уже этот правый элемент
-    if (matches.some(m => m.rightIdx === idx)) return
-
-    const newMatches = [...matches, { leftIdx: selectedLeft, rightIdx: idx }]
-    setMatches(newMatches)
-    setSelectedLeft(null)
-  }
-
-  const handleCheck = () => {
-    if (matches.length === pairs.length) {
-      setShowResult(true)
+    if (selectedLeft !== null) {
+      const newConn = new Map(connections)
+      // Если это правое уже соединено с другим левым, удаляем ту связь
+      let existingLeft: number | undefined
+      for (let [l, r] of newConn.entries()) {
+        if (r === idx) {
+          existingLeft = l
+          break
+        }
+      }
+      if (existingLeft !== undefined) {
+        newConn.delete(existingLeft)
+      }
+      newConn.set(selectedLeft, idx)
+      setConnections(newConn)
+      setSelectedLeft(null)
+    } else {
+      // Если ничего не выбрано, но кликнули на правое – пробуем разорвать его связь
+      let leftToRemove: number | undefined
+      for (let [l, r] of connections.entries()) {
+        if (r === idx) {
+          leftToRemove = l
+          break
+        }
+      }
+      if (leftToRemove !== undefined) {
+        const newConn = new Map(connections)
+        newConn.delete(leftToRemove)
+        setConnections(newConn)
+      }
     }
   }
 
-  const calculateScore = () => {
+  const handleNext = () => {
+    if (!allConnected) return
     let correct = 0
-    for (const match of matches) {
-      const slovakWord = left[match.leftIdx]
-      const expectedRussian = pairs.find(p => p.slovak === slovakWord)?.russian
-      const selectedRussian = right[match.rightIdx]
-      if (expectedRussian === selectedRussian) correct++
+    for (let [l, r] of connections.entries()) {
+      const slovak = left[l]
+      const expected = pairs.find(p => p.slovak === slovak)?.russian
+      if (expected === right[r]) correct++
     }
-    return correct
+    onComplete(correct, pairs.length)
   }
 
-  const allMatched = matches.length === pairs.length
+  // Простая подсветка: выбранное левое слово – оранжевое, соединённые слова – оранжевые
+  const getLeftStyle = (idx: number) => {
+    if (connections.has(idx)) return "bg-orange-100 dark:bg-orange-900 border-orange-400 shadow-md"
+    if (selectedLeft === idx) return "bg-orange-100 dark:bg-orange-900 border-2 border-orange-500 shadow-md"
+    return "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+  }
 
-  // Если результат показан, высчитываем правильность и отображаем
-  const isMatchCorrect = (leftIdx: number, rightIdx: number) => {
-    const slovakWord = left[leftIdx]
-    const expectedRussian = pairs.find(p => p.slovak === slovakWord)?.russian
-    const selectedRussian = right[rightIdx]
-    return expectedRussian === selectedRussian
+  const getRightStyle = (idx: number) => {
+    let isConnected = false
+    for (let r of connections.values()) if (r === idx) { isConnected = true; break }
+    if (isConnected) return "bg-orange-100 dark:bg-orange-900 border-orange-400 shadow-md"
+    return "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
   }
 
   return (
@@ -460,93 +509,40 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
       <div className="grid grid-cols-2 gap-8">
         <div className="space-y-3">
           <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-2">🇸🇰 Словацкий</h3>
-          {left.map((word, idx) => {
-            const matchedRightIdx = matches.find(m => m.leftIdx === idx)?.rightIdx
-            const isMatched = matchedRightIdx !== undefined
-            let bgClass = "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-            if (showResult && isMatched) {
-              const correct = isMatchCorrect(idx, matchedRightIdx!)
-              bgClass = correct
-                ? "bg-orange-100 dark:bg-orange-900/50 border-2 border-orange-500"
-                : "bg-red-100 dark:bg-red-900/30 border-2 border-red-500"
-            } else if (selectedLeft === idx) {
-              bgClass = "bg-orange-100 dark:bg-orange-900 border-2 border-orange-500 shadow-md"
-            } else if (isMatched) {
-              bgClass = "bg-gray-300 dark:bg-gray-600 opacity-70 cursor-not-allowed"
-            }
-            return (
-              <div
-                key={idx}
-                onClick={() => handleLeftClick(idx)}
-                className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${bgClass} ${
-                  isMatched && !showResult ? "cursor-not-allowed" : "cursor-pointer"
-                }`}
-              >
-                {word}
-                {isMatched && !showResult && (
-                  <span className="ml-2 text-green-600 dark:text-green-400">✓</span>
-                )}
-              </div>
-            )
-          })}
+          {left.map((word, idx) => (
+            <div key={idx} onClick={() => handleLeftClick(idx)} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${getLeftStyle(idx)}`}>
+              {word}
+            </div>
+          ))}
         </div>
         <div className="space-y-3">
           <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-2">🇷🇺 Русский</h3>
-          {right.map((word, idx) => {
-            const matchedLeftIdx = matches.find(m => m.rightIdx === idx)?.leftIdx
-            const isMatched = matchedLeftIdx !== undefined
-            let bgClass = "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-            if (showResult && isMatched) {
-              const correct = isMatchCorrect(matchedLeftIdx!, idx)
-              bgClass = correct
-                ? "bg-orange-100 dark:bg-orange-900/50 border-2 border-orange-500"
-                : "bg-red-100 dark:bg-red-900/30 border-2 border-red-500"
-            } else if (selectedLeft !== null && !isMatched) {
-              // Подсвечиваем все правые элементы, когда выбран левый (но не соединённые)
-              bgClass = "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300"
-            } else if (isMatched) {
-              bgClass = "bg-gray-300 dark:bg-gray-600 opacity-70 cursor-not-allowed"
-            }
-            return (
-              <div
-                key={idx}
-                onClick={() => handleRightClick(idx)}
-                className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${bgClass} ${
-                  isMatched || showResult ? "cursor-not-allowed" : "cursor-pointer"
-                }`}
-              >
-                {word}
-                {isMatched && !showResult && (
-                  <span className="ml-2 text-green-600 dark:text-green-400">✓</span>
-                )}
-              </div>
-            )
-          })}
+          {right.map((word, idx) => (
+            <div key={idx} onClick={() => handleRightClick(idx)} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${getRightStyle(idx)}`}>
+              {word}
+            </div>
+          ))}
         </div>
       </div>
-
-      {!showResult && (
+      <div className="flex gap-4">
         <button
-          onClick={handleCheck}
-          disabled={!allMatched}
-          className={`w-full py-3 rounded-xl font-bold transition-all ${
-            allMatched
-              ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md hover:shadow-lg transform hover:scale-[1.01]"
+          onClick={handleNext}
+          disabled={!allConnected}
+          className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+            allConnected
+              ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md hover:shadow-lg transform hover:scale-[1.01]"
               : "bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed"
           }`}
         >
-          {allMatched ? "Проверить пары" : `Соедините все пары (${matches.length}/${pairs.length})`}
-        </button>
-      )}
-
-      {showResult && (
-        <button
-          onClick={() => onComplete(calculateScore(), pairs.length)}
-          className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black rounded-xl shadow-md hover:shadow-lg transform hover:scale-[1.01] transition"
-        >
           Далее →
         </button>
-      )}
+        <button
+          onClick={() => { setConnections(new Map()); setSelectedLeft(null); }}
+          className="px-4 py-3 rounded-xl font-bold bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+        >
+          Сбросить все
+        </button>
+      </div>
     </div>
   )
 }
@@ -571,45 +567,21 @@ function SectionTrueFalse({ statements, onComplete }: { statements: { statement:
           <p className="font-bold mb-3 text-gray-800 dark:text-white">{stmt.statement}</p>
           <div className="flex gap-4">
             <button
-              onClick={() => {
-                const newAnswers = [...answers]
-                newAnswers[idx] = true
-                setAnswers(newAnswers)
-              }}
-              className={`px-6 py-2 rounded-full font-bold transition-all ${
-                answers[idx] === true
-                  ? "bg-green-500 text-white shadow-md"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-              }`}
+              onClick={() => { const newA = [...answers]; newA[idx] = true; setAnswers(newA); }}
+              className={`px-6 py-2 rounded-full font-bold transition-all ${answers[idx] === true ? "bg-green-500 text-white shadow-md" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}
             >
               Верно
             </button>
             <button
-              onClick={() => {
-                const newAnswers = [...answers]
-                newAnswers[idx] = false
-                setAnswers(newAnswers)
-              }}
-              className={`px-6 py-2 rounded-full font-bold transition-all ${
-                answers[idx] === false
-                  ? "bg-red-500 text-white shadow-md"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-              }`}
+              onClick={() => { const newA = [...answers]; newA[idx] = false; setAnswers(newA); }}
+              className={`px-6 py-2 rounded-full font-bold transition-all ${answers[idx] === false ? "bg-red-500 text-white shadow-md" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"}`}
             >
               Неверно
             </button>
           </div>
         </div>
       ))}
-      <button
-        onClick={handleSubmit}
-        disabled={!allAnswered}
-        className={`w-full py-3 rounded-xl font-bold transition-all ${
-          allAnswered
-            ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md hover:shadow-lg transform hover:scale-[1.01]"
-            : "bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed"
-        }`}
-      >
+      <button onClick={handleSubmit} disabled={!allAnswered} className={`w-full py-3 rounded-xl font-bold transition-all ${allAnswered ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md hover:shadow-lg transform hover:scale-[1.01]" : "bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed"}`}>
         Завершить тест
       </button>
     </div>
