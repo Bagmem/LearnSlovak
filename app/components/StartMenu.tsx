@@ -122,23 +122,22 @@ export default function StartMenu({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-6 -mt-4"
+      className="space-y-8 max-w-7xl mx-auto"
     >
       {/* Заголовок */}
       <div className="text-center px-2">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-black flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
-          <span className="text-2xl sm:text-3xl md:text-4xl">🎯</span>
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black flex items-center justify-center gap-2 flex-wrap">
+          <span className="text-3xl sm:text-4xl md:text-5xl">🎯</span>
           <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent break-words">
             Изучение
           </span>
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2 text-xs sm:text-sm md:text-base px-2">
-          Выбери тему и уровень, чтобы начать
-        </p>
+        <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm sm:text-base">Выбери тему и уровень, чтобы начать</p>
       </div>
 
       <StreakWidget streak={streak} activeDates={activeDates} />
 
+      {/* Режимы обучения */}
       <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-5 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
         <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wide flex items-center gap-2">
           <span>🎮</span> Режимы обучения
@@ -170,6 +169,7 @@ export default function StartMenu({
         </div>
       </div>
 
+      {/* Переключение Лексика / Грамматика */}
       <div className="flex gap-4">
         <button
           onClick={() => setStudyTab("vocab")}
@@ -195,7 +195,8 @@ export default function StartMenu({
         </button>
       </div>
 
-      <div className="space-y-8">
+      {/* Список уровней с крупными карточками */}
+      <div className="space-y-12">
         {levels.map((level, levelIdx) => {
           const categories = getCategoriesForLevel(level.code)
           if (!categories.length) return null
@@ -206,12 +207,12 @@ export default function StartMenu({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: levelIdx * 0.1 }}
             >
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-6">
                 {level.icon}
-                <h2 className="text-2xl font-black text-gray-800 dark:text-white">{level.title}</h2>
+                <h2 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">{level.title}</h2>
                 <span className="text-sm text-gray-500">{level.desc}</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {categories.map((cat, catIdx) => (
                   <motion.div
                     key={cat.name}

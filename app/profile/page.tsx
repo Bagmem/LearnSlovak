@@ -20,6 +20,7 @@ import {
   FaSkull,
   FaGraduationCap,
   FaCheckCircle,
+  FaTimes,
   FaCopy,
 } from "react-icons/fa"
 import { auth, db, storage } from "../../lib/firebase"
@@ -27,6 +28,8 @@ import { useTheme } from "../../hooks/useTheme"
 import { words } from "../../data/words"
 import { grammarTasks } from "../../data/grammar"
 import { achievements } from "../../data/achievements"
+import { useAchievements } from "../../hooks/useAchievements"
+import AchievementsList from "../components/AchievementsList"
 
 type UserProfile = {
   uid: string
@@ -43,17 +46,25 @@ type StatCardProps = {
   value: string | number
   accentClass: string
   isDark: boolean
+  onClick?: () => void
+  clickable?: boolean
 }
 
-function StatCard({ icon, label, value, accentClass, isDark }: StatCardProps) {
+function StatCard({ icon, label, value, accentClass, isDark, onClick, clickable }: StatCardProps) {
+  const Wrapper = clickable ? "button" : "div"
   return (
-    <div className={`rounded-2xl border p-4 shadow-lg transition-all hover:shadow-xl ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}>
+    <Wrapper
+      onClick={onClick}
+      className={`rounded-2xl border p-4 shadow-lg transition-all hover:shadow-xl ${
+        clickable ? "cursor-pointer hover:scale-[1.02]" : ""
+      } ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}
+    >
       <div className={`mb-2 flex items-center gap-2 text-sm font-bold ${accentClass}`}>
         {icon}
         <span>{label}</span>
       </div>
       <p className={`text-3xl font-black ${isDark ? "text-white" : "text-gray-800"}`}>{value}</p>
-    </div>
+    </Wrapper>
   )
 }
 
@@ -61,6 +72,7 @@ export default function ProfilePage() {
   const { theme } = useTheme()
   const isDark = theme === "dark"
   const router = useRouter()
+  const { unlocked } = useAchievements()
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -68,15 +80,14 @@ export default function ProfilePage() {
   const [editingName, setEditingName] = useState(false)
   const [newName, setNewName] = useState("")
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [uploadError, setUploadError] = useState<string>("")
 
   const [progressData, setProgressData] = useState<Record<string, number>>({})
   const [activeDates, setActiveDates] = useState<string[]>([])
   const [wordStatsMap, setWordStatsMap] = useState<Map<string, { correctCount: number; wrongCount: number }>>(new Map())
   const [xp, setXp] = useState<number>(0)
   const [unlockedAchievementsCount, setUnlockedAchievementsCount] = useState<number>(0)
+  const [showAchievements, setShowAchievements] = useState(false)
 
-  // Функция принудительного сохранения статистики слов
   const forceSaveWordStats = () => {
     const obj: Record<string, any> = {}
     wordStatsMap.forEach((value, key) => {
@@ -85,7 +96,6 @@ export default function ProfilePage() {
     localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
   }
 
-  // Загрузка данных из localStorage
   useEffect(() => {
     const savedXp = localStorage.getItem("xp")
     if (savedXp) setXp(parseInt(savedXp, 10))
@@ -112,7 +122,6 @@ export default function ProfilePage() {
       } catch {}
     }
 
-    // Загрузка прогресса категорий с учётом префикса
     const progress: Record<string, number> = {}
     const keys = Object.keys(localStorage)
     keys.forEach(key => {
@@ -173,24 +182,9 @@ export default function ProfilePage() {
     if (!user) return
     const file = event.target.files?.[0]
     if (!file) return
-
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      setUploadError("Пожалуйста, выберите изображение")
-      return
-    }
-
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024
-    if (file.size > maxSize) {
-      setUploadError("Размер файла не должен превышать 5MB")
-      return
-    }
-
     try {
-      setUploadError("")
       setUploadingAvatar(true)
-      const storageRef = ref(storage, `avatars/${user.uid}/${Date.now()}_${file.name}`)
+      const storageRef = ref(storage, `avatars/${user.uid}`)
       await uploadBytes(storageRef, file)
       const downloadURL = await getDownloadURL(storageRef)
       const userRef = doc(db, "users", user.uid)
@@ -198,7 +192,6 @@ export default function ProfilePage() {
       setProfile((prev) => (prev ? { ...prev, photoURL: downloadURL } : null))
     } catch (error) {
       console.error("Ошибка загрузки аватара:", error)
-      setUploadError("Ошибка при загрузке аватара. Попробуйте снова.")
     } finally {
       setUploadingAvatar(false)
     }
@@ -335,11 +328,6 @@ export default function ProfilePage() {
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
                 <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-3xl border-4 border-white/25 bg-white/15 shadow-xl">
-                  {uploadingAvatar && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur">
-                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white"></div>
-                    </div>
-                  )}
                   {photoURL ? (
                     <img src={photoURL} alt="Аватар" className="h-full w-full object-cover" />
                   ) : (
@@ -347,16 +335,13 @@ export default function ProfilePage() {
                       <FaUserCircle className="text-7xl text-white" />
                     </div>
                   )}
-                  <label className={`absolute bottom-2 right-2 cursor-pointer rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/60 ${uploadingAvatar ? "opacity-50 cursor-not-allowed" : ""}`}>
+                  <label className="absolute bottom-2 right-2 cursor-pointer rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/60">
                     <FaCamera className="text-xs" />
-                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                   </label>
                 </div>
                 <div>
                   <p className="mb-2 text-sm font-bold uppercase tracking-[0.2em] text-white/80">Профиль пользователя</p>
-                  {uploadError && (
-                    <p className="mb-3 rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-200">{uploadError}</p>
-                  )}
                   {editingName ? (
                     <div className="flex flex-wrap items-center gap-3">
                       <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Новое имя" className="rounded-2xl border border-white/20 bg-black/20 px-4 py-2 text-white outline-none" />
@@ -368,7 +353,6 @@ export default function ProfilePage() {
                   <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-white/85">
                     <FaEnvelope /> {displayEmail}
                   </p>
-                  {/* Добавлен User ID с кнопкой копирования */}
                   <p className="mt-1 flex items-center gap-2 text-xs text-white/70">
                     <span>🆔 ID:</span>
                     <span className="font-mono">{user.uid}</span>
@@ -393,7 +377,15 @@ export default function ProfilePage() {
               <StatCard icon={<FaStar />} label="XP" value={xp} accentClass="text-orange-300" isDark={isDark} />
               <StatCard icon={<FaTrophy />} label="Уровень" value={level} accentClass="text-blue-300" isDark={isDark} />
               <StatCard icon={<FaFire />} label="Серия" value={`${streak} дн.`} accentClass="text-red-300" isDark={isDark} />
-              <StatCard icon={<FaCheckCircle />} label="Достижения" value={`${unlockedAchievementsCount}/${achievements.length}`} accentClass="text-green-300" isDark={isDark} />
+              <StatCard
+                icon={<FaCheckCircle />}
+                label="Достижения"
+                value={`${unlockedAchievementsCount}/${achievements.length}`}
+                accentClass="text-green-300"
+                isDark={isDark}
+                clickable
+                onClick={() => setShowAchievements(true)}
+              />
             </div>
 
             <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -463,6 +455,47 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Модальное окно достижений */}
+      {showAchievements && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50" onClick={() => setShowAchievements(false)}>
+          <div
+            className={`rounded-2xl w-full max-w-md shadow-2xl border overflow-hidden animate-slideInScale ${
+              isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className={`flex items-center justify-between p-4 border-b ${
+                isDark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"
+              }`}
+            >
+              <h2 className={`text-lg font-black ${isDark ? "text-white" : "text-gray-800"}`}>Достижения</h2>
+              <button
+                onClick={() => setShowAchievements(false)}
+                className={isDark ? "text-gray-400 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}
+              >
+                <FaTimes size={20} />
+              </button>
+            </div>
+            <div className="p-4 max-h-[70vh] overflow-y-auto">
+              <AchievementsList unlocked={unlocked} />
+            </div>
+            <div
+              className={`p-4 border-t ${
+                isDark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"
+              }`}
+            >
+              <button
+                onClick={() => setShowAchievements(false)}
+                className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black rounded-xl"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

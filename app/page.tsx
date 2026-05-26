@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog } from "react-icons/fa"
+import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog, FaClipboardList } from "react-icons/fa"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { auth } from "../lib/firebase"
@@ -28,6 +28,8 @@ import AchievementNotification from "./components/AchievementNotification"
 import SettingsModal from "./components/SettingsModal"
 import { useSettings } from "../hooks/useSettings"
 import { useTheme } from "../hooks/useTheme"
+import LevelTest from "./components/LevelTest"
+import FullTest from "./components/FullTest"
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
@@ -47,15 +49,8 @@ const calculateStreak = (dates: string[]): number => {
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   const yesterdayStr = getLocalDateString(yesterday)
-
-  const startDateStr = uniqueDates.has(todayStr)
-    ? todayStr
-    : uniqueDates.has(yesterdayStr)
-      ? yesterdayStr
-      : ""
-
+  const startDateStr = uniqueDates.has(todayStr) ? todayStr : uniqueDates.has(yesterdayStr) ? yesterdayStr : ""
   if (!startDateStr) return 0
-
   let streakCount = 0
   const checkDate = new Date(startDateStr)
   while (true) {
@@ -100,8 +95,8 @@ export default function Home() {
     return () => unsubscribe()
   }, [])
 
-  // ---------- Все useState (объявлены до всех useCallback/useEffect) ----------
-  const [globalTab, setGlobalTab] = useState<"study" | "reference" | "texts">("study")
+  // ---------- Все useState ----------
+  const [globalTab, setGlobalTab] = useState<"study" | "texts" | "test" | "reference">("study")
   const [screen, setScreen] = useState<"menu" | "game" | "victory">("menu")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedLevel, setSelectedLevel] = useState<LanguageLevel | null>(null)
@@ -128,9 +123,11 @@ export default function Home() {
   const mountedRef = useRef(false)
   const [selectedText, setSelectedText] = useState<SlovakText | null>(null)
   const [quizText, setQuizText] = useState<SlovakText | null>(null)
+
+  // Состояния для теста
+  const [testLevel, setTestLevel] = useState<LanguageLevel | null>(null)
   // ---------------------------------------------------------------------------
 
-  // Принудительное сохранение (для выхода)
   const forceSaveWordStats = () => {
     if (typeof window === "undefined") return
     const obj: Record<string, WordStats> = {}
@@ -138,12 +135,11 @@ export default function Home() {
       obj[key] = value
     })
     localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
-    console.log("forceSaveWordStats: сохранено", Object.keys(obj).length)
   }
 
   const handleLogout = async () => {
     forceSaveWordStats()
-    await new Promise(resolve => setTimeout(resolve, 100)) // даём время на запись
+    await new Promise(resolve => setTimeout(resolve, 100))
     await signOut(auth)
     router.push("/")
   }
@@ -152,7 +148,6 @@ export default function Home() {
     setMuted(settings.isMuted)
   }, [settings.isMuted])
 
-  // Сохранение XP
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("xp", xp.toString())
@@ -198,7 +193,6 @@ export default function Home() {
     initAudio()
   }, [])
 
-  // Загрузка всех данных из localStorage
   useEffect(() => {
     if (typeof window === "undefined") return
     const savedXp = loadProgress<number>("xp")
@@ -212,8 +206,6 @@ export default function Home() {
     setActiveDates(dates)
     setStreak(calculateStreak(dates))
     setProgressData(getInitialProgressData())
-    
-    // Загрузка статистики слов
     const savedStats = localStorage.getItem("slovak_word_stats")
     if (savedStats) {
       try {
@@ -223,13 +215,11 @@ export default function Home() {
           map.set(key, val as WordStats)
         })
         setWordStatsMap(map)
-        console.log("Загружено статистики слов:", map.size)
       } catch (e) {}
     }
     mountedRef.current = true
   }, [])
 
-  // Сохранение при закрытии страницы
   useEffect(() => {
     const handleBeforeUnload = () => forceSaveWordStats()
     window.addEventListener("beforeunload", handleBeforeUnload)
@@ -247,7 +237,6 @@ export default function Home() {
     })
   }, [selectedCategory, selectedLevel])
 
-  // ОСНОВНОЕ ИСПРАВЛЕНИЕ: сохраняем статистику СРАЗУ при изменении
   const setStatsForWord = useCallback((wordKey: string, isCorrect: boolean) => {
     setWordStatsMap((prev) => {
       const oldStats = prev.get(wordKey) || createEmptyWordStats(wordKey)
@@ -255,14 +244,11 @@ export default function Home() {
       nextStats.id = wordKey
       const newMap = new Map(prev)
       newMap.set(wordKey, nextStats)
-      
-      // Синхронное сохранение в localStorage
       const obj: Record<string, WordStats> = {}
       newMap.forEach((value, key) => {
         obj[key] = value
       })
       localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
-      
       return newMap
     })
   }, [])
@@ -465,6 +451,28 @@ export default function Home() {
     }
   }
 
+  const handleStartTest = (level: LanguageLevel) => {
+    setTestLevel(level)
+  }
+
+  const handleTestComplete = (score: number, total: number, xpEarned: number) => {
+    setXp(prev => prev + xpEarned)
+    const saved = localStorage.getItem("test_completed_levels")
+    const completed = saved ? JSON.parse(saved) : {}
+    if (testLevel) {
+      // Уровень считается пройденным только при 100% правильных ответов
+      if (score === total) {
+        completed[testLevel] = true
+        localStorage.setItem("test_completed_levels", JSON.stringify(completed))
+      }
+    }
+    setTestLevel(null)
+  }
+
+  const handleBackToLevels = () => {
+    setTestLevel(null)
+  }
+
   if (screen === "game") {
     if (gameMode === "flashcard") {
       return (
@@ -531,15 +539,6 @@ export default function Home() {
             <span>Изучение</span>
           </button>
           <button
-            onClick={() => setGlobalTab("reference")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              globalTab === "reference" ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            }`}
-          >
-            <FaBookOpen size={20} />
-            <span>Справочник</span>
-          </button>
-          <button
             onClick={() => setGlobalTab("texts")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
               globalTab === "texts" ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -549,16 +548,34 @@ export default function Home() {
             <span>Тексты</span>
           </button>
           <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+            onClick={() => setGlobalTab("test")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              globalTab === "test" ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
           >
-            <FaCog size={20} />
-            <span>Настройки</span>
+            <FaClipboardList size={20} />
+            <span>Тест</span>
+          </button>
+          <button
+            onClick={() => setGlobalTab("reference")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              globalTab === "reference" ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+          >
+            <FaBookOpen size={20} />
+            <span>Справочник</span>
           </button>
         </nav>
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           {user ? (
             <>
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all mb-2"
+              >
+                <FaCog size={20} />
+                <span>Настройки</span>
+              </button>
               <Link
                 href="/profile"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all mb-2"
@@ -650,6 +667,17 @@ export default function Home() {
                 onSelectText={setSelectedText}
                 readStatus={Object.fromEntries(texts.map(t => [t.id, isRead(t.id)]))}
               />
+            )
+          )}
+          {globalTab === "test" && (
+            testLevel ? (
+              <FullTest
+                level={testLevel}
+                onComplete={handleTestComplete}
+                onBack={handleBackToLevels}
+              />
+            ) : (
+              <LevelTest onStartTest={handleStartTest} />
             )
           )}
         </div>
