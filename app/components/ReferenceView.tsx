@@ -6,14 +6,83 @@ import { words } from "../../data/words"
 import { grammarTasks } from "../../data/grammar"
 import { type WordStats } from "../../lib/game"
 import {
-  FaSearch, FaCalendarAlt, FaChartLine, FaSkull, FaQuestionCircle,
-  FaFire, FaStar, FaTrophy, FaBook, FaCheckCircle, FaRegSmile, FaGraduationCap, FaHeart, FaVolumeUp
+  FaSearch, FaCalendarAlt, FaSkull, FaQuestionCircle,
+  FaFire, FaStar, FaTrophy, FaBook, FaCheckCircle, FaRegSmile, FaGraduationCap, FaHeart, FaVolumeUp,
 } from "react-icons/fa"
 
 type ReferenceViewProps = {
   progressData: Record<string, number>
   activeDates: string[]
   wordStatsMap: Map<string, WordStats>
+}
+
+function CircularProgress({ percent, label, color = "#f97316", size = 100 }: { percent: number; label: string; color?: string; size?: number }) {
+  const radius = (size - 8) / 2
+  const circumference = 2 * Math.PI * radius
+  const [animatedPercent, setAnimatedPercent] = useState(0)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimatedPercent(percent), 100)
+    return () => clearTimeout(timer)
+  }, [percent])
+
+  const offset = circumference - (animatedPercent / 100) * circumference
+
+  return (
+    <div className="flex flex-col items-center overflow-visible">
+      <div className="relative overflow-visible" style={{ width: size, height: size }}>
+        <svg className="transform -rotate-90 w-full h-full overflow-visible">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            className="stroke-gray-200 dark:stroke-gray-700"
+            strokeWidth="6"
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth="6"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            className="transition-all duration-1000 ease-out"
+            style={{ filter: `drop-shadow(0 0 6px ${color}80)` }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-gray-800 dark:text-white">
+          {Math.round(animatedPercent)}%
+        </div>
+      </div>
+      {label && <span className="text-xs font-semibold mt-2 text-gray-600 dark:text-gray-300">{label}</span>}
+    </div>
+  )
+}
+
+const AnimatedCounter = ({ value, suffix = "" }: { value: number; suffix?: string }) => {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    let start = 0
+    const end = value
+    if (start === end) return
+    const duration = 800
+    const step = Math.ceil(end / (duration / 16))
+    const timer = setInterval(() => {
+      start += step
+      if (start >= end) {
+        setCount(end)
+        clearInterval(timer)
+      } else {
+        setCount(start)
+      }
+    }, 16)
+    return () => clearInterval(timer)
+  }, [value])
+  return <span>{count}{suffix}</span>
 }
 
 export default function ReferenceView({ progressData, activeDates, wordStatsMap }: ReferenceViewProps) {
@@ -113,26 +182,13 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
     i.russian.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const AnimatedCounter = ({ value, suffix = "" }: { value: number; suffix?: string }) => {
-    const [count, setCount] = useState(0)
-    useEffect(() => {
-      let start = 0
-      const end = value
-      if (start === end) return
-      const duration = 800
-      const step = Math.ceil(end / (duration / 16))
-      const timer = setInterval(() => {
-        start += step
-        if (start >= end) {
-          setCount(end)
-          clearInterval(timer)
-        } else {
-          setCount(start)
-        }
-      }, 16)
-      return () => clearInterval(timer)
-    }, [value])
-    return <span>{count}{suffix}</span>
+  // Иконки для уровней
+  const levelIcons: Record<string, string> = {
+    A1: "🌱",
+    A2: "📘",
+    B1: "🌿",
+    B2: "🌳",
+    C1: "🎓",
   }
 
   return (
@@ -146,26 +202,23 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
       >
         <h1 className="text-4xl md:text-5xl font-black flex items-center justify-center gap-2">
           <span className="text-4xl md:text-5xl">📚</span>
-          <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
-            Справочник
-          </span>
+          <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Справочник</span>
         </h1>
         <p className="text-gray-500 dark:text-gray-400 mt-2">Статистика, алфавит и словарь</p>
       </motion.div>
 
-      {/* Статистика */}
+      {/* 3 карточки статистики */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8"
       >
         {[
-          { value: uniqueLearnedWords, label: "слов изучено", icon: <FaBook className="text-blue-500 text-3xl" />, bg: "from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20", color: "text-blue-600 dark:text-blue-400" },
-          { value: completedCategories, label: "тем завершено", icon: <FaCheckCircle className="text-green-500 text-3xl" />, bg: "from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20", color: "text-green-600 dark:text-green-400" },
-          { value: accuracy, suffix: "%", label: "точность", icon: <FaTrophy className="text-yellow-500 text-3xl" />, bg: "from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20", color: "text-yellow-600 dark:text-yellow-400" },
-          { value: activeDates.length, label: "дней активности", icon: <FaFire className="text-orange-500 text-3xl" />, bg: "from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20", color: "text-orange-600 dark:text-orange-400" }
+          { value: uniqueLearnedWords, label: "слов изучено", icon: <FaBook className="text-orange-500 text-3xl" />, gradient: "from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20" },
+          { value: completedCategories, label: "тем завершено", icon: <FaCheckCircle className="text-green-500 text-3xl" />, gradient: "from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20" },
+          { value: accuracy, suffix: "%", label: "точность", icon: <FaTrophy className="text-yellow-500 text-3xl" />, gradient: "from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20" }
         ].map((stat, idx) => (
           <motion.div
             key={idx}
@@ -173,11 +226,11 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ delay: idx * 0.05 }}
-            whileHover={{ y: -5 }}
-            className={`bg-gradient-to-br ${stat.bg} backdrop-blur-sm rounded-2xl p-5 shadow-lg border border-gray-100 dark:border-gray-700 text-center`}
+            whileHover={{ y: -5, boxShadow: "0 20px 25px -12px rgba(0,0,0,0.15)" }}
+            className={`bg-gradient-to-br ${stat.gradient} rounded-2xl p-5 shadow-lg border border-gray-100 dark:border-gray-700 text-center transition-all duration-200`}
           >
             <div className="flex justify-center mb-2">{stat.icon}</div>
-            <p className={`text-4xl font-black ${stat.color}`}>
+            <p className="text-4xl font-black text-gray-800 dark:text-white">
               <AnimatedCounter value={stat.value} suffix={stat.suffix || ""} />
             </p>
             <p className="text-sm font-bold text-gray-600 dark:text-gray-300 mt-1">{stat.label}</p>
@@ -185,71 +238,85 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         ))}
       </motion.div>
 
-      {/* Активность */}
+      {/* Активность за последние 30 дней */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-orange-50/50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 mb-8 shadow-lg"
       >
-        <h3 className="font-black text-xl text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-          <FaCalendarAlt className="text-orange-500" /> Активность за 30 дней
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Занимались {activeDaysCount} из 30 дней</p>
-        <div className="flex flex-wrap gap-1 justify-center">
-          {last30Days.map((day, idx) => {
-            const isActive = activitySet.has(day)
-            const dayNum = new Date(day).getDate()
-            return (
-              <motion.div
-                key={day}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.01 }}
-                whileHover={{ scale: 1.1 }}
-                className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold transition-all ${
-                  isActive
-                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-sm"
-                    : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                }`}
-                title={day}
-              >
-                {dayNum}
-              </motion.div>
-            )
-          })}
+        <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
+          <div className="flex-1 w-full">
+            <h3 className="font-black text-xl text-gray-800 dark:text-white mb-2 flex items-center gap-2">
+              <FaCalendarAlt className="text-orange-500" /> Активность за последние 30 дней
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Вы занимались <span className="font-bold text-orange-500">{activeDaysCount}</span> из 30 дней
+            </p>
+            <div className="overflow-x-auto">
+              <div className="flex flex-nowrap gap-1 min-w-max">
+                {last30Days.map((day, idx) => {
+                  const isActive = activitySet.has(day)
+                  const dayNum = new Date(day).getDate()
+                  return (
+                    <motion.div
+                      key={day}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: idx * 0.01 }}
+                      whileHover={{ scale: 1.1 }}
+                      className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold transition-all ${
+                        isActive ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md" : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                      }`}
+                      title={day}
+                    >
+                      {dayNum}
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="flex-shrink-0 self-center overflow-visible">
+            <CircularProgress percent={(activeDaysCount / 30) * 100} label="" color="#f97316" size={140} />
+          </div>
         </div>
       </motion.div>
 
-      {/* Прогресс по уровням */}
+      {/* Прогресс по уровням – 5 отдельных карточек */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-amber-50/50 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+        className="mb-8"
       >
-        <h3 className="font-black text-xl text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-          <FaGraduationCap className="text-indigo-500" /> Прогресс по уровням
+        <h3 className="font-black text-xl text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+          <FaGraduationCap className="text-orange-500" /> Прогресс по уровням
         </h3>
-        <div className="space-y-4">
-          {levelStats.map(stat => (
-            <div key={stat.level}>
-              <div className="flex justify-between text-sm font-bold mb-1">
-                <span className="text-gray-700 dark:text-gray-300">Уровень {stat.level}</span>
-                <span className="text-gray-500 dark:text-gray-400">{stat.learned}/{stat.total} слов</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {levelStats.map((stat) => (
+            <motion.div
+              key={stat.level}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }}
+              className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 shadow-md text-center transition-all duration-200 overflow-visible"
+            >
+              <div className="flex flex-col items-center">
+                <div className="text-3xl mb-1">{levelIcons[stat.level]}</div>
+                <h4 className="font-black text-lg text-gray-800 dark:text-white">{stat.level}</h4>
+                <div className="mt-2 overflow-visible">
+                  <CircularProgress percent={stat.percent} label="" color="#f97316" size={90} />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                  {stat.learned} / {stat.total} слов
+                </p>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                <motion.div
-                  className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full"
-                  initial={{ width: 0 }}
-                  whileInView={{ width: `${stat.percent}%` }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  viewport={{ once: true }}
-                />
-              </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </motion.div>
@@ -261,14 +328,14 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          className="bg-gradient-to-br from-white to-red-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+          className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 mb-8 shadow-lg"
         >
-          <h3 className="font-black text-xl text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+          <h3 className="font-black text-xl text-gray-800 dark:text-white mb-4 flex items-center gap-2">
             <FaSkull className="text-red-500" /> Самые сложные слова
           </h3>
           <div className="space-y-3">
             {hardWords.map((w, i) => (
-              <div key={i} className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-2 last:border-0">
+              <div key={i} className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2 last:border-0">
                 <div>
                   <p className="font-bold text-gray-800 dark:text-white">{w.word}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{w.translation}</p>
@@ -280,7 +347,9 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">💡 Повторите эти слова в карточках или письме.</p>
+          <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl text-center">
+            <p className="text-xs text-gray-600 dark:text-gray-300">💡 Повторите эти слова в карточках или письме, чтобы улучшить результат.</p>
+          </div>
         </motion.div>
       )}
 
@@ -290,7 +359,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-purple-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 mb-8 shadow-lg"
       >
         <h3 className="font-black text-xl text-gray-800 dark:text-white mb-4 flex items-center gap-2">
           <FaQuestionCircle className="text-purple-500" /> Часто задаваемые вопросы
@@ -302,9 +371,9 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
             { icon: <FaRegSmile className="text-green-500" />, q: "Можно ли учить слово несколько раз в день?", a: "XP начисляется только раз в день, но повторять можно сколько угодно." },
             { icon: <FaHeart className="text-red-500" />, q: "Как работают жизни?", a: "При старте урока или кнопке «Попробовать снова» жизни сбрасываются до 3." }
           ].map((item, idx) => (
-            <div key={idx} className="p-3 rounded-xl bg-white/50 dark:bg-gray-700/30">
+            <div key={idx} className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors">
               <p className="font-bold flex items-center gap-2 text-gray-800 dark:text-white">{item.icon} {item.q}</p>
-              <p className="text-gray-600 dark:text-gray-400 pl-6">{item.a}</p>
+              <p className="text-gray-600 dark:text-gray-400 pl-6 mt-1">{item.a}</p>
             </div>
           ))}
         </div>
@@ -316,7 +385,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-blue-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 mb-8 shadow-lg"
+        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 mb-8 shadow-lg"
       >
         <h3 className="font-black text-xl text-gray-800 dark:text-white mb-3 flex items-center gap-2">🔤 Особые буквы и произношение</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Значок над буквой (dĺžeň) удлиняет звук, птичка (mäkčeň) смягчает.</p>
@@ -331,10 +400,13 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
             </thead>
             <tbody>
               {alphabet.map((item, idx) => (
-                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => speakText(item.example, "sk-SK")}>
                   <td className="py-2 text-orange-600 dark:text-orange-400 font-black">{item.letter}</td>
                   <td className="py-2 text-gray-700 dark:text-gray-300">{item.sound}</td>
-                  <td className="py-2 text-gray-500 dark:text-gray-400 italic">{item.example}</td>
+                  <td className="py-2 text-gray-500 dark:text-gray-400 italic flex items-center gap-1">
+                    {item.example}
+                    <FaVolumeUp className="text-gray-400 text-xs ml-1" />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -348,7 +420,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="bg-gradient-to-br from-white to-orange-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg"
+        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-lg"
       >
         <h3 className="font-black text-xl text-gray-800 dark:text-white mb-4 flex items-center gap-2">
           <FaSearch className="text-orange-500" /> Интерактивный словарь ({allItems.length})
@@ -373,21 +445,13 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
                 transition={{ delay: idx * 0.005 }}
                 whileHover={{ backgroundColor: "rgba(249,115,22,0.08)" }}
                 onClick={() => speakText(item.slovak, "sk-SK")}
-                className="flex justify-between items-center p-3 rounded-xl bg-white/50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 hover:border-orange-200 dark:hover:border-orange-800 cursor-pointer transition-all"
+                className="flex justify-between items-center p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700 hover:border-orange-200 dark:hover:border-orange-800 cursor-pointer transition-all"
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-black text-gray-800 dark:text-white">{item.slovak}</p>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); speakText(item.slovak, "sk-SK"); }}
-                      className="text-gray-400 hover:text-orange-500 transition"
-                      title="Озвучить"
-                    >
-                      <FaVolumeUp size={14} />
-                    </button>
-                    <span className="text-[10px] font-black uppercase bg-orange-100 dark:bg-orange-900/50 px-2 py-0.5 rounded-full text-orange-700 dark:text-orange-300">
-                      {item.level}
-                    </span>
+                    <button onClick={(e) => { e.stopPropagation(); speakText(item.slovak, "sk-SK"); }} className="text-gray-400 hover:text-orange-500 transition" title="Озвучить"><FaVolumeUp size={14} /></button>
+                    <span className="text-[10px] font-black uppercase bg-orange-100 dark:bg-orange-900/50 px-2 py-0.5 rounded-full text-orange-700 dark:text-orange-300">{item.level}</span>
                   </div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{item.russian}</p>
                 </div>

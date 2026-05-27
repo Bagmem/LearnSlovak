@@ -14,19 +14,12 @@ export function useTheme() {
 
   useEffect(() => {
     const root = document.documentElement
-    // Добавляем временный класс для плавного перехода
-    root.classList.add("theme-transition")
     if (theme === "dark") {
       root.classList.add("dark")
     } else {
       root.classList.remove("dark")
     }
-    // Убираем класс после завершения перехода
-    const timeout = setTimeout(() => {
-      root.classList.remove("theme-transition")
-    }, 200)
     localStorage.setItem("slovak_theme", theme)
-    return () => clearTimeout(timeout)
   }, [theme])
 
   const toggleTheme = () => {

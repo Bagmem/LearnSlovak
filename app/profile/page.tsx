@@ -3,32 +3,22 @@
 import Link from "next/link"
 import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { motion, AnimatePresence } from "framer-motion"
 import { onAuthStateChanged, signOut, User } from "firebase/auth"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import {
-  FaArrowLeft,
-  FaCamera,
-  FaEnvelope,
-  FaFire,
-  FaPen,
-  FaSignOutAlt,
-  FaStar,
-  FaTrophy,
-  FaUserCircle,
-  FaCalendarAlt,
-  FaSkull,
-  FaGraduationCap,
-  FaCheckCircle,
-  FaTimes,
-  FaCopy,
+  FaArrowLeft, FaCamera, FaEnvelope, FaFire, FaPen, FaSignOutAlt,
+  FaStar, FaTrophy, FaUserCircle, FaCalendarAlt, FaSkull, FaGraduationCap,
+  FaCheckCircle, FaTimes, FaCopy, FaUserFriends, FaGem, FaMedal,
 } from "react-icons/fa"
 import { auth, db, storage } from "../../lib/firebase"
-import { useTheme } from "../../hooks/useTheme"
 import { words } from "../../data/words"
 import { grammarTasks } from "../../data/grammar"
 import { achievements } from "../../data/achievements"
 import { useAchievements } from "../../hooks/useAchievements"
+import { useTheme } from "../../hooks/useTheme"
+import { initAudio, playClickSound } from "../../lib/sounds"
 import AchievementsList from "../components/AchievementsList"
 
 type UserProfile = {
@@ -40,39 +30,91 @@ type UserProfile = {
   level: string | null
 }
 
-type StatCardProps = {
-  icon: React.ReactNode
-  label: string
-  value: string | number
-  accentClass: string
-  isDark: boolean
-  onClick?: () => void
-  clickable?: boolean
+// Функция склонения слова "день"
+function getDayWord(count: number): string {
+  const lastDigit = count % 10
+  const lastTwoDigits = count % 100
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return 'дней'
+  if (lastDigit === 1) return 'день'
+  if (lastDigit >= 2 && lastDigit <= 4) return 'дня'
+  return 'дней'
 }
 
-function StatCard({ icon, label, value, accentClass, isDark, onClick, clickable }: StatCardProps) {
-  const Wrapper = clickable ? "button" : "div"
+// Компонент круговой диаграммы
+function CircularProgress({ percent, label, icon, color = "#f97316", size = 140 }: { percent: number; label: string; icon: string; color?: string; size?: number }) {
+  const radius = (size - 10) / 2
+  const circumference = 2 * Math.PI * radius
+  const [animatedPercent, setAnimatedPercent] = useState(0)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimatedPercent(percent), 100)
+    return () => clearTimeout(timer)
+  }, [percent])
+
+  const offset = circumference - (animatedPercent / 100) * circumference
+
   return (
-    <Wrapper
-      onClick={onClick}
-      className={`rounded-2xl border p-4 shadow-lg transition-all hover:shadow-xl ${
-        clickable ? "cursor-pointer hover:scale-[1.02]" : ""
-      } ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5, type: "spring" }}
+      className="flex flex-col items-center p-4 overflow-visible"
     >
-      <div className={`mb-2 flex items-center gap-2 text-sm font-bold ${accentClass}`}>
-        {icon}
-        <span className="text-gray-700 dark:text-gray-200">{label}</span>
+      <div className="relative overflow-visible" style={{ width: size, height: size }}>
+        <svg className="transform -rotate-90 w-full h-full overflow-visible">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            className="stroke-gray-200 dark:stroke-gray-700"
+            strokeWidth="10"
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth="10"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            className="transition-all duration-1000 ease-out"
+            style={{ filter: `drop-shadow(0 0 12px ${color}80)` }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-4xl">{icon}</span>
+          <span className="text-2xl font-black text-gray-800 dark:text-white">{Math.round(animatedPercent)}%</span>
+        </div>
       </div>
-      <p className={`text-3xl font-black ${isDark ? "text-white" : "text-gray-800"}`}>{value}</p>
-    </Wrapper>
+      <span className="text-sm font-semibold mt-3 text-gray-600 dark:text-gray-300">{label}</span>
+    </motion.div>
+  )
+}
+
+function StatCard({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.4, delay }}
+      className={`h-full ${className}`}
+    >
+      {children}
+    </motion.div>
   )
 }
 
 export default function ProfilePage() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
   const router = useRouter()
   const { unlocked } = useAchievements()
+  const { theme } = useTheme()
+  const [isDark, setIsDark] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -87,16 +129,30 @@ export default function ProfilePage() {
   const [xp, setXp] = useState<number>(0)
   const [unlockedAchievementsCount, setUnlockedAchievementsCount] = useState<number>(0)
   const [showAchievements, setShowAchievements] = useState(false)
+  const [showXpModal, setShowXpModal] = useState(false)
+  const [showLevelModal, setShowLevelModal] = useState(false)
+  const [showStreakModal, setShowStreakModal] = useState(false)
+  const [recentAchievements, setRecentAchievements] = useState<any[]>([])
 
-  const forceSaveWordStats = () => {
-    const obj: Record<string, any> = {}
-    wordStatsMap.forEach((value, key) => {
-      obj[key] = { correctCount: value.correctCount, wrongCount: value.wrongCount }
-    })
-    localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
-  }
+  // Разблокировка AudioContext
+  useEffect(() => {
+    const handleFirstClick = () => {
+      try { initAudio() } catch (e) {}
+      document.removeEventListener("click", handleFirstClick)
+    }
+    document.addEventListener("click", handleFirstClick)
+    return () => document.removeEventListener("click", handleFirstClick)
+  }, [])
 
   useEffect(() => {
+    setMounted(true)
+    setIsDark(theme === "dark")
+  }, [theme])
+
+  // Загрузка из localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
     const savedXp = localStorage.getItem("xp")
     if (savedXp) setXp(parseInt(savedXp, 10))
 
@@ -118,7 +174,10 @@ export default function ProfilePage() {
     const savedAchievements = localStorage.getItem("slovak_achievements")
     if (savedAchievements) {
       try {
-        setUnlockedAchievementsCount(JSON.parse(savedAchievements).length)
+        const parsed = JSON.parse(savedAchievements)
+        setUnlockedAchievementsCount(parsed.length)
+        const lastThree = parsed.slice(-3).reverse()
+        setRecentAchievements(lastThree)
       } catch {}
     }
 
@@ -136,6 +195,7 @@ export default function ProfilePage() {
     setProgressData(progress)
   }, [])
 
+  // Firebase auth
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
@@ -160,7 +220,16 @@ export default function ProfilePage() {
     return () => unsubscribe()
   }, [])
 
+  const forceSaveWordStats = () => {
+    const obj: Record<string, any> = {}
+    wordStatsMap.forEach((value, key) => {
+      obj[key] = { correctCount: value.correctCount, wrongCount: value.wrongCount }
+    })
+    localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
+  }
+
   async function handleLogout() {
+    playClickSound()
     forceSaveWordStats()
     await signOut(auth)
     router.push("/login")
@@ -168,6 +237,7 @@ export default function ProfilePage() {
 
   async function handleSaveName() {
     if (!user || !newName.trim()) return
+    playClickSound()
     try {
       const userRef = doc(db, "users", user.uid)
       await updateDoc(userRef, { name: newName })
@@ -198,8 +268,14 @@ export default function ProfilePage() {
   }
 
   const copyToClipboard = (text: string) => {
+    playClickSound()
     navigator.clipboard.writeText(text)
   }
+
+  // ========== СТАТИСТИКА ==========
+  const uniqueLearnedWords = useMemo(() => {
+    return Array.from(wordStatsMap.values()).filter(stat => stat.correctCount > 0).length
+  }, [wordStatsMap])
 
   const allItems = useMemo(() => [...words, ...grammarTasks], [])
   const categoryTotalCount = useMemo(() => {
@@ -211,35 +287,30 @@ export default function ProfilePage() {
     return counts
   }, [allItems])
 
-  const studiedCategoriesCount = useMemo(() => {
-    let count = 0
+  const completedCategoriesCount = useMemo(() => {
+    let completed = 0
     Object.entries(progressData).forEach(([key, passed]) => {
       const total = categoryTotalCount[key] || 1
-      if (passed >= total) count++
+      if (passed >= total) completed++
     })
-    return count
+    return completed
   }, [progressData, categoryTotalCount])
 
-  const totalLearnedWords = useMemo(() => {
-    let sum = 0
-    Object.entries(progressData).forEach(([key, passed]) => {
-      const total = categoryTotalCount[key] || 1
-      sum += Math.min(passed, total)
+  const { totalCorrect, totalWrong } = useMemo(() => {
+    let correct = 0, wrong = 0
+    wordStatsMap.forEach(stat => {
+      correct += stat.correctCount
+      wrong += stat.wrongCount
     })
-    return sum
-  }, [progressData, categoryTotalCount])
-
-  const hardWords = useMemo(() => {
-    const wordsList: { word: string; translation: string; wrong: number; correct: number }[] = []
-    wordStatsMap.forEach((stat, key) => {
-      if (stat.wrongCount > 0 || stat.correctCount > 0) {
-        const [slovak, russian] = key.split("|")
-        wordsList.push({ word: slovak, translation: russian, wrong: stat.wrongCount, correct: stat.correctCount })
-      }
-    })
-    wordsList.sort((a, b) => (b.wrong - b.correct) - (a.wrong - a.correct))
-    return wordsList.slice(0, 3)
+    return { totalCorrect: correct, totalWrong: wrong }
   }, [wordStatsMap])
+  const totalAnswers = totalCorrect + totalWrong
+  const accuracy = totalAnswers ? Math.round((totalCorrect / totalAnswers) * 100) : 0
+
+  const totalWordsCount = words.length
+  const wordsPercent = totalWordsCount ? (uniqueLearnedWords / totalWordsCount) * 100 : 0
+  const totalCategories = Object.keys(categoryTotalCount).length
+  const categoriesPercent = totalCategories ? (completedCategoriesCount / totalCategories) * 100 : 0
 
   const levelStats = useMemo(() => {
     const levels = ["A1", "A2", "B1", "B2", "C1"] as const
@@ -258,6 +329,18 @@ export default function ProfilePage() {
     })
   }, [progressData, allItems])
 
+  const hardWords = useMemo(() => {
+    const wordsList: { word: string; translation: string; wrong: number; correct: number }[] = []
+    wordStatsMap.forEach((stat, key) => {
+      if (stat.wrongCount > 0 || stat.correctCount > 0) {
+        const [slovak, russian] = key.split("|")
+        wordsList.push({ word: slovak, translation: russian, wrong: stat.wrongCount, correct: stat.correctCount })
+      }
+    })
+    wordsList.sort((a, b) => (b.wrong - b.correct) - (a.wrong - a.correct))
+    return wordsList.slice(0, 5)
+  }, [wordStatsMap])
+
   const today = useMemo(() => new Date(), [])
   const last30Days = useMemo(() => {
     return Array.from({ length: 30 }, (_, i) => {
@@ -275,34 +358,35 @@ export default function ProfilePage() {
   const level = profile?.level || null
   const streak = activeDates.length
 
-  const levelBase = Math.floor(xp / 100) * 100
+  const profileLevel = Math.floor(xp / 100) + 1
+  const levelBase = profileLevel > 1 ? (profileLevel - 1) * 100 : 0
   const nextLevelXp = levelBase + 100
   const currentLevelProgress = xp - levelBase
   const progressPercent = Math.min((currentLevelProgress / 100) * 100, 100)
   const xpLeft = Math.max(nextLevelXp - xp, 0)
 
+  if (!mounted) return null
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950">
-        <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/90 p-6 text-lg font-bold text-gray-800 dark:text-white shadow-lg">
-          Загрузка профиля...
-        </div>
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? "bg-gradient-to-br from-[#1a1b3a] to-[#0a0f2a]" : ""}`}>
+        <div className="rounded-2xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white shadow-xl p-8 font-bold text-xl">Загрузка профиля...</div>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-950">
-        <div className="w-full max-w-md rounded-3xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/90 p-6 text-center shadow-lg">
-          <FaUserCircle className="mx-auto mb-4 text-7xl text-gray-400" />
+      <div className={`min-h-screen flex items-center justify-center p-4 ${isDark ? "bg-gradient-to-br from-[#1a1b3a] to-[#0a0f2a]" : ""}`}>
+        <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-xl p-8 text-center">
+          <FaUserCircle className="mx-auto mb-4 text-7xl text-orange-500 dark:text-orange-400" />
           <h1 className="text-3xl font-black text-gray-800 dark:text-white">Вы не вошли</h1>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Войдите в аккаунт, чтобы открыть страницу профиля.</p>
           <div className="mt-6 flex flex-col gap-3">
-            <button onClick={() => router.push("/login")} className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 py-3 font-black text-white shadow-lg transition hover:scale-[1.01]">
+            <button onClick={() => { playClickSound(); router.push("/login"); }} className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 py-3 font-black text-white shadow-lg transition hover:scale-[1.02]">
               Войти
             </button>
-            <Link href="/" className="w-full rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 py-3 text-center font-bold text-gray-800 dark:text-white transition hover:bg-gray-100 dark:hover:bg-gray-700">
+            <Link href="/" onClick={() => playClickSound()} className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 py-3 text-center font-bold transition">
               На главную
             </Link>
           </div>
@@ -312,202 +396,269 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-gray-950" : "bg-gray-100"}`}>
-      <div className="mx-auto w-full max-w-6xl px-4 py-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <Link href="/" className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-bold shadow transition ${isDark ? "border-gray-700 bg-gray-900/80 hover:bg-gray-800" : "border-gray-200 bg-white/80 hover:bg-gray-100"}`}>
-            <FaArrowLeft className="text-gray-800 dark:text-white" /> 
-            <span className="text-gray-800 dark:text-white">На главную</span>
+    <div className={`min-h-screen ${isDark ? "bg-gradient-to-br from-[#1a1b3a] to-[#0a0f2a]" : ""}`} suppressHydrationWarning>
+      <div className="mx-auto w-full max-w-7xl px-4 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mb-8 flex flex-wrap items-center justify-between gap-3"
+        >
+          <Link href="/" onClick={() => playClickSound()} className="inline-flex items-center gap-2 rounded-xl backdrop-blur-sm border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-5 py-2.5 text-sm font-bold shadow-sm transition">
+            <FaArrowLeft /> На главную
           </Link>
-          <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-300 shadow transition hover:bg-red-500/20">
+          <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-xl border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 px-5 py-2.5 text-sm font-bold shadow-sm transition">
             <FaSignOutAlt /> Выйти
           </button>
-        </div>
+        </motion.div>
 
-        <div className={`overflow-hidden rounded-[28px] border shadow-2xl ${isDark ? "border-gray-700 bg-gray-950/80" : "border-gray-200 bg-white/80"}`}>
-          <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 md:p-8">
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-3xl border-4 border-white/25 bg-white/15 shadow-xl">
-                  {photoURL ? (
-                    <img src={photoURL} alt="Аватар" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <FaUserCircle className="text-7xl text-white" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Левая колонка */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Карточка профиля – с текстурой */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="rounded-2xl bg-white dark:bg-gray-800 bg-noise shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden"
+            >
+              <div className="p-5">
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative mb-3">
+                    <div className="h-24 w-24 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
+                      {photoURL ? <img src={photoURL} alt="Аватар" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><FaUserCircle className="text-5xl text-gray-500 dark:text-gray-400" /></div>}
                     </div>
-                  )}
-                  <label className="absolute bottom-2 right-2 cursor-pointer rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/60">
-                    <FaCamera className="text-xs" />
-                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                  </label>
-                </div>
-                <div>
-                  <p className="mb-2 text-sm font-bold uppercase tracking-[0.2em] text-white/80">Профиль пользователя</p>
+                    <label className="absolute bottom-0 right-0 cursor-pointer rounded-full bg-orange-500 p-1.5 text-white shadow-md transition hover:bg-orange-600">
+                      <FaCamera className="text-xs" />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                    </label>
+                  </div>
                   {editingName ? (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Новое имя" className="rounded-2xl border border-white/20 bg-black/20 px-4 py-2 text-white outline-none" />
-                      <button onClick={handleSaveName} className="rounded-2xl bg-white px-4 py-2 font-black text-black">Сохранить</button>
+                    <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                      <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Новое имя" className="rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 py-1 text-gray-800 dark:text-white text-sm outline-none focus:ring-2 focus:ring-orange-400" />
+                      <button onClick={handleSaveName} className="rounded-lg bg-orange-500 px-3 py-1 text-xs font-black text-white hover:bg-orange-600 transition">Сохранить</button>
                     </div>
                   ) : (
-                    <h1 className="text-3xl font-black text-white md:text-4xl">{displayName}</h1>
+                    <h2 className="text-xl font-black text-gray-800 dark:text-white mt-2">{displayName}</h2>
                   )}
-                  <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-white/85">
-                    <FaEnvelope /> {displayEmail}
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><FaEnvelope /> {displayEmail}</p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                    <span>🆔</span><span className="font-mono">{user.uid.slice(0, 8)}...</span>
+                    <button onClick={() => copyToClipboard(user.uid)} className="text-gray-400 hover:text-orange-500 transition"><FaCopy size={10} /></button>
                   </p>
-                  <p className="mt-1 flex items-center gap-2 text-xs text-white/70">
-                    <span>🆔 ID:</span>
-                    <span className="font-mono">{user.uid}</span>
-                    <button
-                      onClick={() => copyToClipboard(user.uid)}
-                      className="ml-1 text-white/50 hover:text-white transition"
-                      title="Копировать ID"
-                    >
-                      <FaCopy size={12} />
-                    </button>
-                  </p>
+                  <button onClick={() => { playClickSound(); setEditingName(true); setNewName(displayName); }} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition"><FaPen size={10} /> Редактировать</button>
                 </div>
               </div>
-              <button onClick={() => { setEditingName(true); setNewName(displayName) }} className="inline-flex items-center gap-2 self-start rounded-2xl border border-white/20 bg-white/15 px-4 py-3 text-sm font-black text-white shadow-lg backdrop-blur transition hover:bg-white/20">
-                <FaPen /> Редактировать профиль
-              </button>
+            </motion.div>
+
+            {/* 4 кликабельные карточки – с текстурой */}
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard delay={0.2}>
+                <motion.div whileHover={{ scale: 1.02, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }} whileTap={{ scale: 0.98 }} onClick={() => { playClickSound(); setShowXpModal(true); }} className="rounded-xl bg-white dark:bg-gray-800 bg-noise shadow-md border border-gray-100 dark:border-gray-700 p-3 text-center cursor-pointer transition-all duration-200 hover:border-orange-300 dark:hover:border-orange-700">
+                  <FaStar className="text-orange-500 text-xl mx-auto mb-1" />
+                  <p className="text-2xl font-black text-gray-800 dark:text-white">{xp}</p>
+                  <p className="text-xs text-gray-500">XP</p>
+                </motion.div>
+              </StatCard>
+              <StatCard delay={0.25}>
+                <motion.div whileHover={{ scale: 1.02, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }} whileTap={{ scale: 0.98 }} onClick={() => { playClickSound(); setShowLevelModal(true); }} className="rounded-xl bg-white dark:bg-gray-800 bg-noise shadow-md border border-gray-100 dark:border-gray-700 p-3 text-center cursor-pointer transition-all duration-200 hover:border-orange-300 dark:hover:border-orange-700">
+                  <FaTrophy className="text-blue-500 text-xl mx-auto mb-1" />
+                  <p className="text-2xl font-black text-gray-800 dark:text-white">{level || "—"}</p>
+                  <p className="text-xs text-gray-500">Уровень языка</p>
+                </motion.div>
+              </StatCard>
+              <StatCard delay={0.3}>
+                <motion.div whileHover={{ scale: 1.02, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }} whileTap={{ scale: 0.98 }} onClick={() => { playClickSound(); setShowStreakModal(true); }} className="rounded-xl bg-white dark:bg-gray-800 bg-noise shadow-md border border-gray-100 dark:border-gray-700 p-3 text-center cursor-pointer transition-all duration-200 hover:border-orange-300 dark:hover:border-orange-700">
+                  <FaFire className="text-red-500 text-xl mx-auto mb-1" />
+                  <p className="text-2xl font-black text-gray-800 dark:text-white">{streak}</p>
+                  <p className="text-xs text-gray-500">{getDayWord(streak)} за последние 30 дней</p>
+                </motion.div>
+              </StatCard>
+              <StatCard delay={0.35}>
+                <motion.div whileHover={{ scale: 1.02, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" }} whileTap={{ scale: 0.98 }} onClick={() => { playClickSound(); setShowAchievements(true); }} className="rounded-xl bg-white dark:bg-gray-800 bg-noise shadow-md border border-gray-100 dark:border-gray-700 p-3 text-center cursor-pointer transition-all duration-200 hover:border-orange-300 dark:hover:border-orange-700">
+                  <FaCheckCircle className="text-green-500 text-xl mx-auto mb-1" />
+                  <p className="text-2xl font-black text-gray-800 dark:text-white">{unlockedAchievementsCount}/{achievements.length}</p>
+                  <p className="text-xs text-gray-500">Достижения</p>
+                </motion.div>
+              </StatCard>
             </div>
           </div>
 
-          <div className="p-6 md:p-8">
-            <div className="grid gap-4 md:grid-cols-4">
-              <StatCard icon={<FaStar />} label="XP" value={xp} accentClass="text-orange-300" isDark={isDark} />
-              <StatCard icon={<FaTrophy />} label="Уровень" value={level || "—"} accentClass="text-blue-300" isDark={isDark} />
-              <StatCard icon={<FaFire />} label="Серия" value={`${streak} дн.`} accentClass="text-red-300" isDark={isDark} />
-              <StatCard
-                icon={<FaCheckCircle />}
-                label="Достижения"
-                value={`${unlockedAchievementsCount}/${achievements.length}`}
-                accentClass="text-green-300"
-                isDark={isDark}
-                clickable
-                onClick={() => setShowAchievements(true)}
-              />
-            </div>
-
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              <div className={`rounded-3xl border p-5 shadow-lg ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}>
-                <h3 className="flex items-center gap-2 text-lg font-black text-gray-800 dark:text-white">
-                  <FaGraduationCap className="text-purple-500" /> Прогресс по уровням
-                </h3>
-                <div className="mt-3 space-y-3">
-                  {levelStats.map(stat => (
-                    <div key={stat.level}>
-                      <div className="flex justify-between text-sm font-bold">
-                        <span className="text-gray-700 dark:text-gray-300">{stat.level}</span>
-                        <span className="text-gray-500 dark:text-gray-400">{stat.learned}/{stat.total} слов</span>
-                      </div>
-                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                        <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all" style={{ width: `${stat.percent}%` }} />
-                      </div>
-                    </div>
-                  ))}
+          {/* Правая колонка */}
+          <div className="lg:col-span-2 flex flex-col justify-start space-y-6">
+            {/* Друзья – с текстурой */}
+            <StatCard delay={0.15}>
+              <div className="rounded-xl bg-white dark:bg-gray-800 bg-noise shadow-md border border-gray-100 dark:border-gray-700 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FaUserFriends className="text-indigo-500 text-lg" />
+                    <span className="font-bold text-gray-800 dark:text-white text-sm">Друзья</span>
+                  </div>
+                  <button className="text-xs bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-lg text-orange-600 dark:text-orange-400 cursor-not-allowed opacity-60">Пригласить</button>
                 </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">Скоро здесь появятся друзья</p>
               </div>
+            </StatCard>
 
-              <div className={`rounded-3xl border p-5 shadow-lg ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}>
-                <h3 className="flex items-center gap-2 text-lg font-black text-gray-800 dark:text-white">
-                  <FaSkull className="text-red-500" /> Самые сложные слова
-                </h3>
-                {hardWords.length > 0 ? (
-                  <div className="mt-3 space-y-2">
-                    {hardWords.map((item, idx) => (
-                      <div key={idx} className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2 last:border-0">
-                        <div>
-                          <p className="font-bold text-gray-800 dark:text-white">{item.word}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{item.translation}</p>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-sm text-red-500">Ошибок: {item.wrong}</span><br />
-                          <span className="text-xs text-green-500">Правильно: {item.correct}</span>
-                        </div>
-                      </div>
+            {/* Недавние достижения – с текстурой */}
+            {recentAchievements.length > 0 && (
+              <StatCard delay={0.2}>
+                <div className="rounded-xl bg-white dark:bg-gray-800 bg-noise shadow-md border border-gray-100 dark:border-gray-700 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FaTrophy className="text-yellow-500 text-lg" />
+                    <span className="font-bold text-gray-800 dark:text-white text-sm">Недавние достижения</span>
+                  </div>
+                  <div className="space-y-1">
+                    {recentAchievements.map((ach, idx) => (
+                      <p key={idx} className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                        <FaMedal className="text-yellow-500 text-xs" />
+                        {typeof ach === 'string' ? ach : ach.title || ach.name || 'Достижение'}
+                      </p>
                     ))}
                   </div>
-                ) : (
-                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Пока нет данных</p>
-                )}
-              </div>
-            </div>
-
-            <div className={`mt-6 rounded-3xl border p-5 shadow-lg ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}>
-              <h3 className="flex items-center gap-2 text-lg font-black text-gray-800 dark:text-white">
-                <FaCalendarAlt className="text-orange-500" /> Активность за 30 дней
-              </h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Занимались {activeDaysCount} из 30 дней</p>
-              <div className="mt-3 flex flex-wrap gap-1">
-                {last30Days.map(day => {
-                  const isActive = activitySet.has(day)
-                  const dayNum = new Date(day).getDate()
-                  return (
-                    <div key={day} className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold ${isActive ? "bg-green-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"}`} title={day}>
-                      {dayNum}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className={`mt-6 rounded-3xl border p-5 shadow-lg ${isDark ? "border-gray-700 bg-gray-900/80" : "border-gray-200 bg-white/80"}`}>
-              <div className="flex flex-wrap justify-between gap-2">
-                <div>
-                  <h2 className="text-lg font-black text-gray-800 dark:text-white">Прогресс до следующего уровня</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Продолжай учиться и зарабатывай XP.</p>
                 </div>
-                <div className={`rounded-2xl px-4 py-2 text-sm font-bold ${isDark ? "bg-gray-800 text-white" : "bg-gray-200 text-gray-800"}`}>
-                  {xp} / {nextLevelXp} XP
+              </StatCard>
+            )}
+
+            {/* Три карточки статистики – с текстурой */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <StatCard delay={0.25}>
+                <div className="rounded-2xl bg-white dark:bg-gray-800 bg-noise shadow-xl border border-gray-100 dark:border-gray-700 p-4 text-center hover:shadow-2xl transition-shadow duration-300 overflow-visible">
+                  <CircularProgress percent={wordsPercent} label="Слов изучено" icon="📚" color="#f97316" size={130} />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{uniqueLearnedWords} из {totalWordsCount}</p>
                 </div>
-              </div>
-              <div className="mt-3 h-4 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
-              </div>
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Осталось <span className="font-bold text-white">{xpLeft} XP</span> до следующего уровня.</p>
+              </StatCard>
+              <StatCard delay={0.3}>
+                <div className="rounded-2xl bg-white dark:bg-gray-800 bg-noise shadow-xl border border-gray-100 dark:border-gray-700 p-4 text-center hover:shadow-2xl transition-shadow duration-300 overflow-visible">
+                  <CircularProgress percent={categoriesPercent} label="Тем завершено" icon="🏆" color="#3b82f6" size={130} />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{completedCategoriesCount} из {totalCategories}</p>
+                </div>
+              </StatCard>
+              <StatCard delay={0.35}>
+                <div className="rounded-2xl bg-white dark:bg-gray-800 bg-noise shadow-xl border border-gray-100 dark:border-gray-700 p-4 text-center hover:shadow-2xl transition-shadow duration-300 overflow-visible">
+                  <CircularProgress percent={accuracy} label="Точность" icon="🎯" color="#22c55e" size={130} />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{totalCorrect} из {totalAnswers} ответов</p>
+                </div>
+              </StatCard>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Модалки – без изменений */}
+      <AnimatePresence>
+        {showXpModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowXpModal(false)}>
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="rounded-2xl w-full max-w-md bg-white dark:bg-gray-800 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20">
+                <h2 className="text-lg font-black text-gray-800 dark:text-white flex items-center gap-2"><FaStar className="text-orange-500" /> Прогресс уровня профиля</h2>
+                <button onClick={() => { playClickSound(); setShowXpModal(false); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><FaTimes size={20} /></button>
+              </div>
+              <div className="p-5">
+                <div className="text-center mb-4">
+                  <div className="text-6xl font-black text-orange-500">{profileLevel}</div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">текущий уровень профиля</p>
+                </div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600 dark:text-gray-300">XP набрано</span>
+                  <span className="text-orange-500 font-bold">{xp} / {nextLevelXp}</span>
+                </div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mt-1 mb-2">
+                  <div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-700" style={{ width: `${progressPercent}%` }} />
+                </div>
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  <span>до следующего уровня</span>
+                  <span className="font-bold text-orange-500">{xpLeft} XP</span>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-3 text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">💡 За выполнение заданий вы получаете XP. Каждые 100 XP повышают уровень профиля.</p>
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <button onClick={() => { playClickSound(); setShowXpModal(false); }} className="w-full py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:shadow-lg transition">Закрыть</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showLevelModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowLevelModal(false)}>
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="rounded-2xl w-full max-w-lg bg-white dark:bg-gray-800 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <h2 className="text-lg font-black text-gray-800 dark:text-white flex items-center gap-2"><FaGraduationCap className="text-orange-500" /> Прогресс по уровням языка</h2>
+                <button onClick={() => { playClickSound(); setShowLevelModal(false); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><FaTimes size={20} /></button>
+              </div>
+              <div className="p-5 max-h-[70vh] overflow-y-auto">
+                <div className="space-y-4 mb-6">
+                  {levelStats.map(stat => (
+                    <div key={stat.level}>
+                      <div className="flex justify-between text-sm font-bold mb-1"><span className="text-gray-700 dark:text-gray-300">{stat.level}</span><span className="text-gray-500 dark:text-gray-400">{stat.learned}/{stat.total} слов</span></div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden"><div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all" style={{ width: `${stat.percent}%` }} /></div>
+                    </div>
+                  ))}
+                </div>
+                <h3 className="font-bold mt-4 mb-2 flex items-center gap-2 text-gray-800 dark:text-white"><FaSkull className="text-red-500" /> Сложные слова</h3>
+                {hardWords.length > 0 ? (
+                  <div className="space-y-2">
+                    {hardWords.map((item, idx) => (
+                      <div key={idx} className="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
+                        <div><p className="font-bold text-sm text-gray-800 dark:text-white">{item.word}</p><p className="text-xs text-gray-500 dark:text-gray-400">{item.translation}</p></div>
+                        <div className="text-xs"><span className="text-red-500">✗{item.wrong}</span> <span className="text-green-600">✓{item.correct}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="text-sm text-gray-500 dark:text-gray-400">Нет данных</p>}
+              </div>
+              <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <button onClick={() => { playClickSound(); setShowLevelModal(false); }} className="w-full py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl">Закрыть</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showStreakModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowStreakModal(false)}>
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="rounded-2xl w-full max-w-md bg-white dark:bg-gray-800 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <h2 className="text-lg font-black text-gray-800 dark:text-white flex items-center gap-2"><FaCalendarAlt className="text-orange-500" /> Активность за 30 дней</h2>
+                <button onClick={() => { playClickSound(); setShowStreakModal(false); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><FaTimes size={20} /></button>
+              </div>
+              <div className="p-5">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                  Активных дней: <span className="font-bold text-orange-500">{activeDaysCount}</span> • {getDayWord(activeDaysCount)} из 30
+                </p>
+                <div className="flex flex-wrap gap-1 justify-center">
+                  {last30Days.map(day => {
+                    const isActive = activitySet.has(day)
+                    const dayNum = new Date(day).getDate()
+                    return (
+                      <div key={day} className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold ${isActive ? "bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-md" : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"}`}>{dayNum}</div>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <button onClick={() => { playClickSound(); setShowStreakModal(false); }} className="w-full py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl">Закрыть</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {showAchievements && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50" onClick={() => setShowAchievements(false)}>
-          <div
-            className={`rounded-2xl w-full max-w-md shadow-2xl border overflow-hidden animate-slideInScale ${
-              isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className={`flex items-center justify-between p-4 border-b ${
-                isDark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"
-              }`}
-            >
-              <h2 className={`text-lg font-black ${isDark ? "text-white" : "text-gray-800"}`}>Достижения</h2>
-              <button
-                onClick={() => setShowAchievements(false)}
-                className={isDark ? "text-gray-400 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}
-              >
-                <FaTimes size={20} />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowAchievements(false)}>
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="rounded-2xl w-full max-w-md bg-white dark:bg-gray-800 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <h2 className="text-lg font-black text-gray-800 dark:text-white flex items-center gap-2"><FaGem className="text-orange-500" /> Достижения</h2>
+              <button onClick={() => { playClickSound(); setShowAchievements(false); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><FaTimes size={20} /></button>
             </div>
             <div className="p-4 max-h-[70vh] overflow-y-auto">
               <AchievementsList unlocked={unlocked} />
             </div>
-            <div
-              className={`p-4 border-t ${
-                isDark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"
-              }`}
-            >
-              <button
-                onClick={() => setShowAchievements(false)}
-                className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black rounded-xl"
-              >
-                Закрыть
-              </button>
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <button onClick={() => { playClickSound(); setShowAchievements(false); }} className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black rounded-xl">Закрыть</button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
     </div>

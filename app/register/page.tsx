@@ -24,13 +24,14 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
+      // 1. Создаём пользователя в Firebase Auth
       const result = await createUserWithEmailAndPassword(auth, email, password)
       const user = result.user
 
-      await updateProfile(user, {
-        displayName: name,
-      })
+      // 2. Обновляем профиль (displayName)
+      await updateProfile(user, { displayName: name })
 
+      // 3. Создаём документ пользователя в Firestore
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         name,
@@ -41,9 +42,21 @@ export default function RegisterPage() {
         createdAt: serverTimestamp(),
       })
 
+      // 4. Перенаправляем на профиль
       router.push("/profile")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка регистрации")
+    } catch (err: any) {
+      console.error("Registration error:", err)
+      let message = "Ошибка регистрации. Попробуйте позже."
+      if (err.code === "auth/email-already-in-use") {
+        message = "Этот email уже используется."
+      } else if (err.code === "auth/weak-password") {
+        message = "Пароль слишком слабый (минимум 6 символов)."
+      } else if (err.code === "auth/invalid-email") {
+        message = "Некорректный email."
+      } else if (err.message) {
+        message = err.message
+      }
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -59,7 +72,7 @@ export default function RegisterPage() {
       <form onSubmit={handleRegister} className="space-y-4">
         <label className="block">
           <span className="mb-2 block text-sm font-bold text-gray-100">Имя</span>
-          <div className="flex items-center gap-  3 rounded-2xl border border-white/15 bg-black/25 px-4 py-3 focus-within:border-orange-400">
+          <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/25 px-4 py-3 focus-within:border-orange-400">
             <FaUser className="text-gray-300" />
             <input
               value={name}
