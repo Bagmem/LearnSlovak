@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 
 type StreakWidgetProps = {
@@ -14,7 +15,24 @@ function getLocalDateString(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-export default function StreakWidget({ streak, activeDates }: StreakWidgetProps) {
+export default function StreakWidget({ streak: initialStreak, activeDates: initialActiveDates }: StreakWidgetProps) {
+  const [streak, setStreak] = useState(initialStreak)
+  const [activeDates, setActiveDates] = useState(initialActiveDates)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    // Здесь можно обновить данные из localStorage, если нужно
+    const savedDates = localStorage.getItem("slovak_active_dates")
+    if (savedDates) {
+      const dates = JSON.parse(savedDates)
+      setActiveDates(dates)
+      // пересчитать streak, если нужно
+      // но для простоты оставим как есть
+    }
+  }, [])
+
+  // Функции и вычисления
   const daysLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
   const now = new Date()
   const todayStr = getLocalDateString(now)
@@ -49,9 +67,66 @@ export default function StreakWidget({ streak, activeDates }: StreakWidgetProps)
   const daysLeftWord = getDaysWord(daysLeft, "день", "дня", "дней")
   const activeDaysWord = getDaysWord(activeDaysThisWeek, "день", "дня", "дней")
 
+  // Если компонент ещё не смонтирован, рендерим скелетон или просто пустой div
+  // чтобы избежать гидратации, возвращаем null или простую заглушку, но тогда не будет видно виджета до монтирования.
+  // Лучше рендерить с теми же классами, но с placeholder-значениями.
+  if (!mounted) {
+    return (
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white to-gray-50/80 dark:from-gray-800/90 dark:to-gray-900/90 p-5 shadow-md border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm">
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:20px_20px] dark:bg-[radial-gradient(#fff_1px,transparent_1px)]" />
+        <div className="relative">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center shadow-md">
+                <span className="text-2xl">🔥</span>
+              </div>
+              <div>
+                <h3 className="font-black text-lg text-gray-800 dark:text-white">Ударный режим</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Занимайся каждый день</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-4xl font-black text-orange-500">0</span>
+              <span className="text-sm font-bold text-gray-500 dark:text-gray-400 ml-1">дней</span>
+            </div>
+          </div>
+          <div className="mb-4">
+            <div className="flex justify-between text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">
+              <span>🏆 До следующей награды</span>
+              <span>0 / 0</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full" style={{ width: '0%' }} />
+            </div>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">0 дней до следующей награды</p>
+          </div>
+          <div className="grid grid-cols-7 gap-0 text-center">
+            {weekDays.map((day, idx) => (
+              <div key={day.dateStr} className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all mx-auto bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500" />
+                <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mt-1">{day.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-2 border-t border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">Активность на этой неделе</span>
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">0 дней</span>
+            </div>
+            <div className="flex justify-between gap-1">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Полноценный рендер после монтирования
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white to-gray-50/80 dark:from-gray-800/90 dark:to-gray-900/90 p-5 shadow-md border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm">
-      {/* Мягкая точечная текстура (едва заметные точки) */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:20px_20px] dark:bg-[radial-gradient(#fff_1px,transparent_1px)]" />
       <div className="relative">
         <div className="flex items-center justify-between mb-4">

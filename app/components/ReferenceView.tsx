@@ -98,8 +98,8 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
     window.speechSynthesis.speak(u)
   }
 
-  const allItems = [...words, ...grammarTasks]
-  
+  const allItems = useMemo(() => [...words, ...grammarTasks], [])
+
   const categoryTotalCount: Record<string, number> = {}
   allItems.forEach(i => {
     const key = `${i.level}_${i.category}`
@@ -124,10 +124,14 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
 
   const uniqueLearnedWords = Array.from(wordStatsMap.values()).filter(stat => stat.correctCount > 0).length
 
-  const today = new Date()
-  const last30Days = useMemo(() => Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(); d.setDate(today.getDate() - i); return d.toISOString().slice(0, 10)
-  }).reverse(), [today])
+  const last30Days = useMemo(() => {
+    const today = new Date()
+    return Array.from({ length: 30 }, (_, i) => {
+      const d = new Date()
+      d.setDate(today.getDate() - i)
+      return d.toISOString().slice(0, 10)
+    }).reverse()
+  }, [])
   const activitySet = new Set(activeDates)
   const activeDaysCount = activeDates.filter(date => last30Days.includes(date)).length
 

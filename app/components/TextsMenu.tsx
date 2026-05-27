@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../data/texts"
 import { type UserLevel, canAccessLevel } from "../../lib/levels"
@@ -48,20 +48,18 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
       { value: "B2", label: "B2" },
     ]
     return allLevels.filter((level) => {
-      return level.value === "all" || canAccessLevel(userLevel, level.value as any)
+      return level.value === "all" || canAccessLevel(userLevel, level.value as TextLevel)
     })
   }, [userLevel])
 
-  useEffect(() => {
-    if (selectedLevel !== "all" && !canAccessLevel(userLevel, selectedLevel as any)) {
-      setSelectedLevel("all")
-    }
-  }, [userLevel, selectedLevel])
+  const safeSelectedLevel = selectedLevel !== "all" && !canAccessLevel(userLevel, selectedLevel as TextLevel)
+    ? "all"
+    : selectedLevel
 
   const filteredTexts = useMemo(() => {
-    let result = texts.filter((text) => canAccessLevel(userLevel, text.level as any))
-    if (selectedLevel !== "all") {
-      result = result.filter((text) => text.level === selectedLevel)
+    let result = texts.filter((text) => canAccessLevel(userLevel, text.level))
+    if (safeSelectedLevel !== "all") {
+      result = result.filter((text) => text.level === safeSelectedLevel)
     }
     if (selectedTopic !== "all") {
       result = result.filter((text) => text.topic === selectedTopic)
@@ -71,7 +69,7 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
       result = result.filter((text) => text.title.toLowerCase().includes(lowerQuery))
     }
     return result
-  }, [selectedLevel, selectedTopic, searchQuery, userLevel])
+  }, [safeSelectedLevel, selectedTopic, searchQuery, userLevel])
 
   const topics: { value: TextTopic | "all"; label: string }[] = [
     { value: "all", label: "Все темы" },

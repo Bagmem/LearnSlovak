@@ -4,11 +4,10 @@ import { useState, useEffect, useRef, useCallback, type FormEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { type Word } from "../../data/words"
 import { type GameMode } from "./StartMenu"
-import GrammarHint from "./GrammarHint"
 import { playClickSound } from "../../lib/sounds"
 import { useAnimation } from "../../hooks/useAnimation"
 import AnimatedFeedback from "./AnimatedFeedback"
-import { FaVolumeUp, FaCheck, FaTimes, FaHeart } from "react-icons/fa"
+import { FaCheck, FaTimes } from "react-icons/fa"
 
 type GameUIProps = {
   xp: number
@@ -53,14 +52,9 @@ export default function GameUI({
   const inputRef = useRef<HTMLInputElement>(null)
   const hasAutoSpokenRef = useRef(false)
   const { animation, trigger } = useAnimation(300)
-  const [heartBlockPulse, setHeartBlockPulse] = useState(false)
   const prevLivesRef = useRef(lives)
 
   useEffect(() => {
-    if (lives < prevLivesRef.current) {
-      setHeartBlockPulse(true)
-      setTimeout(() => setHeartBlockPulse(false), 350)
-    }
     prevLivesRef.current = lives
   }, [lives])
 

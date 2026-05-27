@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo } from "react"
 import { motion } from "framer-motion"
 import { words } from "./../data/words"
 
@@ -293,12 +293,10 @@ type InteractiveTextProps = {
 }
 
 export default function InteractiveText({ text }: InteractiveTextProps) {
-  const [wordsArray, setWordsArray] = useState<string[]>([])
-
-  useEffect(() => {
-    const tokens = text.split(/(\s+)/).filter(t => t.trim().length > 0)
-    setWordsArray(tokens)
-  }, [text])
+  const wordsArray = useMemo(
+    () => text.split(/(\s+)/).filter((t) => t.trim().length > 0),
+    [text]
+  )
 
   const handleWordClick = (word: string) => {
     const translation = getTranslation(word)

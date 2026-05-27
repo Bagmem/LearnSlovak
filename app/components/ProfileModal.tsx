@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { FaUserCircle, FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaStar, FaRegSmile, FaTimes, FaGraduationCap } from "react-icons/fa"
+import { FaUserCircle, FaTrophy, FaFire, FaStar, FaRegSmile, FaTimes, FaGraduationCap } from "react-icons/fa"
 import { type UnlockedAchievement } from "../../hooks/useAchievements"
 import { achievements } from "../../data/achievements"
 import { getIconForAchievement } from "../../utils/achievementIcons"
@@ -114,19 +114,24 @@ export default function ProfileModal({
               </div>
 
               <div className={`flex rounded-xl p-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-gray-700 dark:to-gray-800`}>
-                {["stats", "achievements"].map((tab) => (
+                {(
+                  [
+                    { id: "stats", label: "Статистика" },
+                    { id: "achievements", label: `Достижения (${unlockedCount}/${totalAchievements})` },
+                  ] as const
+                ).map((tab) => (
                   <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab as any)}
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
                     className={`flex-1 py-2 text-sm font-black rounded-lg transition-all ${
-                      activeTab === tab
+                      activeTab === tab.id
                         ? isDark
                           ? "bg-gray-600 text-orange-500 shadow-sm"
                           : "bg-white text-orange-500 shadow-sm"
                         : isDark ? "text-gray-400" : "text-gray-500"
                     }`}
                   >
-                    {tab === "stats" ? "Статистика" : `Достижения (${unlockedCount}/${totalAchievements})`}
+                    {tab.label}
                   </button>
                 ))}
               </div>

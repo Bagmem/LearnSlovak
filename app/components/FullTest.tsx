@@ -1,11 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { FaArrowLeft } from "react-icons/fa"
 import { LanguageLevel } from "../../data/words"
+import { type SlovakText } from "../../data/texts"
 import { getTextSection, getTranslationWords, getVerbQuestions, getMatchPairs, getTrueFalseQuestions } from "../../lib/testData"
-import { playClickSound, playCorrectSound, playWrongSound, playVictorySound } from "../../lib/sounds"
+
+type TextQuestion = { text: string; options: string[]; correct: number }
+type VerbQuestion = { sentence: string; options: string[]; correct: number }
+import { playClickSound, playVictorySound } from "../../lib/sounds"
 import confetti from "canvas-confetti"
 
 type FullTestProps = {
@@ -17,11 +21,9 @@ type FullTestProps = {
 export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
   const [section, setSection] = useState(0)
   const [sectionScores, setSectionScores] = useState<{ score: number; max: number }[]>([])
-  const [testData, setTestData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [showResults, setShowResults] = useState(false)
 
-  useEffect(() => {
+  const testData = useMemo(() => {
     const textSection = getTextSection(level)
     const translationWords = getTranslationWords(level)
     const verbQuestions = getVerbQuestions(level, 6)
@@ -41,9 +43,8 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
         pairs,
       }
     }
-   const tfStatements = getTrueFalseQuestions(level, 6)
-    setTestData({ textSection, translationWords, verbQuestions, matchPairs: matchPairsData, tfStatements })
-    setLoading(false)
+    const tfStatements = getTrueFalseQuestions(level, 6)
+    return { textSection, translationWords, verbQuestions, matchPairs: matchPairsData, tfStatements }
   }, [level])
 
   const handleSectionComplete = (score: number, maxScore: number) => {
@@ -68,7 +69,7 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
     onComplete(totalScore, totalMax, xpEarned)
   }
 
-  if (loading) {
+  if (!testData || !testData.textSection) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
@@ -271,7 +272,7 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
 }
 
 // ========== Секция 1 ==========
-function SectionText({ text, questions, onComplete }: { text: any; questions: any[]; onComplete: (score: number, maxScore: number) => void }) {
+function SectionText({ text, questions, onComplete }: { text: SlovakText; questions: TextQuestion[]; onComplete: (score: number, maxScore: number) => void }) {
   const [answers, setAnswers] = useState<number[]>(new Array(questions.length).fill(-1))
   const allAnswered = answers.every(a => a !== -1)
 
@@ -374,7 +375,7 @@ function SectionTranslation({ words, onComplete }: { words: { slovak: string; ru
 }
 
 // ========== Секция 3 ==========
-function SectionVerb({ questions, onComplete }: { questions: any[]; onComplete: (score: number, maxScore: number) => void }) {
+function SectionVerb({ questions, onComplete }: { questions: VerbQuestion[]; onComplete: (score: number, maxScore: number) => void }) {
   const [answers, setAnswers] = useState<number[]>(new Array(questions.length).fill(-1))
   const allAnswered = answers.every(a => a !== -1)
 
@@ -450,7 +451,7 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
       const newConn = new Map(connections)
       // Если это правое уже соединено с другим левым, удаляем ту связь
       let existingLeft: number | undefined
-      for (let [l, r] of newConn.entries()) {
+      for (const [l, r] of newConn.entries()) {
         if (r === idx) {
           existingLeft = l
           break
@@ -465,7 +466,7 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
     } else {
       // Если ничего не выбрано, но кликнули на правое – пробуем разорвать его связь
       let leftToRemove: number | undefined
-      for (let [l, r] of connections.entries()) {
+      for (const [l, r] of connections.entries()) {
         if (r === idx) {
           leftToRemove = l
           break
@@ -482,7 +483,7 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
   const handleNext = () => {
     if (!allConnected) return
     let correct = 0
-    for (let [l, r] of connections.entries()) {
+    for (const [l, r] of connections.entries()) {
       const slovak = left[l]
       const expected = pairs.find(p => p.slovak === slovak)?.russian
       if (expected === right[r]) correct++
@@ -499,7 +500,7 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
 
   const getRightStyle = (idx: number) => {
     let isConnected = false
-    for (let r of connections.values()) if (r === idx) { isConnected = true; break }
+    for (const r of connections.values()) if (r === idx) { isConnected = true; break }
     if (isConnected) return "bg-orange-100 dark:bg-orange-900 border-orange-400 shadow-md"
     return "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
   }

@@ -14,20 +14,20 @@ const DEFAULT_SETTINGS: Settings = {
   volume: 0.7,
 }
 
-export function useSettings() {
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
-  const [isLoaded, setIsLoaded] = useState(false)
+const loadSettings = (): Settings => {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS
+  const saved = localStorage.getItem("slovak_settings")
+  if (!saved) return DEFAULT_SETTINGS
+  try {
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) }
+  } catch {
+    return DEFAULT_SETTINGS
+  }
+}
 
-  useEffect(() => {
-    const saved = localStorage.getItem("slovak_settings")
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed })
-      } catch (e) {}
-    }
-    setIsLoaded(true)
-  }, [])
+export function useSettings() {
+  const [settings, setSettings] = useState<Settings>(loadSettings)
+  const [isLoaded] = useState(true)
 
   useEffect(() => {
     if (isLoaded) {

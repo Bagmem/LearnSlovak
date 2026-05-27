@@ -1,6 +1,5 @@
 // lib/testData.ts
 import { words, type LanguageLevel } from "../data/words"
-import { grammarTasks } from "../data/grammar"
 import { texts, type SlovakText } from "../data/texts"
 import { verbsByLevel } from "../data/verbs"
 import { trueFalseQuestionsByLevel } from "../data/trueFalseQuestions"
@@ -15,7 +14,7 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 // Секция 1: текст и вопросы
-export function getTextSection(level: LanguageLevel): { text: SlovakText; questions: any[] } | null {
+export function getTextSection(level: LanguageLevel): { text: SlovakText; questions: { text: string; options: string[]; correct: number }[] } | null {
   let levelTexts = texts.filter(t => t.level === level)
   if (levelTexts.length === 0) {
     const levelsOrder: LanguageLevel[] = ["A1", "A2", "B1", "B2", "C1"]

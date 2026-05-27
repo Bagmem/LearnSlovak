@@ -87,7 +87,8 @@ const exceptions: Record<string, { firstPerson: string; thirdPersonPlural: strin
   "usmievať sa": { firstPerson: "usmievam sa", thirdPersonPlural: "usmievajú sa", pastMasculine: "usmieval sa" },
 }
 
-function createVerb(infinitive: string, translation: string, level: LanguageLevel): VerbData {
+function createVerb(infinitive: string, translation: string, _level: LanguageLevel): VerbData {
+  void _level
   const exc = exceptions[infinitive]
   if (exc) {
     return {

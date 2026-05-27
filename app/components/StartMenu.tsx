@@ -11,12 +11,9 @@ import {
   FaTrophy,
   FaFire,
   FaGem,
-  FaUserCircle,
-  FaStar,
-  FaGraduationCap,
-  FaRegSmile,
   FaBookOpen,
   FaLanguage,
+  FaLock,
 } from "react-icons/fa"
 import { words, type LanguageLevel } from "../../data/words"
 import { grammarTasks } from "../../data/grammar"
@@ -24,8 +21,6 @@ import StreakWidget from "./StreakWidget"
 import CategoryCard from "./CategoryCard"
 import { playModeSwitchSound, initAudio } from "../../lib/sounds"
 import ProfileModal from "./ProfileModal"
-import { type Settings } from "../../hooks/useSettings"
-import { type Theme } from "../../hooks/useTheme"
 import { useAchievements } from "../../hooks/useAchievements"
 import { canAccessLevel, getNextLevel, type UserLevel } from "../../lib/levels"
 
@@ -40,12 +35,6 @@ type StartMenuProps = {
   activeDates: string[]
   gameMode: GameMode
   setGameMode: (mode: GameMode) => void
-  settings: Settings
-  onToggleMute: () => void
-  onSetSpeechRate: (rate: number) => void
-  onSetAutoSpeak: (enabled: boolean) => void
-  theme: Theme
-  onToggleTheme: () => void
   correctAnswersCount: number
   totalClicksCount: number
   learnedWordsCount: number
@@ -88,12 +77,6 @@ export default function StartMenu({
   activeDates,
   gameMode,
   setGameMode,
-  settings,
-  onToggleMute,
-  onSetSpeechRate,
-  onSetAutoSpeak,
-  theme,
-  onToggleTheme,
   correctAnswersCount,
   totalClicksCount,
   learnedWordsCount,
@@ -101,13 +84,11 @@ export default function StartMenu({
 }: StartMenuProps) {
   const [studyTab, setStudyTab] = useState<"vocab" | "grammar">("vocab")
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [avatar, setAvatar] = useState<string>("default")
+  const [avatar, setAvatar] = useState<string>(() => {
+    if (typeof window === "undefined") return "default"
+    return localStorage.getItem("slovak_avatar") || "default"
+  })
   const { unlocked } = useAchievements()
-
-  useEffect(() => {
-    const savedAvatar = localStorage.getItem("slovak_avatar")
-    if (savedAvatar) setAvatar(savedAvatar)
-  }, [])
 
   const handleAvatarChange = (newAvatar: string) => {
     setAvatar(newAvatar)
@@ -145,6 +126,20 @@ export default function StartMenu({
 
   const levelsToShow: LanguageLevel[] = ["A1", "A2", "B1", "B2", "C1"]
 
+  // Определяем, какой уровень нужен для открытия (только для подсказки)
+  const getRequiredLevelName = (level: LanguageLevel): string | null => {
+    if (level === "A1") return null
+    const map: Record<LanguageLevel, LanguageLevel> = {
+      A1: "A1",
+      A2: "A1",
+      B1: "A2",
+      B2: "B1",
+      C1: "B2",
+      C2: "C1",
+    }
+    return map[level]
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -152,7 +147,7 @@ export default function StartMenu({
       transition={{ duration: 0.5 }}
       className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12"
     >
-      {/* Заголовок – исправлен для корректного отображения буквы "у" */}
+      {/* Заголовок */}
       <div className="text-center mb-2 overflow-x-visible px-2">
         <motion.div
           initial={{ scale: 0.95 }}
@@ -273,14 +268,22 @@ export default function StartMenu({
           const isLocked = !canAccessLevel(userLevel, levelCode)
           const categories = getCategoriesForLevel(levelCode)
           if (!categories.length) return null
+
+          const requiredLevel = getRequiredLevelName(levelCode)
+          const tooltipText = isLocked && requiredLevel
+            ? `Требуется пройти уровень ${requiredLevel} на 100%`
+            : ""
+
           return (
             <motion.div
               key={levelCode}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: levelIdx * 0.1 }}
-              className={isLocked ? "opacity-60" : ""}
+              className="relative"
+              title={tooltipText}
             >
+              {/* Заголовок уровня */}
               <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <div className="text-2xl">{levelIcons[levelCode]}</div>
                 <h2 className="text-xl md:text-2xl font-black text-gray-800 dark:text-white">
@@ -288,34 +291,48 @@ export default function StartMenu({
                 </h2>
                 <span className="text-sm text-gray-500">{levelDescs[levelCode]}</span>
                 {isLocked && (
-                  <span className="ml-auto rounded-full bg-gray-200 dark:bg-gray-700 px-3 py-1 text-xs font-bold text-gray-600 dark:text-gray-300">
-                    🔒 Закрыто
+                  <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-gray-200/70 dark:bg-gray-700/70 px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                    <FaLock size={10} /> Закрыто
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {categories.map((cat, catIdx) => (
-                  <motion.div
-                    key={cat.name}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: levelIdx * 0.05 + catIdx * 0.02 }}
-                    whileHover={isLocked ? {} : { y: -2 }}
-                  >
-                    <CategoryCard
-                      name={cat.name}
-                      passedCount={cat.passedCount}
-                      totalCount={cat.totalCount}
-                      isCompleted={cat.isCompleted}
-                      isLocked={isLocked}
-                      onSelect={() => {
-                        if (!isLocked) {
-                          onSelectCategory(cat.name, levelCode, studyTab)
-                        }
-                      }}
-                    />
-                  </motion.div>
-                ))}
+
+              {/* Карточки категорий с мягким оверлеем */}
+              <div className="relative">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {categories.map((cat, catIdx) => (
+                    <motion.div
+                      key={cat.name}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: levelIdx * 0.05 + catIdx * 0.02 }}
+                      whileHover={isLocked ? {} : { y: -2 }}
+                    >
+                      <CategoryCard
+                        name={cat.name}
+                        passedCount={cat.passedCount}
+                        totalCount={cat.totalCount}
+                        isCompleted={cat.isCompleted}
+                        isLocked={isLocked}
+                        onSelect={() => {
+                          if (!isLocked) {
+                            onSelectCategory(cat.name, levelCode, studyTab)
+                          }
+                        }}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Мягкий оверлей для заблокированного уровня */}
+                {isLocked && (
+                  <div className="absolute inset-0 bg-white/40 dark:bg-black/30 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-2 z-10 pointer-events-none">
+                    <FaLock className="text-orange-400/80 text-3xl drop-shadow-sm" />
+                    <span className="text-gray-700 dark:text-gray-200 text-xs font-medium bg-white/50 dark:bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                      {requiredLevel ? `Требуется ${requiredLevel}` : "Недоступно"}
+                    </span>
+                  </div>
+                )}
               </div>
             </motion.div>
           )

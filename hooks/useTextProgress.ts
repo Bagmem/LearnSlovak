@@ -1,36 +1,30 @@
 import { useState, useEffect, useCallback } from 'react'
 
 type TextProgress = {
-  read: Record<string, boolean>        // id текста -> прочитан ли
-  quizCompleted: Record<string, { score: number; xpEarned: boolean }> // id текста -> результат
+  read: Record<string, boolean>
+  quizCompleted: Record<string, { score: number; xpEarned: boolean }>
 }
 
 const STORAGE_KEY = 'slovak_text_progress'
 
-export function useTextProgress() {
-  const [progress, setProgress] = useState<TextProgress>({
-    read: {},
-    quizCompleted: {},
-  })
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  // Загрузка сохранённых данных при монтировании
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        setProgress({
-          read: parsed.read || {},
-          quizCompleted: parsed.quizCompleted || {},
-        })
-      } catch (e) {
-        console.error('Ошибка загрузки прогресса текстов', e)
-      }
+const loadTextProgress = (): TextProgress => {
+  if (typeof window === 'undefined') return { read: {}, quizCompleted: {} }
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (!saved) return { read: {}, quizCompleted: {} }
+  try {
+    const parsed = JSON.parse(saved)
+    return {
+      read: parsed.read || {},
+      quizCompleted: parsed.quizCompleted || {},
     }
-    setIsLoaded(true)
-  }, [])
+  } catch {
+    return { read: {}, quizCompleted: {} }
+  }
+}
+
+export function useTextProgress() {
+  const [progress, setProgress] = useState<TextProgress>(loadTextProgress)
+  const [isLoaded] = useState(true)
 
   // Сохранение при каждом изменении прогресса
   useEffect(() => {

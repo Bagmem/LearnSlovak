@@ -2,7 +2,7 @@ import { type LanguageLevel } from "../data/words"
 
 export type UserLevel = LanguageLevel | null
 
-export function normalizeUserLevel(level: any): UserLevel {
+export function normalizeUserLevel(level: unknown): UserLevel {
   if (level === "A1" || level === "A2" || level === "B1" || level === "B2" || level === "C1") {
     return level
   }

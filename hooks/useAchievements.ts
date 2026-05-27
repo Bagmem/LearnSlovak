@@ -3,25 +3,21 @@ import { achievements, type Achievement, type AchievementState } from "../data/a
 
 export type UnlockedAchievement = Achievement & { unlockedAt: number }
 
-export function useAchievements() {
-  const [unlocked, setUnlocked] = useState<UnlockedAchievement[]>([])
-  const [lastUnlocked, setLastUnlocked] = useState<UnlockedAchievement | null>(null)
-  const [isLoaded, setIsLoaded] = useState(false)
+const loadUnlockedAchievements = (): UnlockedAchievement[] => {
+  if (typeof window === "undefined") return []
+  const saved = localStorage.getItem("slovak_achievements")
+  if (!saved) return []
+  try {
+    return JSON.parse(saved) as UnlockedAchievement[]
+  } catch {
+    return []
+  }
+}
 
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const saved = localStorage.getItem("slovak_achievements")
-    if (saved) {
-      try {
-        setUnlocked(JSON.parse(saved))
-      } catch {
-        setUnlocked([])
-      }
-    } else {
-      setUnlocked([])
-    }
-    setIsLoaded(true)
-  }, [])
+export function useAchievements() {
+  const [unlocked, setUnlocked] = useState<UnlockedAchievement[]>(loadUnlockedAchievements)
+  const [lastUnlocked, setLastUnlocked] = useState<UnlockedAchievement | null>(null)
+  const [isLoaded] = useState(true)
 
   useEffect(() => {
     if (isLoaded) {

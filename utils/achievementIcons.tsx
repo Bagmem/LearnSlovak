@@ -11,7 +11,6 @@ import {
   FaBrain,
   FaCalendarAlt,
   FaChartLine,
-  FaSmile,
   FaGraduationCap,
   FaPenFancy,
   FaQuestionCircle,

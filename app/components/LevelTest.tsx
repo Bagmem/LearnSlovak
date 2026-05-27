@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, type ComponentType } from "react"
 import { motion } from "framer-motion"
 import { FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaCheckCircle, FaBookOpen, FaLayerGroup } from "react-icons/fa"
 
@@ -18,7 +18,7 @@ type CompletedLevels = {
   C1: boolean
 }
 
-const levelsData: { id: TestLevel; title: string; name: string; icon: any; bgGradient: string; desc: string; questionCount: number; testWordCount: number }[] = [
+const levelsData: { id: TestLevel; title: string; name: string; icon: ComponentType<{ className?: string; size?: string | number }>; bgGradient: string; desc: string; questionCount: number; testWordCount: number }[] = [
   { id: "A1", title: "A1", name: "Начинающий", icon: FaSeedling, bgGradient: "from-green-500 to-emerald-600", desc: "Базовые слова и фразы", questionCount: 30, testWordCount: 12 },
   { id: "A2", title: "A2", name: "Элементарный", icon: FaRocket, bgGradient: "from-blue-500 to-indigo-600", desc: "Простые диалоги", questionCount: 35, testWordCount: 10 },
   { id: "B1", title: "B1", name: "Пороговый", icon: FaTrophy, bgGradient: "from-yellow-500 to-amber-600", desc: "Уверенное общение", questionCount: 40, testWordCount: 8 },
@@ -27,23 +27,18 @@ const levelsData: { id: TestLevel; title: string; name: string; icon: any; bgGra
 ]
 
 export default function LevelTest({ onStartTest }: LevelTestProps) {
-  const [completed, setCompleted] = useState<CompletedLevels>({
-    A1: false,
-    A2: false,
-    B1: false,
-    B2: false,
-    C1: false,
-  })
-
-  useEffect(() => {
+  const [completed] = useState<CompletedLevels>(() => {
+    const base: CompletedLevels = { A1: false, A2: false, B1: false, B2: false, C1: false }
+    if (typeof window === "undefined") return base
     const saved = localStorage.getItem("test_completed_levels")
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as Partial<CompletedLevels>
-        setCompleted(prev => ({ ...prev, ...parsed }))
-      } catch (e) {}
+    if (!saved) return base
+    try {
+      const parsed = JSON.parse(saved) as Partial<CompletedLevels>
+      return { ...base, ...parsed }
+    } catch {
+      return base
     }
-  }, [])
+  })
 
   const completedCount = Object.values(completed).filter(Boolean).length
   const totalLevels = levelsData.length

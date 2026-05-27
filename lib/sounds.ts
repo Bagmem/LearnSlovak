@@ -12,7 +12,11 @@ export function setGlobalVolume(volume: number) {
 
 function getAudioContext(): AudioContext {
   if (!audioContext) {
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const constructor = window.AudioContext ?? ((window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)
+    if (!constructor) {
+      throw new Error("Web Audio API is not supported in this browser")
+    }
+    audioContext = new constructor()
   }
   return audioContext
 }

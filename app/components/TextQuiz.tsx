@@ -5,7 +5,7 @@ import { type SlovakText } from "../../data/texts"
 import { playClickSound, playCorrectSound, playWrongSound, playVictorySound } from "../../lib/sounds"
 import confetti from "canvas-confetti"
 import { FaArrowLeft } from "react-icons/fa"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 
 type TextQuizProps = {
   text: SlovakText
@@ -15,8 +15,15 @@ type TextQuizProps = {
   xpAlreadyEarned?: boolean
 }
 
-export default function TextQuiz({ text, onComplete, onBack, existingScore, xpAlreadyEarned }: TextQuizProps) {
-  if (!text.questions?.length) {
+export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: TextQuizProps) {
+  const total = text.questions?.length ?? 0
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [answers, setAnswers] = useState<number[]>(Array(total).fill(-1))
+  const [finished, setFinished] = useState(false)
+  const [correctCount, setCorrectCount] = useState(0)
+  const [showResult, setShowResult] = useState(false)
+
+  if (!total) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
         <p className="text-gray-500 dark:text-gray-400">Для этого текста пока нет вопросов.</p>
@@ -24,13 +31,6 @@ export default function TextQuiz({ text, onComplete, onBack, existingScore, xpAl
       </div>
     )
   }
-
-  const total = text.questions.length
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [answers, setAnswers] = useState<number[]>(Array(total).fill(-1))
-  const [finished, setFinished] = useState(false)
-  const [correctCount, setCorrectCount] = useState(0)
-  const [showResult, setShowResult] = useState(false)
 
   const currentQ = text.questions[currentIndex]
   const selected = answers[currentIndex]

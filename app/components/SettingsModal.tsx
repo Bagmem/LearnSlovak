@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { FaTimes, FaVolumeUp, FaVolumeMute, FaMicrophoneAlt, FaTachometerAlt, FaPalette, FaCheck } from "react-icons/fa"
+import { FaTimes, FaVolumeUp, FaVolumeMute, FaMicrophoneAlt, FaTachometerAlt, FaPalette } from "react-icons/fa"
 import { Settings } from "../../hooks/useSettings"
 import { Theme } from "../../hooks/useTheme"
 
@@ -29,26 +29,11 @@ export default function SettingsModal({
   theme,
   onToggleTheme,
 }: SettingsModalProps) {
-  const [localVolume, setLocalVolume] = useState(settings.volume)
-  const [localSpeechRate, setLocalSpeechRate] = useState(settings.speechRate)
-
-  // Синхронизация локальных состояний с пропсами
-  useEffect(() => {
-    setLocalVolume(settings.volume)
-  }, [settings.volume])
-
-  useEffect(() => {
-    setLocalSpeechRate(settings.speechRate)
-  }, [settings.speechRate])
-
-  // Обработчики с плавным обновлением
   const handleVolumeChange = (value: number) => {
-    setLocalVolume(value)
     onSetVolume(value)
   }
 
   const handleRateChange = (value: number) => {
-    setLocalSpeechRate(value)
     onSetSpeechRate(value)
   }
 
@@ -148,14 +133,14 @@ export default function SettingsModal({
                     </div>
                     <p className="font-bold text-gray-800 dark:text-white">Громкость звуков</p>
                   </div>
-                  <span className="text-sm font-bold text-orange-500">{Math.round(localVolume * 100)}%</span>
+                  <span className="text-sm font-bold text-orange-500">{Math.round(settings.volume * 100)}%</span>
                 </div>
                 <input
                   type="range"
                   min="0"
                   max="1"
                   step="0.01"
-                  value={localVolume}
+                  value={settings.volume}
                   onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
                   className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
                 />
@@ -174,14 +159,14 @@ export default function SettingsModal({
                     </div>
                     <p className="font-bold text-gray-800 dark:text-white">Скорость речи</p>
                   </div>
-                  <span className="text-sm font-bold text-orange-500">{localSpeechRate.toFixed(1)}x</span>
+                  <span className="text-sm font-bold text-orange-500">{settings.speechRate.toFixed(1)}x</span>
                 </div>
                 <input
                   type="range"
                   min="0.5"
                   max="1.5"
                   step="0.1"
-                  value={localSpeechRate}
+                  value={settings.speechRate}
                   onChange={(e) => handleRateChange(parseFloat(e.target.value))}
                   className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
                 />

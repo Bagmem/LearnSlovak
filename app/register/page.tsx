@@ -44,17 +44,18 @@ export default function RegisterPage() {
 
       // 4. Перенаправляем на профиль
       router.push("/profile")
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Registration error:", err)
+      const error = err as { code?: string; message?: string }
       let message = "Ошибка регистрации. Попробуйте позже."
-      if (err.code === "auth/email-already-in-use") {
+      if (error.code === "auth/email-already-in-use") {
         message = "Этот email уже используется."
-      } else if (err.code === "auth/weak-password") {
+      } else if (error.code === "auth/weak-password") {
         message = "Пароль слишком слабый (минимум 6 символов)."
-      } else if (err.code === "auth/invalid-email") {
+      } else if (error.code === "auth/invalid-email") {
         message = "Некорректный email."
-      } else if (err.message) {
-        message = err.message
+      } else if (error.message) {
+        message = error.message
       }
       setError(message)
     } finally {
