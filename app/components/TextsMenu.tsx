@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../data/texts"
 import { type UserLevel, canAccessLevel } from "../../lib/levels"
 import { FaCheckCircle, FaFilter, FaTimes, FaSearch, FaBrain, FaTrashAlt } from "react-icons/fa"
+import { SkeletonTextsGrid } from "./Skeleton"
 
 type TextsMenuProps = {
   onSelectText: (text: SlovakText) => void
@@ -39,6 +40,11 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
   const [selectedLevel, setSelectedLevel] = useState<TextLevel | "all">("all")
   const [selectedTopic, setSelectedTopic] = useState<TextTopic | "all">("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const levels = useMemo(() => {
     const allLevels = [
@@ -102,7 +108,7 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
         className="text-center mb-10"
       >
         <h1 className="text-4xl md:text-5xl font-black flex items-center justify-center gap-2">
-          <span className="text-4xl md:text-5xl">📖</span>
+          <span className="text-4xl md:text-5xl" aria-hidden="true">📖</span>
           <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
             Тексты для чтения
           </span>
@@ -113,12 +119,14 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
       <div className="bg-gradient-to-br from-white to-orange-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-5 mb-8 border border-gray-200/50 dark:border-gray-700/50 shadow-md">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-            <FaFilter />
+            <FaFilter aria-hidden="true" />
             <span className="font-bold">Фильтры</span>
           </div>
           <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <label htmlFor="texts-search" className="sr-only">Поиск по названию</label>
             <input
+              id="texts-search"
               type="text"
               placeholder="Поиск по названию..."
               value={searchQuery}
@@ -129,8 +137,9 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
               <button
                 onClick={removeSearchFilter}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Очистить поиск"
               >
-                <FaTimes size={14} />
+                <FaTimes size={14} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -141,37 +150,38 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
             {selectedLevel !== "all" && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 text-sm font-medium">
                 Уровень: {selectedLevel}
-                <button onClick={removeLevelFilter} className="hover:bg-orange-200 dark:hover:bg-orange-800 rounded-full p-0.5">
-                  <FaTimes size={12} />
+                <button onClick={removeLevelFilter} className="hover:bg-orange-200 dark:hover:bg-orange-800 rounded-full p-0.5" aria-label="Убрать фильтр уровня">
+                  <FaTimes size={12} aria-hidden="true" />
                 </button>
               </span>
             )}
             {selectedTopic !== "all" && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-sm font-medium">
                 Тема: {topicLabels[selectedTopic]}
-                <button onClick={removeTopicFilter} className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5">
-                  <FaTimes size={12} />
+                <button onClick={removeTopicFilter} className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5" aria-label="Убрать фильтр темы">
+                  <FaTimes size={12} aria-hidden="true" />
                 </button>
               </span>
             )}
             {searchQuery && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium">
                 Поиск: {searchQuery}
-                <button onClick={removeSearchFilter} className="hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full p-0.5">
-                  <FaTimes size={12} />
+                <button onClick={removeSearchFilter} className="hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full p-0.5" aria-label="Очистить поиск">
+                  <FaTimes size={12} aria-hidden="true" />
                 </button>
               </span>
             )}
             <button
               onClick={clearFilters}
               className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white text-sm font-medium hover:bg-gray-400 dark:hover:bg-gray-500 transition"
+              aria-label="Сбросить все фильтры"
             >
-              <FaTrashAlt size={12} /> Сбросить всё
+              <FaTrashAlt size={12} aria-hidden="true" /> Сбросить всё
             </button>
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Фильтр по уровню">
           {levels.map((level) => (
             <button
               key={level.value}
@@ -181,12 +191,14 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
                   ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md scale-105"
                   : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
+              aria-pressed={selectedLevel === level.value}
+              aria-label={`Уровень ${level.label}`}
             >
               {level.label}
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Фильтр по теме">
           {topics.map((topic) => (
             <button
               key={topic.value}
@@ -196,6 +208,8 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
                   ? "bg-blue-500 text-white shadow-md scale-105"
                   : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
+              aria-pressed={selectedTopic === topic.value}
+              aria-label={`Тема: ${topic.label}`}
             >
               {topic.label}
             </button>
@@ -203,10 +217,14 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
         </div>
       </div>
 
-      {filteredTexts.length === 0 ? (
+      {!mounted ? (
+        <SkeletonTextsGrid />
+      ) : filteredTexts.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
           <p className="text-gray-500 dark:text-gray-400 text-lg">Нет текстов по выбранным фильтрам.</p>
-          <button onClick={clearFilters} className="mt-4 text-orange-500 font-bold underline">Сбросить фильтры</button>
+          <button onClick={clearFilters} className="mt-4 text-orange-500 font-bold underline" aria-label="Сбросить фильтры">
+            Сбросить фильтры
+          </button>
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -225,15 +243,16 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
                   whileTap={{ scale: 0.98 }}
                   onClick={() => onSelectText(text)}
                   className="group relative bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 text-left border border-gray-200 dark:border-gray-700"
+                  aria-label={`Читать текст: ${text.title}. Уровень ${text.level}. ${isRead ? "Прочитан. " : ""}${isQuizDone ? "Викторина пройдена. " : ""}${text.wordCount} слов, ${text.questions?.length || 0} вопросов`}
                 >
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-500 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-500 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
                   <div className="p-6">
                     <div className="flex justify-between items-start gap-2">
                       <h3 className="text-xl font-black text-gray-800 dark:text-white flex items-center gap-2">
                         {text.title}
                         <div className="flex gap-1">
-                          {isRead && <FaCheckCircle className="text-green-500 text-sm" title="Прочитан" />}
-                          {isQuizDone && <FaBrain className="text-purple-500 text-sm" title="Викторина пройдена" />}
+                          {isRead && <FaCheckCircle className="text-green-500 text-sm" aria-label="Прочитан" title="Прочитан" />}
+                          {isQuizDone && <FaBrain className="text-purple-500 text-sm" aria-label="Викторина пройдена" title="Викторина пройдена" />}
                         </div>
                       </h3>
                       <span className={`text-xs font-bold px-2 py-1 rounded-full ${levelColors[text.level]}`}>
@@ -255,7 +274,7 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
                       {text.content.substring(0, 100)}...
                     </p>
                     <div className="mt-3">
-                      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden" aria-label={`Прогресс текста: ${progressPercent}%`}>
                         <div
                           className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500"
                           style={{ width: `${progressPercent}%` }}

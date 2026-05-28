@@ -152,7 +152,6 @@ export default function GameUI({
 
   const sessionAccuracy = sessionTotal ? Math.round((sessionCorrect / sessionTotal) * 100) : 0
 
-  // Динамические классы для светлой/тёмной темы
   const bgMain = isDark ? "bg-gradient-to-br from-gray-900/90 to-gray-800/90" : "bg-gradient-to-br from-gray-100 to-gray-200"
   const cardBg = isDark ? "bg-white/10 backdrop-blur-xl border-white/20" : "bg-white/90 backdrop-blur-sm border-gray-200 shadow-xl"
   const textPrimary = isDark ? "text-white" : "text-gray-900"
@@ -176,10 +175,11 @@ export default function GameUI({
             whileTap={{ scale: 0.95 }}
             onClick={onBack}
             className={`${textSecondary} hover:${isDark ? "text-white" : "text-gray-900"} text-2xl`}
+            aria-label="Выйти из урока"
           >
             ✕
           </motion.button>
-          <div className="flex-1">
+          <div className="flex-1" role="region" aria-label="Прогресс урока">
             <div className={`flex justify-between text-xs font-bold ${textSecondary} mb-1`}>
               <span>Прогресс урока</span>
               <span>{totalWords - wordsLeft}/{totalWords}</span>
@@ -190,16 +190,18 @@ export default function GameUI({
                 initial={{ width: 0 }}
                 animate={{ width: `${lessonProgress}%` }}
                 transition={{ duration: 0.3 }}
+                aria-label={`Прогресс: ${Math.round(lessonProgress)}%`}
               />
             </div>
           </div>
-          <div className={`flex gap-1 ${livesBg} backdrop-blur-sm px-3 py-1 rounded-full border`}>
+          <div className={`flex gap-1 ${livesBg} backdrop-blur-sm px-3 py-1 rounded-full border`} aria-label="Жизни">
             {[1, 2, 3].map((_, idx) => (
               <motion.span
                 key={idx}
                 animate={{ scale: idx < lives ? [1, 1.2, 1] : 1 }}
                 transition={{ duration: 0.2 }}
                 className={`text-xl transition ${idx < lives ? "text-red-500" : "text-gray-400"}`}
+                aria-hidden="true"
               >
                 ❤️
               </motion.span>
@@ -208,7 +210,7 @@ export default function GameUI({
         </div>
 
         <div className={`relative rounded-2xl ${cardBg} shadow-2xl overflow-hidden border transition-colors`}>
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-500 to-amber-500" />
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-500 to-amber-500" aria-hidden="true" />
           <div className={`flex justify-between items-center px-6 pt-4 text-sm font-bold ${textSecondary}`}>
             <span>🎯 Точность сессии: {sessionAccuracy}%</span>
             <span>✓ {sessionCorrect}/{sessionTotal}</span>
@@ -245,6 +247,7 @@ export default function GameUI({
                       disabled={disabled || isAnswered}
                       onClick={() => onAnswer(opt)}
                       className={btnClass}
+                      aria-label={`Вариант ${idx + 1}: ${opt}`}
                     >
                       <span>{opt}</span>
                       {!isAnswered && (
@@ -257,7 +260,9 @@ export default function GameUI({
                 })
               ) : (
                 <form onSubmit={handleSubmitWrite} className="space-y-4">
+                  <label htmlFor="writeInput" className="sr-only">Введите перевод</label>
                   <input
+                    id="writeInput"
                     ref={inputRef}
                     type="text"
                     disabled={isAnswered || lives <= 0}
@@ -273,6 +278,7 @@ export default function GameUI({
                       type="submit"
                       disabled={!writeInput.trim() || disabled}
                       className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold shadow-md"
+                      aria-label="Проверить ответ"
                     >
                       Проверить (Enter)
                     </motion.button>
@@ -288,8 +294,9 @@ export default function GameUI({
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSkip}
                   className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors ${buttonSkip}`}
+                  aria-label="Пропустить слово (S)"
                 >
-                  <FaStepForward /> Пропустить (S)
+                  <FaStepForward aria-hidden="true" /> Пропустить (S)
                 </motion.button>
                 {onMarkHard && (
                   <motion.button
@@ -297,8 +304,9 @@ export default function GameUI({
                     whileTap={{ scale: 0.98 }}
                     onClick={handleMarkHard}
                     className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors ${buttonHard}`}
+                    aria-label="Отметить слово как сложное (H)"
                   >
-                    <FaSkull /> Сложное (H)
+                    <FaSkull aria-hidden="true" /> Сложное (H)
                   </motion.button>
                 )}
               </div>
@@ -311,6 +319,7 @@ export default function GameUI({
                   whileTap={{ scale: 0.98 }}
                   onClick={() => { setWriteInput(""); onRestart(); }}
                   className="w-full py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl font-bold shadow-md"
+                  aria-label="Попробовать снова"
                 >
                   Попробовать снова
                 </motion.button>
@@ -328,8 +337,10 @@ export default function GameUI({
                             ? isDark ? "bg-green-500/20 text-green-200 border border-green-500/30" : "bg-green-100 text-green-800 border border-green-300"
                             : isDark ? "bg-red-500/20 text-red-200 border border-red-500/30" : "bg-red-100 text-red-800 border border-red-300"
                         }`}
+                        role="status"
+                        aria-live="polite"
                       >
-                        {isCorrect ? <FaCheck className="text-lg" /> : <FaTimes className="text-lg" />}
+                        {isCorrect ? <FaCheck className="text-lg" aria-hidden="true" /> : <FaTimes className="text-lg" aria-hidden="true" />}
                         <span>{message}</span>
                         {!isCorrect && <span className="text-sm ml-1">Правильно: {word.slovak}</span>}
                       </motion.div>
@@ -343,9 +354,10 @@ export default function GameUI({
                         whileTap={{ scale: 0.95 }}
                         onClick={() => speakSlovak(word.slovak)}
                         className={`${textSecondary} hover:${isDark ? "text-white" : "text-gray-900"} p-2 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"}`}
-                        title="Озвучить слово"
+                        aria-label="Озвучить слово"
                       >
-                        <FaVolumeUp />
+                        <FaVolumeUp aria-hidden="true" />
+                        <span className="sr-only">Озвучить слово</span>
                       </motion.button>
                       {word.hint && (
                         <motion.button
@@ -353,9 +365,10 @@ export default function GameUI({
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setShowHint(!showHint)}
                           className={`${textSecondary} hover:text-yellow-600 p-2 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"}`}
-                          title="Показать подсказку"
+                          aria-label="Показать подсказку"
                         >
-                          <FaLightbulb />
+                          <FaLightbulb aria-hidden="true" />
+                          <span className="sr-only">Показать подсказку</span>
                         </motion.button>
                       )}
                     </div>
@@ -374,6 +387,7 @@ export default function GameUI({
                       whileTap={{ scale: 0.98 }}
                       onClick={handleNextClick}
                       className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold shadow-md"
+                      aria-label={remainingCount === 0 && isCorrect ? "Завершить урок" : "Продолжить"}
                     >
                       {remainingCount === 0 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
                     </motion.button>

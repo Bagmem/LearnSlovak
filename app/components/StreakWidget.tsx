@@ -69,7 +69,7 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-md">
-              <span className="text-2xl">🔥</span>
+              <span className="text-2xl" aria-hidden="true">🔥</span>
             </div>
             <div>
               <h3 className="font-black text-lg text-gray-800 dark:text-white">Ударный режим</h3>
@@ -88,11 +88,9 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-5 shadow-xl border border-gray-200/50 dark:border-gray-700/50 transition-all">
-      {/* Декоративный узор */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:20px_20px] dark:bg-[radial-gradient(#fff_1px,transparent_1px)]" />
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:20px_20px] dark:bg-[radial-gradient(#fff_1px,transparent_1px)]" aria-hidden="true" />
       
       <div className="relative">
-        {/* Верхняя секция */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <motion.div 
@@ -100,6 +98,7 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 400 }}
               className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg"
+              aria-hidden="true"
             >
               <span className="text-2xl">🔥</span>
             </motion.div>
@@ -119,7 +118,6 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
           </motion.div>
         </div>
 
-        {/* Прогресс до следующей награды */}
         <div className="mb-5">
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs font-bold text-gray-600 dark:text-gray-400 flex items-center gap-1">
@@ -133,6 +131,7 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
               initial={{ width: 0 }}
               animate={{ width: `${progressToNext}%` }}
               transition={{ duration: 0.5 }}
+              aria-label={`Прогресс до награды: ${Math.round(progressToNext)}%`}
             />
           </div>
           <div className="flex justify-between items-center mt-1">
@@ -145,9 +144,8 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
           </div>
         </div>
 
-        {/* Календарь недели */}
         <div className="mb-5">
-          <div className="grid grid-cols-7 gap-0 text-center">
+          <div className="grid grid-cols-7 gap-0 text-center" aria-label="Календарь активности на неделю">
             {weekDays.map((day, idx) => {
               const isActive = activeDates.includes(day.dateStr)
               return (
@@ -166,6 +164,7 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
                         ? "border-2 border-orange-500 bg-white/10 text-orange-500"
                         : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                     }`}
+                    aria-label={`${day.label}: ${isActive ? "активный день" : day.isToday ? "сегодня" : ""}`}
                   >
                     {isActive ? "🔥" : day.isToday ? "●" : ""}
                   </div>
@@ -176,13 +175,12 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
           </div>
         </div>
 
-        {/* Активность на этой неделе */}
         <div className="pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
           <div className="flex justify-between items-center mb-2">
             <span className="text-xs font-bold text-gray-600 dark:text-gray-400">📊 Активность на этой неделе</span>
             <span className="text-xs font-bold text-orange-500">{activeDaysThisWeek} {activeDaysWord}</span>
           </div>
-          <div className="flex justify-between gap-1">
+          <div className="flex justify-between gap-1" aria-label="График активности">
             {Array.from({ length: 7 }).map((_, i) => (
               <motion.div
                 key={i}
@@ -194,12 +192,12 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
                     ? "bg-gradient-to-r from-orange-500 to-amber-500"
                     : "bg-gray-200 dark:bg-gray-700"
                 }`}
+                aria-hidden="true"
               />
             ))}
           </div>
         </div>
 
-        {/* Мотивационная фраза */}
         <div className="mt-4 text-center">
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
             🔥 Занимайся каждый день, чтобы увеличивать серию!

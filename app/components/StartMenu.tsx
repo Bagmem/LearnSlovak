@@ -25,6 +25,7 @@ import { useAchievements } from "../../hooks/useAchievements"
 import { canAccessLevel, getNextLevel, type UserLevel } from "../../lib/levels"
 import type { WordStats } from "../../lib/game"
 import { isWordLearned } from "../../lib/game"
+import { SkeletonLevelCard } from "./Skeleton"
 
 export type GameMode = "choice" | "write" | "flashcard"
 
@@ -45,12 +46,12 @@ type StartMenuProps = {
 }
 
 const levelIcons: Record<LanguageLevel, React.ReactNode> = {
-  A1: <FaSeedling className="text-xl" />,
-  A2: <FaRocket className="text-xl" />,
-  B1: <FaTrophy className="text-xl" />,
-  B2: <FaFire className="text-xl" />,
-  C1: <FaGem className="text-xl" />,
-  C2: <FaGem className="text-xl" />,
+  A1: <FaSeedling className="text-xl" aria-hidden="true" />,
+  A2: <FaRocket className="text-xl" aria-hidden="true" />,
+  B1: <FaTrophy className="text-xl" aria-hidden="true" />,
+  B2: <FaFire className="text-xl" aria-hidden="true" />,
+  C1: <FaGem className="text-xl" aria-hidden="true" />,
+  C2: <FaGem className="text-xl" aria-hidden="true" />,
 }
 
 const levelTitles: Record<LanguageLevel, string> = {
@@ -148,7 +149,6 @@ export default function StartMenu({
 
   const levelsToShow: LanguageLevel[] = ["A1", "A2", "B1", "B2", "C1"]
 
-  // Прогресс уровня считается по завершённым темам (категориям), а не по изученным словам
   const levelProgress = useMemo(() => {
     const result: Record<string, { learned: number; total: number; percent: number }> = {}
     for (const level of levelsToShow) {
@@ -192,16 +192,14 @@ export default function StartMenu({
           className="inline-block max-w-full"
         >
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black flex items-center justify-center gap-3 flex-wrap sm:flex-nowrap leading-[1.3] pb-1">
-            <span className="text-3xl sm:text-5xl md:text-6xl leading-[1.3]">🎯</span>
+            <span className="text-3xl sm:text-5xl md:text-6xl leading-[1.3]" aria-hidden="true">🎯</span>
             <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent break-words whitespace-normal sm:whitespace-nowrap leading-[1.3] pb-0.5">
               Изучение
             </span>
           </h1>
-          <div className="h-1 w-24 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full mx-auto mt-2" />
+          <div className="h-1 w-24 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full mx-auto mt-2" aria-hidden="true" />
         </motion.div>
-        <p className="text-gray-500 dark:text-gray-400 mt-3 text-base">
-          Выбери тему и уровень, чтобы начать
-        </p>
+        <p className="text-gray-500 dark:text-gray-400 mt-3 text-base">Выбери тему и уровень, чтобы начать</p>
       </div>
 
       <StreakWidget streak={streak} activeDates={activeDates} />
@@ -226,9 +224,10 @@ export default function StartMenu({
                   ? "bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-lg"
                   : "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 hover:shadow-md"
               }`}
+              aria-label={`${titles[mode]}: ${descriptions[mode]}${isActive ? " (активный)" : ""}`}
             >
               <div className="flex items-center gap-3 mb-2">
-                <div className={isActive ? "text-white" : "text-orange-500"}>{icons[mode]}</div>
+                <div className={isActive ? "text-white" : "text-orange-500"} aria-hidden="true">{icons[mode]}</div>
                 <h3 className="font-bold text-lg">{titles[mode]}</h3>
               </div>
               <p className={`text-xs ${isActive ? "text-white/80" : "text-gray-500 dark:text-gray-400"}`}>{descriptions[mode]}</p>
@@ -238,95 +237,110 @@ export default function StartMenu({
         })}
       </div>
 
-      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800/50 rounded-2xl w-full max-w-md mx-auto">
-        <button onClick={() => setStudyTab("vocab")} className={`flex-1 py-2.5 rounded-xl font-bold text-center transition-all flex items-center justify-center gap-2 ${studyTab === "vocab" ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md" : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"}`}>
-          <FaBookOpen size={16} /><span>Лексика</span>
+      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800/50 rounded-2xl w-full max-w-md mx-auto" role="tablist" aria-label="Выбор раздела">
+        <button
+          onClick={() => setStudyTab("vocab")}
+          className={`flex-1 py-2.5 rounded-xl font-bold text-center transition-all flex items-center justify-center gap-2 ${studyTab === "vocab" ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md" : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
+          role="tab"
+          aria-selected={studyTab === "vocab"}
+          aria-label="Лексика"
+        >
+          <FaBookOpen size={16} aria-hidden="true" /><span>Лексика</span>
         </button>
-        <button onClick={() => setStudyTab("grammar")} className={`flex-1 py-2.5 rounded-xl font-bold text-center transition-all flex items-center justify-center gap-2 ${studyTab === "grammar" ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md" : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"}`}>
-          <FaLanguage size={16} /><span>Грамматика</span>
+        <button
+          onClick={() => setStudyTab("grammar")}
+          className={`flex-1 py-2.5 rounded-xl font-bold text-center transition-all flex items-center justify-center gap-2 ${studyTab === "grammar" ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md" : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
+          role="tab"
+          aria-selected={studyTab === "grammar"}
+          aria-label="Грамматика"
+        >
+          <FaLanguage size={16} aria-hidden="true" /><span>Грамматика</span>
         </button>
       </div>
 
       <div className="rounded-2xl bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 px-5 py-4 text-sm font-medium text-amber-800 dark:text-amber-200 border border-amber-200/50 dark:border-amber-800/30 shadow-sm flex items-center gap-3">
-        <span className="text-2xl">{userLevel === null ? "🔓" : userLevel === "C1" ? "🏆" : "📈"}</span>
+        <span className="text-2xl" aria-hidden="true">{userLevel === null ? "🔓" : userLevel === "C1" ? "🏆" : "📈"}</span>
         <span>{userLevel === null ? "Для открытия уровней пройдите тест A1 на 100%." : userLevel === "C1" ? "Поздравляем! Вы достигли максимального уровня C1!" : `Ваш уровень: ${userLevel}. Пройдите тест ${userLevel} на 100%, чтобы открыть уровень ${getNextLevel(userLevel)}.`}</span>
       </div>
 
-      <div className="space-y-8">
-        {levelsToShow.map((levelCode, levelIdx) => {
-          const isLocked = !canAccessLevel(userLevel, levelCode)
-          const categories = getCategoriesForLevel(levelCode)
-          if (!categories.length) return null
-          const requiredLevel = getRequiredLevelName(levelCode)
-          const colors = levelColors[levelCode]
+      {!mounted ? (
+        <div className="space-y-8">
+          {[...Array(5)].map((_, i) => <SkeletonLevelCard key={i} />)}
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {levelsToShow.map((levelCode, levelIdx) => {
+            const isLocked = !canAccessLevel(userLevel, levelCode)
+            const categories = getCategoriesForLevel(levelCode)
+            if (!categories.length) return null
+            const requiredLevel = getRequiredLevelName(levelCode)
+            const colors = levelColors[levelCode]
 
-          return (
-            <motion.div
-              key={levelCode}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: levelIdx * 0.1 }}
-              className={`relative rounded-2xl bg-gradient-to-br ${colors.bg} border ${colors.border} p-5 transition-all ${isLocked ? 'opacity-80' : ''}`}
-            >
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                <div className="flex items-center gap-2">
-                  <div className={colors.text}>{levelIcons[levelCode]}</div>
-                  <h2 className={`text-xl font-black ${colors.text}`}>{levelTitles[levelCode]}</h2>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{levelDescs[levelCode]}</span>
+            return (
+              <motion.div
+                key={levelCode}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: levelIdx * 0.1 }}
+                className={`relative rounded-2xl bg-gradient-to-br ${colors.bg} border ${colors.border} p-5 transition-all ${isLocked ? 'opacity-80' : ''}`}
+              >
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={colors.text} aria-hidden="true">{levelIcons[levelCode]}</div>
+                    <h2 className={`text-xl font-black ${colors.text}`}>{levelTitles[levelCode]}</h2>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{levelDescs[levelCode]}</span>
+                  </div>
+                  {isLocked && <span className="text-xs bg-gray-500/20 px-2 py-1 rounded-full flex items-center gap-1"><FaLock size={10} aria-hidden="true" /> Закрыто</span>}
                 </div>
-                {isLocked && <span className="text-xs bg-gray-500/20 px-2 py-1 rounded-full flex items-center gap-1"><FaLock size={10} /> Закрыто</span>}
-              </div>
 
-              <div className="mb-4">
-                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300 mb-1">
-                  <span>Прогресс уровня</span>
-                  {mounted ? (
+                <div className="mb-4">
+                  <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300 mb-1">
+                    <span>Прогресс уровня</span>
                     <span>{levelProgress[levelCode].learned} / {levelProgress[levelCode].total} тем</span>
-                  ) : (
-                    <span>0 / {levelProgress[levelCode].total}</span>
-                  )}
-                </div>
-                <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${colors.progress}`}
-                    style={{ width: mounted ? `${levelProgress[levelCode].percent}%` : '0%' }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {categories.map((cat, catIdx) => (
-                  <motion.div
-                    key={cat.name}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: levelIdx * 0.05 + catIdx * 0.02 }}
-                    whileHover={isLocked ? {} : { y: -2 }}
-                  >
-                    <CategoryCard
-                      name={cat.name}
-                      passedCount={cat.passedCount}
-                      totalCount={cat.totalCount}
-                      isCompleted={cat.isCompleted}
-                      isLocked={isLocked}
-                      onSelect={() => { if (!isLocked) onSelectCategory(cat.name, levelCode, studyTab) }}
+                  </div>
+                  <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full bg-gradient-to-r ${colors.progress}`}
+                      style={{ width: `${levelProgress[levelCode].percent}%` }}
+                      aria-label="Прогресс уровня"
                     />
-                  </motion.div>
-                ))}
-              </div>
-
-              {isLocked && (
-                <div className="absolute inset-0 bg-white/30 dark:bg-black/30 backdrop-blur-[1px] rounded-2xl flex flex-col items-center justify-center gap-2 pointer-events-none">
-                  <FaLock className="text-gray-500/70 text-3xl" />
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-200 bg-white/50 dark:bg-black/40 px-2 py-0.5 rounded-full">
-                    {requiredLevel ? `Требуется ${requiredLevel}` : "Недоступно"}
-                  </span>
+                  </div>
                 </div>
-              )}
-            </motion.div>
-          )
-        })}
-      </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {categories.map((cat, catIdx) => (
+                    <motion.div
+                      key={cat.name}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: levelIdx * 0.05 + catIdx * 0.02 }}
+                      whileHover={isLocked ? {} : { y: -2 }}
+                    >
+                      <CategoryCard
+                        name={cat.name}
+                        passedCount={cat.passedCount}
+                        totalCount={cat.totalCount}
+                        isCompleted={cat.isCompleted}
+                        isLocked={isLocked}
+                        onSelect={() => { if (!isLocked) onSelectCategory(cat.name, levelCode, studyTab) }}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+
+                {isLocked && (
+                  <div className="absolute inset-0 bg-white/30 dark:bg-black/30 backdrop-blur-[1px] rounded-2xl flex flex-col items-center justify-center gap-2 pointer-events-none">
+                    <FaLock className="text-gray-500/70 text-3xl" aria-hidden="true" />
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-200 bg-white/50 dark:bg-black/40 px-2 py-0.5 rounded-full">
+                      {requiredLevel ? `Требуется ${requiredLevel}` : "Недоступно"}
+                    </span>
+                  </div>
+                )}
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
 
       {isProfileOpen && (
         <ProfileModal

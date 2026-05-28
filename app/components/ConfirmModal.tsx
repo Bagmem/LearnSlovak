@@ -50,7 +50,7 @@ export default function ConfirmModal({
             className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
             onClick={onClose}
           />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -68,18 +68,19 @@ export default function ConfirmModal({
                 className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
                 aria-label="Закрыть"
               >
-                <FaTimes size={18} />
+                <FaTimes size={18} aria-hidden="true" />
               </button>
-              <h3 className={`text-xl font-black mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h3 id="confirm-title" className={`text-xl font-black mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
                 {title}
               </h3>
-              <p className={`text-sm mb-6 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              <p id="confirm-message" className={`text-sm mb-6 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
                 {message}
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={onConfirm}
                   className="flex-1 py-2.5 rounded-xl font-bold bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-md hover:shadow-lg transition transform hover:scale-[1.02]"
+                  aria-label={confirmText}
                 >
                   {confirmText}
                 </button>
@@ -90,6 +91,7 @@ export default function ConfirmModal({
                       ? "bg-gray-700 text-white hover:bg-gray-600"
                       : "bg-gray-200 text-gray-800 hover:bg-gray-300"
                   }`}
+                  aria-label={cancelText}
                 >
                   {cancelText}
                 </button>

@@ -22,7 +22,7 @@ import { useAchievements } from "../hooks/useAchievements"
 import type { AchievementState } from "../data/achievements"
 import { useTextProgress } from "../hooks/useTextProgress"
 import { useSettings } from "../hooks/useSettings"
-import { useTheme } from "../hooks/useTheme"
+import { useTheme } from "./../hooks/useTheme"
 import GameUI from "./components/GameUI"
 import StartMenu from "./components/StartMenu"
 import VictoryScreen from "./components/VictoryScreen"
@@ -37,6 +37,8 @@ import LevelTest from "./components/LevelTest"
 import FullTest from "./components/FullTest"
 import ConfirmModal from "./components/ConfirmModal"
 import TestResultModal from "./components/TestResultModal"
+import toast from "react-hot-toast"
+import { SkeletonLevelCard } from "./components/Skeleton"
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
@@ -114,9 +116,25 @@ const getStoredHardWords = (): Set<string> => {
   return new Set(saved ? JSON.parse(saved) : [])
 }
 
-const getUserDisplayName = (user: User | null): string => {
-  if (!user) return ""
+const getStoredChoiceCorrectCount = (): number => {
+  if (typeof window === "undefined") return 0
+  const saved = localStorage.getItem("choiceCorrectCount")
+  return saved ? parseInt(saved, 10) : 0
+}
 
+const getStoredWriteCorrectCount = (): number => {
+  if (typeof window === "undefined") return 0
+  const saved = localStorage.getItem("writeCorrectCount")
+  return saved ? parseInt(saved, 10) : 0
+}
+
+const getStoredFlashcardCorrectCount = (): number => {
+  if (typeof window === "undefined") return 0
+  const saved = localStorage.getItem("flashcardCorrectCount")
+  return saved ? parseInt(saved, 10) : 0
+}
+
+function getUserDisplayName(user: User): string {
   return (
     user.user_metadata?.name ||
     user.user_metadata?.full_name ||
@@ -135,6 +153,7 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null)
   const [userLevel, setUserLevel] = useState<UserLevel>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isLoadingUser, setIsLoadingUser] = useState(true)
 
   const [globalTab, setGlobalTab] = useState<"study" | "texts" | "test" | "reference">("study")
   const [screen, setScreen] = useState<"menu" | "game" | "victory">("menu")
@@ -164,9 +183,9 @@ export default function Home() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [correctAnswersCount, setCorrectAnswersCount] = useState<number>(0)
   const [totalClicksCount, setTotalClicksCount] = useState<number>(0)
-  const [choiceCorrectCount, setChoiceCorrectCount] = useState<number>(0)
-  const [writeCorrectCount, setWriteCorrectCount] = useState<number>(0)
-  const [flashcardCorrectCount, setFlashcardCorrectCount] = useState<number>(0)
+  const [choiceCorrectCount, setChoiceCorrectCount] = useState<number>(getStoredChoiceCorrectCount)
+  const [writeCorrectCount, setWriteCorrectCount] = useState<number>(getStoredWriteCorrectCount)
+  const [flashcardCorrectCount, setFlashcardCorrectCount] = useState<number>(getStoredFlashcardCorrectCount)
   const [progressData, setProgressData] = useState<Record<string, number>>(() => getInitialProgressData())
   const [wordStatsMap, setWordStatsMap] = useState<Map<string, WordStats>>(() => getStoredWordStatsMap())
   const mountedRef = useRef(false)
@@ -196,6 +215,18 @@ export default function Home() {
   })
 
   useEffect(() => {
+    localStorage.setItem("choiceCorrectCount", choiceCorrectCount.toString())
+  }, [choiceCorrectCount])
+
+  useEffect(() => {
+    localStorage.setItem("writeCorrectCount", writeCorrectCount.toString())
+  }, [writeCorrectCount])
+
+  useEffect(() => {
+    localStorage.setItem("flashcardCorrectCount", flashcardCorrectCount.toString())
+  }, [flashcardCorrectCount])
+
+  useEffect(() => {
     localStorage.setItem("slovak_skip_count", skipCount.toString())
   }, [skipCount])
 
@@ -218,14 +249,8 @@ export default function Home() {
 
   const handleLogout = async () => {
     forceSaveWordStats()
-
     const { error } = await supabase.auth.signOut()
-
-    if (error) {
-      console.error("Ошибка выхода:", error)
-      return
-    }
-
+    if (error) console.error("Ошибка выхода:", error)
     setUser(null)
     setUserLevel(null)
     router.push("/")
@@ -234,44 +259,27 @@ export default function Home() {
 
   useEffect(() => {
     let isMounted = true
-
     async function loadCurrentUser() {
-      const {
-        data: { user: currentUser },
-        error,
-      } = await supabase.auth.getUser()
-
+      setIsLoadingUser(true)
+      const { data: { user: currentUser }, error } = await supabase.auth.getUser()
       if (!isMounted) return
-
       if (error) {
         console.error("Ошибка загрузки пользователя:", error)
         setUser(null)
         setUserLevel(null)
+        setIsLoadingUser(false)
         return
       }
-
       setUser(currentUser)
-
-      if (!currentUser) {
-        setUserLevel(null)
-      }
+      if (!currentUser) setUserLevel(null)
+      setIsLoadingUser(false)
     }
-
     loadCurrentUser()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return
-
-      const nextUser = session?.user ?? null
-      setUser(nextUser)
-
-      if (!nextUser) {
-        setUserLevel(null)
-      }
+      setUser(session?.user ?? null)
+      if (!session?.user) setUserLevel(null)
     })
-
     return () => {
       isMounted = false
       subscription.unsubscribe()
@@ -280,9 +288,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) return
-
     let isMounted = true
-
     const fetchUserLevel = async () => {
       try {
         const { data, error } = await supabase
@@ -290,28 +296,17 @@ export default function Home() {
           .select("level")
           .eq("id", user.id)
           .maybeSingle()
-
-        if (error) {
-          throw error
-        }
-
+        if (error) throw error
         if (!isMounted) return
-
         setUserLevel(normalizeUserLevel(data?.level))
       } catch (error) {
         console.error("Ошибка загрузки уровня пользователя:", error)
-
         if (!isMounted) return
-
         setUserLevel(null)
       }
     }
-
     fetchUserLevel()
-
-    return () => {
-      isMounted = false
-    }
+    return () => { isMounted = false }
   }, [user])
 
   useEffect(() => {
@@ -319,9 +314,7 @@ export default function Home() {
   }, [settings.isMuted])
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("xp", xp.toString())
-    }
+    if (typeof window !== "undefined") localStorage.setItem("xp", xp.toString())
   }, [xp])
 
   const totalLessonWords = lessonWords.length
@@ -333,7 +326,6 @@ export default function Home() {
     () => Array.from(wordStatsMap.values()).filter(stat => stat.correctCount > 0).length,
     [wordStatsMap]
   )
-
   const completedCategoriesCount = useMemo(
     () => Object.values(progressData).filter(passed => passed > 0).length,
     [progressData]
@@ -418,7 +410,7 @@ export default function Home() {
 
   const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
     if (!canAccessLevel(userLevel, level)) {
-      setMessage(`Уровень ${level} пока закрыт. Твой текущий уровень: ${userLevel || "не задан"}`)
+      toast.error(`Уровень ${level} пока закрыт. Твой текущий уровень: ${userLevel || "не задан"}`)
       return
     }
     const poolSource = dataSource === "vocab" ? words : grammarTasks
@@ -465,36 +457,16 @@ export default function Home() {
       perfectLessonCount: perfectLessonCount,
       textsReadCount: textsRead,
     }
-
     const newAchievements = checkAchievements(state)
-
     if (newAchievements.length > 0) {
-      const reward = newAchievements.reduce(
-        (sum: number, ach: { reward?: number }) => sum + (ach.reward || 0),
-        0
-      )
-
-      if (reward > 0) {
-        setXp((v) => v + reward)
-      }
+      const reward = newAchievements.reduce((sum: number, ach: { reward?: number }) => sum + (ach.reward || 0), 0)
+      if (reward > 0) setXp((v) => v + reward)
     }
   }, [
-    xp,
-    correctAnswersCount,
-    totalClicksCount,
-    streak,
-    maxStreak,
-    completedCategoriesCount,
-    learnedWordsCount,
-    flashcardCorrectCount,
-    writeCorrectCount,
-    choiceCorrectCount,
-    isQuizCompleted,
-    isRead,
-    hardWordsSet,
-    skipCount,
-    perfectLessonCount,
-    checkAchievements,
+    xp, correctAnswersCount, totalClicksCount, streak, maxStreak,
+    completedCategoriesCount, learnedWordsCount, flashcardCorrectCount,
+    writeCorrectCount, choiceCorrectCount, isQuizCompleted, isRead,
+    hardWordsSet, skipCount, perfectLessonCount, checkAchievements
   ])
 
   const handleSkip = useCallback(() => {
@@ -591,14 +563,8 @@ export default function Home() {
     setIsAnswering(false)
     triggerAchievementCheck()
   }, [
-    isAnswering,
-    currentWord,
-    lives,
-    gameMode,
-    completedWords,
-    updateCategoryProgress,
-    setStatsForWord,
-    triggerAchievementCheck,
+    isAnswering, currentWord, lives, gameMode, completedWords,
+    updateCategoryProgress, setStatsForWord, triggerAchievementCheck
   ])
 
   const handleFlashcardRating = useCallback((known: boolean) => {
@@ -642,9 +608,7 @@ export default function Home() {
         saveProgress(storageKey, totalLessonWords)
         setProgressData(prev => ({ ...prev, [storageKey]: totalLessonWords }))
       }
-      if (sessionTotal === sessionCorrect && sessionTotal > 0) {
-        setPerfectLessonCount(prev => prev + 1)
-      }
+      if (sessionTotal === sessionCorrect && sessionTotal > 0) setPerfectLessonCount(prev => prev + 1)
       setScreen("victory")
       setIsAnswering(false)
       triggerAchievementCheck()
@@ -654,21 +618,9 @@ export default function Home() {
     setIsAnswering(false)
     triggerAchievementCheck()
   }, [
-    isAnswering,
-    currentWord,
-    completedWords,
-    lessonWords,
-    updateCategoryProgress,
-    setStatsForWord,
-    wordStatsMap,
-    activeDates,
-    selectedLevel,
-    selectedCategory,
-    currentDataSource,
-    totalLessonWords,
-    sessionTotal,
-    sessionCorrect,
-    triggerAchievementCheck,
+    isAnswering, currentWord, completedWords, lessonWords, updateCategoryProgress,
+    setStatsForWord, wordStatsMap, activeDates, selectedLevel, selectedCategory,
+    currentDataSource, totalLessonWords, sessionTotal, sessionCorrect, triggerAchievementCheck
   ])
 
   const handleNextWord = useCallback(() => {
@@ -691,9 +643,7 @@ export default function Home() {
         localStorage.setItem("slovak_active_dates", JSON.stringify(nextDates))
       }
       setStreak(calculateStreak(nextDates))
-      if (sessionTotal === sessionCorrect && sessionTotal > 0) {
-        setPerfectLessonCount(prev => prev + 1)
-      }
+      if (sessionTotal === sessionCorrect && sessionTotal > 0) setPerfectLessonCount(prev => prev + 1)
       setScreen("victory")
       triggerAchievementCheck()
       return
@@ -709,18 +659,9 @@ export default function Home() {
     setSelectedOption(null)
     setWriteInput("")
   }, [
-    message,
-    lives,
-    remainingWordsCount,
-    activeDates,
-    notCompletedWords,
-    wordStatsMap,
-    selectedLevel,
-    selectedCategory,
-    currentDataSource,
-    sessionTotal,
-    sessionCorrect,
-    triggerAchievementCheck,
+    message, lives, remainingWordsCount, activeDates, notCompletedWords,
+    wordStatsMap, selectedLevel, selectedCategory, currentDataSource,
+    sessionTotal, sessionCorrect, triggerAchievementCheck
   ])
 
   const handleRestart = useCallback(() => {
@@ -734,11 +675,8 @@ export default function Home() {
 
   const handleBack = useCallback(() => {
     playClickSound()
-    if (screen === "game") {
-      setIsExitConfirmOpen(true)
-    } else {
-      setScreen("menu")
-    }
+    if (screen === "game") setIsExitConfirmOpen(true)
+    else setScreen("menu")
   }, [screen])
 
   const confirmExit = useCallback(() => {
@@ -753,9 +691,7 @@ export default function Home() {
 
   const handleQuizComplete = (textId: string, score: number, total: number, xpEarned: number, firstTime: boolean) => {
     markQuizCompleted(textId, score, true)
-    if (firstTime) {
-      setXp(prev => prev + xpEarned)
-    }
+    if (firstTime) setXp(prev => prev + xpEarned)
     triggerAchievementCheck()
   }
 
@@ -770,7 +706,6 @@ export default function Home() {
     const percent = Math.round((score / total) * 100)
     const saved = localStorage.getItem("test_completed_levels")
     const completed = saved ? JSON.parse(saved) : {}
-
     const bestPercent = Math.max(completed[testLevel!] || 0, percent)
     const newProgress = { ...completed, [testLevel!]: bestPercent }
     localStorage.setItem("test_completed_levels", JSON.stringify(newProgress))
@@ -795,18 +730,15 @@ export default function Home() {
             .from("profiles")
             .update({ level: nextLevel })
             .eq("id", user.id)
-
-          if (error) {
-            throw error
-          }
-
+          if (error) throw error
           setUserLevel(nextLevel)
+          toast.success(`🎉 Поздравляем! Ваш уровень повышен до ${nextLevel}!`)
         } catch (error) {
           console.error("Ошибка повышения уровня:", error)
+          toast.error("Не удалось повысить уровень.")
         }
       }
     }
-
     setTestLevel(null)
     triggerAchievementCheck()
   }
@@ -847,6 +779,36 @@ export default function Home() {
 
   const remainingCount = getRemainingWords().length
 
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <aside className="fixed left-0 top-0 h-full w-64 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-2xl z-30 flex flex-col border-r border-gray-200/50 dark:border-gray-700/50">
+          <div className="px-5 pt-6 pb-4 border-b border-gray-200/50 dark:border-gray-700/50">
+            <div className="h-8 w-32 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse" />
+          </div>
+          <div className="flex-1 p-4 space-y-1.5">
+            {[...Array(4)].map((_, i) => <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700/50 rounded-xl animate-pulse" />)}
+          </div>
+          <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50">
+            <div className="h-10 bg-gray-200 dark:bg-gray-700/50 rounded-xl animate-pulse" />
+          </div>
+        </aside>
+        <main className="ml-64 min-h-screen p-8">
+          <div className="max-w-7xl mx-auto space-y-8">
+            <div className="h-32 bg-gray-200 dark:bg-gray-700/50 rounded-2xl animate-pulse" />
+            <div className="grid grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => <div key={i} className="h-28 bg-gray-200 dark:bg-gray-700/50 rounded-2xl animate-pulse" />)}
+            </div>
+            <div className="h-12 bg-gray-200 dark:bg-gray-700/50 rounded-2xl animate-pulse w-64 mx-auto" />
+            <div className="space-y-8">
+              {[...Array(5)].map((_, i) => <SkeletonLevelCard key={i} />)}
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   if (screen === "game") {
     if (gameMode === "flashcard") {
       return (
@@ -878,7 +840,6 @@ export default function Home() {
         </>
       )
     }
-
     return (
       <>
         <GameUI
@@ -958,6 +919,7 @@ export default function Home() {
                   ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md"
                   : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
               }`}
+              aria-label={item.label}
             >
               <span className={`${item.active ? "text-white" : "text-gray-500 dark:text-gray-400 group-hover:text-orange-500 transition-colors"}`}>
                 {item.icon}
@@ -1004,6 +966,7 @@ export default function Home() {
                   onClick={handleLogout}
                   className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400"
                   title="Выйти"
+                  aria-label="Выйти из аккаунта"
                 >
                   <FaSignOutAlt size={16} />
                 </button>

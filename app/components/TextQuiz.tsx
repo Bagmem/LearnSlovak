@@ -6,6 +6,7 @@ import { playClickSound, playCorrectSound, playWrongSound, playVictorySound } fr
 import confetti from "canvas-confetti"
 import { FaArrowLeft, FaCheckCircle, FaTimesCircle, FaTrophy } from "react-icons/fa"
 import { motion, AnimatePresence } from "framer-motion"
+import toast from "react-hot-toast"
 
 type TextQuizProps = {
   text: SlovakText
@@ -48,7 +49,7 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
   const handleNext = () => {
     if (finished) return
     if (selected === -1) {
-      alert("Выберите ответ!")
+      toast.error("Выберите ответ!")
       return
     }
     if (!isLast) {

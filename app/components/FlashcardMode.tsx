@@ -42,7 +42,6 @@ export default function FlashcardMode({
   const [isFlipped, setIsFlipped] = useState(false)
   const [showHint, setShowHint] = useState(false)
 
-  // При смене слова сбрасываем состояние
   useEffect(() => {
     setIsFlipped(false)
     setShowHint(false)
@@ -93,7 +92,6 @@ export default function FlashcardMode({
 
   if (!word) return null
 
-  // Динамические классы для светлой/тёмной темы
   const bgMain = isDark ? "bg-gradient-to-br from-gray-900/90 to-gray-800/90" : "bg-gradient-to-br from-gray-100 to-gray-200"
   const cardBg = isDark ? "bg-white/10 backdrop-blur-xl border-white/20" : "bg-white/90 backdrop-blur-sm border-gray-200 shadow-xl"
   const textPrimary = isDark ? "text-white" : "text-gray-900"
@@ -111,14 +109,15 @@ export default function FlashcardMode({
           whileTap={{ scale: 0.95 }}
           onClick={onBack}
           className={`${textSecondary} hover:${isDark ? "text-white" : "text-gray-900"} mb-4 inline-flex items-center gap-1`}
+          aria-label="Назад к списку"
         >
           ← Назад
         </motion.button>
 
         <div className={`relative rounded-2xl ${cardBg} shadow-2xl overflow-hidden border transition-colors`}>
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-500 to-amber-500" />
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-500 to-amber-500" aria-hidden="true" />
           <div className="p-6 space-y-4">
-            <div className="flex justify-between text-sm text-secondary">
+            <div className="flex justify-between text-sm text-secondary" aria-label="Прогресс">
               <span>Прогресс: {totalWords - wordsLeft}/{totalWords}</span>
               <span>{Math.round(lessonProgress)}%</span>
             </div>
@@ -128,6 +127,7 @@ export default function FlashcardMode({
                 initial={{ width: 0 }}
                 animate={{ width: `${lessonProgress}%` }}
                 transition={{ duration: 0.3 }}
+                aria-label={`Прогресс: ${Math.round(lessonProgress)}%`}
               />
             </div>
             <div className={`flex justify-between text-xs font-bold ${textSecondary}`}>
@@ -135,10 +135,10 @@ export default function FlashcardMode({
               <span>✓ {sessionCorrect}/{sessionTotal}</span>
             </div>
 
-            {/* 3D Flip Card */}
             <div
               className="relative w-full h-64 perspective-1000"
               style={{ perspective: "1000px" }}
+              aria-label="Карточка слова"
             >
               <motion.div
                 className="relative w-full h-full preserve-3d"
@@ -146,15 +146,12 @@ export default function FlashcardMode({
                 transition={{ duration: 0.5, ease: "easeInOut" }}
                 style={{ transformStyle: "preserve-3d" }}
               >
-                {/* Передняя сторона (словацкое слово) */}
                 <div
                   className={`absolute w-full h-full backface-hidden rounded-2xl flex items-center justify-center p-6 ${cardBg} border ${isDark ? "border-white/20" : "border-gray-200"} shadow-lg`}
                   style={{ backfaceVisibility: "hidden" }}
                 >
                   <p className={`text-3xl font-bold text-center ${textPrimary}`}>{word.slovak}</p>
                 </div>
-
-                {/* Задняя сторона (перевод) */}
                 <div
                   className={`absolute w-full h-full backface-hidden rounded-2xl flex items-center justify-center p-6 ${cardBg} border ${isDark ? "border-white/20" : "border-gray-200"} shadow-lg`}
                   style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
@@ -164,13 +161,13 @@ export default function FlashcardMode({
               </motion.div>
             </div>
 
-            {/* Кнопки и дополнительный UI */}
             {!isFlipped ? (
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleFlip}
                 className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold shadow-md"
+                aria-label="Показать перевод"
               >
                 Показать перевод
               </motion.button>
@@ -180,17 +177,19 @@ export default function FlashcardMode({
                   <button
                     onClick={speakSlovak}
                     className={`${textSecondary} hover:${isDark ? "text-white" : "text-gray-900"} p-2 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"}`}
-                    title="Озвучить слово"
+                    aria-label="Озвучить слово"
                   >
-                    <FaVolumeUp />
+                    <FaVolumeUp aria-hidden="true" />
+                    <span className="sr-only">Озвучить слово</span>
                   </button>
                   {word.hint && (
                     <button
                       onClick={() => setShowHint(!showHint)}
                       className={`${textSecondary} hover:text-yellow-600 p-2 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"}`}
-                      title="Подсказка"
+                      aria-label="Показать подсказку"
                     >
-                      <FaLightbulb />
+                      <FaLightbulb aria-hidden="true" />
+                      <span className="sr-only">Показать подсказку</span>
                     </button>
                   )}
                 </div>
@@ -205,6 +204,7 @@ export default function FlashcardMode({
                     whileTap={{ scale: 0.98 }}
                     onClick={handleKnown}
                     className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold shadow-md"
+                    aria-label="Знаю слово"
                   >
                     ✅ Знаю
                   </motion.button>
@@ -213,6 +213,7 @@ export default function FlashcardMode({
                     whileTap={{ scale: 0.98 }}
                     onClick={handleUnknown}
                     className="flex-1 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl font-bold shadow-md"
+                    aria-label="Не знаю слово"
                   >
                     ❌ Не знаю
                   </motion.button>
@@ -220,21 +221,22 @@ export default function FlashcardMode({
               </>
             )}
 
-            {/* Кнопки пропуска и сложного слова – до переворота */}
             {!isFlipped && onSkip && remainingCount > 1 && (
               <div className="flex gap-3 mt-2">
                 <button
                   onClick={handleSkip}
                   className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors ${buttonSkip}`}
+                  aria-label="Пропустить слово"
                 >
-                  <FaStepForward /> Пропустить
+                  <FaStepForward aria-hidden="true" /> Пропустить
                 </button>
                 {onMarkHard && (
                   <button
                     onClick={handleMarkHard}
                     className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors ${buttonHard}`}
+                    aria-label="Отметить слово как сложное"
                   >
-                    <FaSkull /> Сложное
+                    <FaSkull aria-hidden="true" /> Сложное
                   </button>
                 )}
               </div>

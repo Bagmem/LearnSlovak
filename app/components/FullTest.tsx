@@ -9,6 +9,7 @@ import { getTextSection, getTranslationWords, getVerbQuestions, getMatchPairs, g
 import { playClickSound, playVictorySound } from "../../lib/sounds"
 import confetti from "canvas-confetti"
 import ConfirmModal from "./ConfirmModal"
+import toast from "react-hot-toast"
 
 type TextQuestion = { text: string; options: string[]; correct: number }
 type VerbQuestion = { sentence: string; options: string[]; correct: number }
@@ -290,15 +291,16 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
   )
 }
 
-// ========== Секции 1-5 (без изменений – они уже были в вашем FullTest, оставьте их как есть) ==========
-// Здесь должны быть SectionText, SectionTranslation, SectionVerb, SectionMatch, SectionTrueFalse.
-// Если их нет, добавьте их из предыдущей версии FullTest (они идентичны).
 // ========== Секция 1 ==========
 function SectionText({ text, questions, onComplete }: { text: SlovakText; questions: TextQuestion[]; onComplete: (score: number, maxScore: number) => void }) {
   const [answers, setAnswers] = useState<number[]>(new Array(questions.length).fill(-1))
   const allAnswered = answers.every(a => a !== -1)
 
   const handleSubmit = () => {
+    if (!allAnswered) {
+      toast.error("Ответьте на все вопросы!")
+      return
+    }
     let correct = 0
     answers.forEach((ans, idx) => {
       if (ans === questions[idx].correct) correct++
@@ -356,6 +358,10 @@ function SectionTranslation({ words, onComplete }: { words: { slovak: string; ru
   const allFilled = userAnswers.every(a => a.trim() !== "")
 
   const handleSubmit = () => {
+    if (!allFilled) {
+      toast.error("Заполните все поля!")
+      return
+    }
     let correct = 0
     userAnswers.forEach((ans, idx) => {
       if (ans.toLowerCase().trim() === words[idx].russian.toLowerCase().trim()) correct++
@@ -402,6 +408,10 @@ function SectionVerb({ questions, onComplete }: { questions: VerbQuestion[]; onC
   const allAnswered = answers.every(a => a !== -1)
 
   const handleSubmit = () => {
+    if (!allAnswered) {
+      toast.error("Выберите ответы для всех вопросов!")
+      return
+    }
     let correct = 0
     answers.forEach((ans, idx) => {
       if (ans === questions[idx].correct) correct++
@@ -450,7 +460,7 @@ function SectionVerb({ questions, onComplete }: { questions: VerbQuestion[]; onC
   )
 }
 
-// ========== Секция 4 (сопоставление пар) ==========
+// ========== Секция 4 ==========
 function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; right: string[]; pairs: { slovak: string; russian: string }[] }; onComplete: (score: number, maxScore: number) => void }) {
   const { left, right, pairs } = matchData
   const [connections, setConnections] = useState<Map<number, number>>(new Map())
@@ -502,7 +512,10 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
   }
 
   const handleNext = () => {
-    if (!allConnected) return
+    if (!allConnected) {
+      toast.error("Сопоставьте все пары!")
+      return
+    }
     let correct = 0
     for (const [l, r] of connections.entries()) {
       const slovak = left[l]
@@ -574,6 +587,10 @@ function SectionTrueFalse({ statements, onComplete }: { statements: { statement:
   const allAnswered = answers.every(a => a !== undefined)
 
   const handleSubmit = () => {
+    if (!allAnswered) {
+      toast.error("Выберите ответы для всех утверждений!")
+      return
+    }
     let correct = 0
     answers.forEach((ans, idx) => {
       if (ans === statements[idx].isTrue) correct++
