@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog, FaClipboardList } from "react-icons/fa"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -37,6 +37,7 @@ import SettingsModal from "./components/SettingsModal"
 import LevelTest from "./components/LevelTest"
 import FullTest from "./components/FullTest"
 import ConfirmModal from "./components/ConfirmModal"
+import TestResultModal from "./components/TestResultModal"
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
@@ -163,19 +164,42 @@ export default function Home() {
   const [quizText, setQuizText] = useState<SlovakText | null>(null)
   const [testLevel, setTestLevel] = useState<LanguageLevel | null>(null)
 
-  // Сессия
+  // Сессионные статистики и сложные слова
   const [sessionCorrect, setSessionCorrect] = useState(0)
   const [sessionTotal, setSessionTotal] = useState(0)
   const [sessionMistakes, setSessionMistakes] = useState<{ word: string; translation: string }[]>([])
   const [hardWordsSet, setHardWordsSet] = useState<Set<string>>(getStoredHardWords)
   const [writeInput, setWriteInput] = useState("")
 
-  // Модалка подтверждения
+  // Модалка подтверждения выхода
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false)
+  const [showTestResultModal, setShowTestResultModal] = useState(false)
+  const [testResultData, setTestResultData] = useState<{ level: string; percent: number; xpEarned: number; isPassed: boolean } | null>(null)
+
+  // Дополнительные счётчики для достижений
+  const [skipCount, setSkipCount] = useState(() => {
+    if (typeof window === "undefined") return 0
+    const saved = localStorage.getItem("slovak_skip_count")
+    return saved ? parseInt(saved, 10) : 0
+  })
+  const [perfectLessonCount, setPerfectLessonCount] = useState(() => {
+    if (typeof window === "undefined") return 0
+    const saved = localStorage.getItem("slovak_perfect_lesson_count")
+    return saved ? parseInt(saved, 10) : 0
+  })
+
+  // Сохранение счётчиков в localStorage
+  useEffect(() => {
+    localStorage.setItem("slovak_skip_count", skipCount.toString())
+  }, [skipCount])
+
+  useEffect(() => {
+    localStorage.setItem("slovak_perfect_lesson_count", perfectLessonCount.toString())
+  }, [perfectLessonCount])
 
   // ---------------------------------------------------------------------------
 
-  // Синхронизация громкости с системой звуков
+  // Синхронизация громкости
   useEffect(() => {
     setGlobalVolume(settings.volume)
   }, [settings.volume])
@@ -330,6 +354,7 @@ export default function Home() {
     if (!currentWord) return
     playClickSound()
     playSkipSound()
+    setSkipCount(prev => prev + 1)
     const remaining = getRemainingWords()
     if (remaining.length < 2) return
     const currentKey = getWordKey(currentWord)
@@ -346,6 +371,7 @@ export default function Home() {
     setIsAnswering(false)
     setSelectedOption(null)
     setWriteInput("")
+    triggerAchievementCheck()
   }, [currentWord, getRemainingWords])
 
   const handleMarkHard = useCallback((word: Word) => {
@@ -376,6 +402,7 @@ export default function Home() {
     setIsAnswering(false)
     setSelectedOption(null)
     setWriteInput("")
+    triggerAchievementCheck()
   }, [currentWord, getRemainingWords])
 
   const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
@@ -406,6 +433,10 @@ export default function Home() {
   }, [wordStatsMap, userLevel])
 
   const triggerAchievementCheck = useCallback(() => {
+    const quizCount = Object.values(isQuizCompleted).filter(Boolean).length
+    const textsRead = Object.values(isRead).filter(Boolean).length
+    const hardCount = hardWordsSet.size
+
     const state: AchievementState = {
       totalXp: xp,
       totalCorrect: correctAnswersCount,
@@ -417,13 +448,18 @@ export default function Home() {
       flashcardAnswers: flashcardCorrectCount,
       writeAnswers: writeCorrectCount,
       choiceAnswers: choiceCorrectCount,
+      quizCompletedCount: quizCount,
+      hardWordsMarked: hardCount,
+      skipCount: skipCount,
+      perfectLessonCount: perfectLessonCount,
+      textsReadCount: textsRead,
     }
     const newAchievements = checkAchievements(state)
     if (newAchievements.length > 0) {
       const reward = newAchievements.reduce((sum: number, ach: { reward?: number }) => sum + (ach.reward || 0), 0)
       if (reward > 0) setXp((v) => v + reward)
     }
-  }, [xp, correctAnswersCount, totalClicksCount, streak, maxStreak, completedCategoriesCount, learnedWordsCount, flashcardCorrectCount, writeCorrectCount, choiceCorrectCount, checkAchievements])
+  }, [xp, correctAnswersCount, totalClicksCount, streak, maxStreak, completedCategoriesCount, learnedWordsCount, flashcardCorrectCount, writeCorrectCount, choiceCorrectCount, isQuizCompleted, isRead, hardWordsSet, skipCount, perfectLessonCount])
 
   useEffect(() => {
     if (!mountedRef.current || !achievementsLoaded) return
@@ -462,6 +498,7 @@ export default function Home() {
       setSessionMistakes(prev => [...prev, { word: currentWord.slovak, translation: currentWord.russian }])
     }
     setIsAnswering(false)
+    triggerAchievementCheck()
   }, [isAnswering, currentWord, lives, gameMode, completedWords, updateCategoryProgress, setStatsForWord])
 
   const handleFlashcardRating = useCallback((known: boolean) => {
@@ -505,13 +542,19 @@ export default function Home() {
         saveProgress(storageKey, totalLessonWords)
         setProgressData(prev => ({ ...prev, [storageKey]: totalLessonWords }))
       }
+      // Проверка на идеальный урок
+      if (sessionTotal === sessionCorrect && sessionTotal > 0) {
+        setPerfectLessonCount(prev => prev + 1)
+      }
       setScreen("victory")
       setIsAnswering(false)
+      triggerAchievementCheck()
       return
     }
     setCurrentWord(selectNextWord(remainingWords, wordStatsMap))
     setIsAnswering(false)
-  }, [isAnswering, currentWord, completedWords, lessonWords, updateCategoryProgress, setStatsForWord, wordStatsMap, activeDates, selectedLevel, selectedCategory, currentDataSource, totalLessonWords])
+    triggerAchievementCheck()
+  }, [isAnswering, currentWord, completedWords, lessonWords, updateCategoryProgress, setStatsForWord, wordStatsMap, activeDates, selectedLevel, selectedCategory, currentDataSource, totalLessonWords, sessionTotal, sessionCorrect])
 
   const handleNextWord = useCallback(() => {
     if (lives <= 0) return
@@ -533,11 +576,17 @@ export default function Home() {
         localStorage.setItem("slovak_active_dates", JSON.stringify(nextDates))
       }
       setStreak(calculateStreak(nextDates))
+      // Проверка на идеальный урок
+      if (sessionTotal === sessionCorrect && sessionTotal > 0) {
+        setPerfectLessonCount(prev => prev + 1)
+      }
       setScreen("victory")
+      triggerAchievementCheck()
       return
     }
     if (notCompletedWords.length === 0) {
       setScreen("victory")
+      triggerAchievementCheck()
       return
     }
     setCurrentWord(selectNextWord(notCompletedWords, wordStatsMap))
@@ -545,7 +594,7 @@ export default function Home() {
     setIsAnswering(false)
     setSelectedOption(null)
     setWriteInput("")
-  }, [message, lives, remainingWordsCount, activeDates, notCompletedWords, wordStatsMap, selectedLevel, selectedCategory, currentDataSource])
+  }, [message, lives, remainingWordsCount, activeDates, notCompletedWords, wordStatsMap, selectedLevel, selectedCategory, currentDataSource, sessionTotal, sessionCorrect])
 
   const handleRestart = useCallback(() => {
     playClickSound()
@@ -576,45 +625,61 @@ export default function Home() {
   }
 
   const handleQuizComplete = (textId: string, score: number, total: number, xpEarned: number, firstTime: boolean) => {
+    markQuizCompleted(textId, score, true)
     if (firstTime) {
-      markQuizCompleted(textId, score, true)
       setXp(prev => prev + xpEarned)
     }
+    triggerAchievementCheck()
   }
 
   const handleStartTest = (level: LanguageLevel) => {
     setTestLevel(level)
+    setShowTestResultModal(false)
+    setTestResultData(null)
   }
 
   const handleTestComplete = async (score: number, total: number, xpEarned: number) => {
     setXp(prev => prev + xpEarned)
+    const percent = Math.round((score / total) * 100)
     const saved = localStorage.getItem("test_completed_levels")
     const completed = saved ? JSON.parse(saved) : {}
-    if (testLevel) {
-      if (score === total) {
-        completed[testLevel] = true
-        localStorage.setItem("test_completed_levels", JSON.stringify(completed))
-        const expectedLevel = userLevel === null ? "A1" : getNextLevel(userLevel)
-        if (testLevel === expectedLevel && user) {
-          const nextLevel = getNextLevel(userLevel)
-          if (nextLevel) {
-            try {
-              const userRef = doc(db, "users", user.uid)
-              await updateDoc(userRef, { level: nextLevel })
-              setUserLevel(nextLevel)
-              alert(`🎉 Поздравляем! Ваш уровень повышен до ${nextLevel}!`)
-            } catch (error) {
-              console.error("Ошибка повышения уровня:", error)
-            }
-          }
+    // Сохраняем лучший процент
+    const bestPercent = Math.max(completed[testLevel!] || 0, percent)
+    const newProgress = { ...completed, [testLevel!]: bestPercent }
+    localStorage.setItem("test_completed_levels", JSON.stringify(newProgress))
+
+    const isPassed = bestPercent >= 90
+    const wasAlreadyPassed = (completed[testLevel!] || 0) >= 90
+
+    setTestResultData({
+      level: testLevel!,
+      percent: bestPercent,
+      xpEarned,
+      isPassed,
+    })
+    setShowTestResultModal(true)
+
+    const expectedLevel = userLevel === null ? "A1" : getNextLevel(userLevel)
+    if (testLevel === expectedLevel && user && isPassed && !wasAlreadyPassed) {
+      const nextLevel = getNextLevel(userLevel)
+      if (nextLevel) {
+        try {
+          const userRef = doc(db, "users", user.uid)
+          await updateDoc(userRef, { level: nextLevel })
+          setUserLevel(nextLevel)
+        } catch (error) {
+          console.error("Ошибка повышения уровня:", error)
         }
       }
     }
     setTestLevel(null)
+    triggerAchievementCheck()
   }
 
   const handleBackToLevels = () => {
     setTestLevel(null)
+    setShowTestResultModal(false)
+    setTestResultData(null)
   }
 
   const handleRetryMistakes = useCallback(() => {
@@ -883,11 +948,30 @@ export default function Home() {
           )}
           {globalTab === "test" && (
             testLevel ? (
-              <FullTest
-                level={testLevel}
-                onComplete={handleTestComplete}
-                onBack={handleBackToLevels}
-              />
+              <>
+                <FullTest
+                  level={testLevel}
+                  onComplete={handleTestComplete}
+                  onBack={handleBackToLevels}
+                />
+                {showTestResultModal && testResultData && (
+                  <TestResultModal
+                    isOpen={showTestResultModal}
+                    onClose={() => {
+                      setShowTestResultModal(false)
+                      handleBackToLevels()
+                    }}
+                    onContinue={() => {
+                      setShowTestResultModal(false)
+                      handleBackToLevels()
+                    }}
+                    level={testResultData.level}
+                    percent={testResultData.percent}
+                    xpEarned={testResultData.xpEarned}
+                    isPassed={testResultData.isPassed}
+                  />
+                )}
+              </>
             ) : (
               <LevelTest onStartTest={handleStartTest} />
             )

@@ -24,13 +24,10 @@ const loadTextProgress = (): TextProgress => {
 
 export function useTextProgress() {
   const [progress, setProgress] = useState<TextProgress>(loadTextProgress)
-  const [isLoaded] = useState(true)
 
-  // Сохранение при каждом изменении прогресса
   useEffect(() => {
-    if (!isLoaded) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress))
-  }, [progress, isLoaded])
+  }, [progress])
 
   const markAsRead = useCallback((textId: string) => {
     setProgress(prev => ({
@@ -72,6 +69,6 @@ export function useTextProgress() {
     getQuizScore,
     hasXpEarned,
     isQuizCompleted,
-    isLoaded,
+    isLoaded: true,
   }
 }

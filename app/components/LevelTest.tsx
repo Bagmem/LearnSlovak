@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type ComponentType } from "react"
+import { useState, useEffect, type ComponentType } from "react"
 import { motion } from "framer-motion"
 import { FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaCheckCircle, FaBookOpen, FaLayerGroup } from "react-icons/fa"
 
@@ -10,13 +10,7 @@ type LevelTestProps = {
   onStartTest: (level: TestLevel) => void
 }
 
-type CompletedLevels = {
-  A1: boolean
-  A2: boolean
-  B1: boolean
-  B2: boolean
-  C1: boolean
-}
+type ProgressMap = Record<TestLevel, number>
 
 const levelsData: { id: TestLevel; title: string; name: string; icon: ComponentType<{ className?: string; size?: string | number }>; bgGradient: string; desc: string; questionCount: number; testWordCount: number }[] = [
   { id: "A1", title: "A1", name: "Начинающий", icon: FaSeedling, bgGradient: "from-green-500 to-emerald-600", desc: "Базовые слова и фразы", questionCount: 30, testWordCount: 12 },
@@ -26,28 +20,57 @@ const levelsData: { id: TestLevel; title: string; name: string; icon: ComponentT
   { id: "C1", title: "C1", name: "Экспертный", icon: FaGem, bgGradient: "from-purple-500 to-pink-600", desc: "Нюансы и сложные тексты", questionCount: 50, testWordCount: 5 },
 ]
 
-export default function LevelTest({ onStartTest }: LevelTestProps) {
-  const [completed] = useState<CompletedLevels>(() => {
-    const base: CompletedLevels = { A1: false, A2: false, B1: false, B2: false, C1: false }
-    if (typeof window === "undefined") return base
-    const saved = localStorage.getItem("test_completed_levels")
-    if (!saved) return base
-    try {
-      const parsed = JSON.parse(saved) as Partial<CompletedLevels>
-      return { ...base, ...parsed }
-    } catch {
-      return base
+const loadProgress = (): ProgressMap => {
+  const defaultProgress: ProgressMap = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0 }
+  if (typeof window === "undefined") return defaultProgress
+  const saved = localStorage.getItem("test_completed_levels")
+  if (!saved) return defaultProgress
+  try {
+    const parsed = JSON.parse(saved)
+    const migrated: ProgressMap = { ...defaultProgress }
+    for (const level of Object.keys(defaultProgress) as TestLevel[]) {
+      const value = parsed[level]
+      if (typeof value === "number") {
+        migrated[level] = Math.min(100, Math.max(0, value))
+      } else if (value === true) {
+        migrated[level] = 100
+      } else {
+        migrated[level] = 0
+      }
     }
-  })
+    return migrated
+  } catch {
+    return defaultProgress
+  }
+}
 
-  const completedCount = Object.values(completed).filter(Boolean).length
-  const totalLevels = levelsData.length
-  const overallProgress = (completedCount / totalLevels) * 100
+export default function LevelTest({ onStartTest }: LevelTestProps) {
+  const [progress, setProgress] = useState<ProgressMap>(loadProgress)
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setProgress(loadProgress())
+    }
+    window.addEventListener("storage", handleStorageChange)
+    return () => window.removeEventListener("storage", handleStorageChange)
+  }, [])
+
+  const overallProgress = Object.values(progress).reduce((sum, p) => sum + p, 0) / levelsData.length
   const circumference = 2 * Math.PI * 70
+
+  const getProgressColor = (percent: number) => {
+    if (percent >= 90) return "bg-green-500"
+    if (percent >= 50) return "bg-gradient-to-r from-orange-500 to-amber-500"
+    return "bg-gradient-to-r from-gray-400 to-gray-500"
+  }
+
+  const handleLevelClick = (level: TestLevel) => {
+    // Никаких модалок, просто запускаем тест
+    onStartTest(level)
+  }
 
   return (
     <div className="relative max-w-7xl mx-auto px-4 py-8 overflow-x-visible overflow-y-visible">
-      {/* Декоративные фоновые элементы – уходят за экран */}
       <div className="absolute inset-0 pointer-events-none overflow-visible">
         <div className="absolute top-20 left-10 w-72 h-72 bg-orange-200/20 dark:bg-orange-500/5 rounded-full blur-3xl" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-200/20 dark:bg-purple-500/5 rounded-full blur-3xl" />
@@ -77,8 +100,8 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
             <div className="flex flex-col gap-6 w-96 overflow-visible">
               {levelsData.slice(0, 2).map((level) => {
                 const Icon = level.icon
-                const isCompleted = completed[level.id]
-                const percent = isCompleted ? 100 : 0
+                const percent = progress[level.id]
+                const isPassed = percent >= 90
                 return (
                   <motion.button
                     key={level.id}
@@ -87,7 +110,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                     transition={{ delay: 0.1 }}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => onStartTest(level.id)}
+                    onClick={() => handleLevelClick(level.id)}
                     className="group w-full rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
                   >
                     <div className={`h-1 w-full bg-gradient-to-r ${level.bgGradient}`} />
@@ -102,7 +125,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                             <p className="text-sm font-bold text-gray-500 dark:text-gray-400">{level.name}</p>
                           </div>
                         </div>
-                        {isCompleted && <FaCheckCircle className="text-green-500 text-2xl" />}
+                        {isPassed && <FaCheckCircle className="text-green-500 text-2xl" />}
                       </div>
                       <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 leading-relaxed">{level.desc}</p>
                     </div>
@@ -116,7 +139,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                         <span className="text-xs font-bold text-orange-500">{percent}%</span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1 overflow-hidden">
-                        <div className={`h-full rounded-full ${isCompleted ? "bg-green-500" : "bg-gradient-to-r from-orange-500 to-amber-500"}`} style={{ width: `${percent}%` }} />
+                        <div className={`h-full rounded-full ${getProgressColor(percent)}`} style={{ width: `${percent}%` }} />
                       </div>
                       <div className="mt-2 text-right">
                         <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
@@ -129,7 +152,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
               })}
             </div>
 
-            {/* Круговая диаграмма – смещена вниз */}
+            {/* Круговая диаграмма */}
             <div className="flex items-start justify-center mt-8 md:mt-12 lg:mt-16">
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-gray-200/50 dark:border-gray-700/50">
                 <div className="relative w-64 h-64 md:w-72 md:h-72">
@@ -151,9 +174,9 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-5xl font-black text-gray-800 dark:text-white">{completedCount}</span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">из {totalLevels}</span>
-                    <span className="text-2xl font-bold text-orange-500 mt-2">{Math.round(overallProgress)}%</span>
+                    <span className="text-5xl font-black text-gray-800 dark:text-white">{Math.round(overallProgress)}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">%</span>
+                    <span className="text-2xl font-bold text-orange-500 mt-2">средний</span>
                   </div>
                 </div>
                 <p className="text-center text-sm font-bold text-gray-500 dark:text-gray-400 mt-3">Общий прогресс</p>
@@ -164,8 +187,8 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
             <div className="flex flex-col gap-6 w-96 overflow-visible">
               {levelsData.slice(2, 4).map((level) => {
                 const Icon = level.icon
-                const isCompleted = completed[level.id]
-                const percent = isCompleted ? 100 : 0
+                const percent = progress[level.id]
+                const isPassed = percent >= 90
                 return (
                   <motion.button
                     key={level.id}
@@ -174,7 +197,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                     transition={{ delay: 0.2 }}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => onStartTest(level.id)}
+                    onClick={() => handleLevelClick(level.id)}
                     className="group w-full rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
                   >
                     <div className={`h-1 w-full bg-gradient-to-r ${level.bgGradient}`} />
@@ -189,7 +212,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                             <p className="text-sm font-bold text-gray-500 dark:text-gray-400">{level.name}</p>
                           </div>
                         </div>
-                        {isCompleted && <FaCheckCircle className="text-green-500 text-2xl" />}
+                        {isPassed && <FaCheckCircle className="text-green-500 text-2xl" />}
                       </div>
                       <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 leading-relaxed">{level.desc}</p>
                     </div>
@@ -203,7 +226,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                         <span className="text-xs font-bold text-orange-500">{percent}%</span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1 overflow-hidden">
-                        <div className={`h-full rounded-full ${isCompleted ? "bg-green-500" : "bg-gradient-to-r from-orange-500 to-amber-500"}`} style={{ width: `${percent}%` }} />
+                        <div className={`h-full rounded-full ${getProgressColor(percent)}`} style={{ width: `${percent}%` }} />
                       </div>
                       <div className="mt-2 text-right">
                         <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
@@ -221,8 +244,8 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
           <div className="flex justify-center w-full max-w-md mt-8 overflow-visible">
             {levelsData.slice(4, 5).map((level) => {
               const Icon = level.icon
-              const isCompleted = completed[level.id]
-              const percent = isCompleted ? 100 : 0
+              const percent = progress[level.id]
+              const isPassed = percent >= 90
               return (
                 <motion.button
                   key={level.id}
@@ -231,7 +254,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                   transition={{ delay: 0.3 }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => onStartTest(level.id)}
+                  onClick={() => handleLevelClick(level.id)}
                   className="group w-full rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
                 >
                   <div className={`h-1 w-full bg-gradient-to-r ${level.bgGradient}`} />
@@ -246,7 +269,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                           <p className="text-sm font-bold text-gray-500 dark:text-gray-400">{level.name}</p>
                         </div>
                       </div>
-                      {isCompleted && <FaCheckCircle className="text-green-500 text-2xl" />}
+                      {isPassed && <FaCheckCircle className="text-green-500 text-2xl" />}
                     </div>
                     <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 leading-relaxed">{level.desc}</p>
                   </div>
@@ -260,7 +283,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                       <span className="text-xs font-bold text-orange-500">{percent}%</span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1 overflow-hidden">
-                      <div className={`h-full rounded-full ${isCompleted ? "bg-green-500" : "bg-gradient-to-r from-orange-500 to-amber-500"}`} style={{ width: `${percent}%` }} />
+                      <div className={`h-full rounded-full ${getProgressColor(percent)}`} style={{ width: `${percent}%` }} />
                     </div>
                     <div className="mt-2 text-right">
                       <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
@@ -281,7 +304,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
           className="mt-12 text-center"
         >
           <p className="text-sm text-gray-400 dark:text-gray-500">
-            ✅ Для засчитывания уровня необходимо ответить правильно на все вопросы.
+            ✅ Для перехода на следующий уровень необходимо набрать <strong className="text-orange-500">90%</strong> правильных ответов. Прогресс сохраняется.
           </p>
         </motion.div>
       </div>

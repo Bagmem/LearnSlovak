@@ -6,11 +6,12 @@ import { FaArrowLeft } from "react-icons/fa"
 import { LanguageLevel } from "../../data/words"
 import { type SlovakText } from "../../data/texts"
 import { getTextSection, getTranslationWords, getVerbQuestions, getMatchPairs, getTrueFalseQuestions } from "../../lib/testData"
+import { playClickSound, playVictorySound } from "../../lib/sounds"
+import confetti from "canvas-confetti"
+import ConfirmModal from "./ConfirmModal"
 
 type TextQuestion = { text: string; options: string[]; correct: number }
 type VerbQuestion = { sentence: string; options: string[]; correct: number }
-import { playClickSound, playVictorySound } from "../../lib/sounds"
-import confetti from "canvas-confetti"
 
 type FullTestProps = {
   level: LanguageLevel
@@ -22,6 +23,7 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
   const [section, setSection] = useState(0)
   const [sectionScores, setSectionScores] = useState<{ score: number; max: number }[]>([])
   const [showResults, setShowResults] = useState(false)
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false)
 
   const testData = useMemo(() => {
     const textSection = getTextSection(level)
@@ -62,11 +64,16 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
     const totalScore = sectionScores.reduce((sum, s) => sum + s.score, 0)
     const totalMax = sectionScores.reduce((sum, s) => sum + s.max, 0)
     const xpEarned = totalScore * 5
-    if (totalScore === totalMax) {
+    if (totalScore / totalMax >= 0.9) {
       playVictorySound()
       confetti({ particleCount: 200, spread: 80, origin: { y: 0.6 } })
     }
     onComplete(totalScore, totalMax, xpEarned)
+  }
+
+  const handleBackWithConfirm = () => {
+    playClickSound()
+    setIsExitConfirmOpen(true)
   }
 
   if (!testData || !testData.textSection) {
@@ -82,6 +89,7 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
     const totalMax = sectionScores.reduce((sum, s) => sum + s.max, 0)
     const totalPercentage = Math.round((totalScore / totalMax) * 100)
     const xpEarned = totalScore * 5
+    const isPassed = totalPercentage >= 90
 
     const sectionNames = [
       "Текст и вопросы",
@@ -185,10 +193,10 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
             </div>
           </div>
 
-          {totalScore !== totalMax && (
+          {!isPassed && (
             <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-xl text-center">
               <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                ⚠️ Для получения отметки о прохождении уровня необходимо ответить правильно на <strong>все вопросы</strong>.
+                ⚠️ Для перехода на следующий уровень необходимо набрать <strong>90% правильных ответов</strong>.
               </p>
             </div>
           )}
@@ -212,65 +220,79 @@ export default function FullTest({ level, onComplete, onBack }: FullTestProps) {
   const progressPercent = (currentSection / sectionsCount) * 100
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={() => {
-            playClickSound()
-            onBack()
-          }}
-          className="text-gray-400 hover:text-gray-600 transition"
-        >
-          <FaArrowLeft className="inline mr-1" /> Назад к уровням
-        </button>
-        <div className="flex-1 text-center">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-            {currentSection === 0 && "1. Текст и вопросы"}
-            {currentSection === 1 && "2. Перевод слов"}
-            {currentSection === 2 && "3. Формы глаголов"}
-            {currentSection === 3 && "4. Сопоставление пар"}
-            {currentSection === 4 && "5. Правда / Ложь"}
-          </h2>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2 overflow-hidden">
-            <motion.div
-              className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 0.3 }}
-            />
+    <>
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={handleBackWithConfirm}
+            className="text-gray-400 hover:text-gray-600 transition flex items-center gap-1"
+          >
+            <FaArrowLeft className="inline mr-1" /> Назад к уровням
+          </button>
+          <div className="flex-1 text-center">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+              {currentSection === 0 && "1. Текст и вопросы"}
+              {currentSection === 1 && "2. Перевод слов"}
+              {currentSection === 2 && "3. Формы глаголов"}
+              {currentSection === 3 && "4. Сопоставление пар"}
+              {currentSection === 4 && "5. Правда / Ложь"}
+            </h2>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2 overflow-hidden">
+              <motion.div
+                className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercent}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentSection}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.2 }}
-        >
-          {currentSection === 0 && testData.textSection && (
-            <SectionText text={testData.textSection.text} questions={testData.textSection.questions} onComplete={handleSectionComplete} />
-          )}
-          {currentSection === 1 && (
-            <SectionTranslation words={testData.translationWords} onComplete={handleSectionComplete} />
-          )}
-          {currentSection === 2 && (
-            <SectionVerb questions={testData.verbQuestions} onComplete={handleSectionComplete} />
-          )}
-          {currentSection === 3 && testData.matchPairs && (
-            <SectionMatch matchData={testData.matchPairs} onComplete={handleSectionComplete} />
-          )}
-          {currentSection === 4 && (
-            <SectionTrueFalse statements={testData.tfStatements} onComplete={handleSectionComplete} />
-          )}
-        </motion.div>
-      </AnimatePresence>
-    </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentSection}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+          >
+            {currentSection === 0 && testData.textSection && (
+              <SectionText text={testData.textSection.text} questions={testData.textSection.questions} onComplete={handleSectionComplete} />
+            )}
+            {currentSection === 1 && (
+              <SectionTranslation words={testData.translationWords} onComplete={handleSectionComplete} />
+            )}
+            {currentSection === 2 && (
+              <SectionVerb questions={testData.verbQuestions} onComplete={handleSectionComplete} />
+            )}
+            {currentSection === 3 && testData.matchPairs && (
+              <SectionMatch matchData={testData.matchPairs} onComplete={handleSectionComplete} />
+            )}
+            {currentSection === 4 && (
+              <SectionTrueFalse statements={testData.tfStatements} onComplete={handleSectionComplete} />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      <ConfirmModal
+        isOpen={isExitConfirmOpen}
+        onClose={() => setIsExitConfirmOpen(false)}
+        onConfirm={() => {
+          setIsExitConfirmOpen(false)
+          onBack()
+        }}
+        title="Выйти из теста?"
+        message="Весь прогресс текущего теста будет потерян. Вы уверены?"
+        confirmText="Да, выйти"
+        cancelText="Отмена"
+      />
+    </>
   )
 }
 
+// ========== Секции 1-5 (без изменений – они уже были в вашем FullTest, оставьте их как есть) ==========
+// Здесь должны быть SectionText, SectionTranslation, SectionVerb, SectionMatch, SectionTrueFalse.
+// Если их нет, добавьте их из предыдущей версии FullTest (они идентичны).
 // ========== Секция 1 ==========
 function SectionText({ text, questions, onComplete }: { text: SlovakText; questions: TextQuestion[]; onComplete: (score: number, maxScore: number) => void }) {
   const [answers, setAnswers] = useState<number[]>(new Array(questions.length).fill(-1))
@@ -427,7 +449,8 @@ function SectionVerb({ questions, onComplete }: { questions: VerbQuestion[]; onC
     </div>
   )
 }
-// ========== Секция 4 (сопоставление пар) – без отображения результата, просто переход ==========
+
+// ========== Секция 4 (сопоставление пар) ==========
 function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; right: string[]; pairs: { slovak: string; russian: string }[] }; onComplete: (score: number, maxScore: number) => void }) {
   const { left, right, pairs } = matchData
   const [connections, setConnections] = useState<Map<number, number>>(new Map())
@@ -449,7 +472,6 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
   const handleRightClick = (idx: number) => {
     if (selectedLeft !== null) {
       const newConn = new Map(connections)
-      // Если это правое уже соединено с другим левым, удаляем ту связь
       let existingLeft: number | undefined
       for (const [l, r] of newConn.entries()) {
         if (r === idx) {
@@ -464,7 +486,6 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
       setConnections(newConn)
       setSelectedLeft(null)
     } else {
-      // Если ничего не выбрано, но кликнули на правое – пробуем разорвать его связь
       let leftToRemove: number | undefined
       for (const [l, r] of connections.entries()) {
         if (r === idx) {
@@ -491,7 +512,6 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
     onComplete(correct, pairs.length)
   }
 
-  // Простая подсветка: выбранное левое слово – оранжевое, соединённые слова – оранжевые
   const getLeftStyle = (idx: number) => {
     if (connections.has(idx)) return "bg-orange-100 dark:bg-orange-900 border-orange-400 shadow-md"
     if (selectedLeft === idx) return "bg-orange-100 dark:bg-orange-900 border-2 border-orange-500 shadow-md"
@@ -550,8 +570,8 @@ function SectionMatch({ matchData, onComplete }: { matchData: { left: string[]; 
 
 // ========== Секция 5 ==========
 function SectionTrueFalse({ statements, onComplete }: { statements: { statement: string; isTrue: boolean }[]; onComplete: (score: number, maxScore: number) => void }) {
-  const [answers, setAnswers] = useState<boolean[]>(new Array(statements.length).fill(false))
-  const allAnswered = answers.every(a => a !== undefined && a !== null)
+  const [answers, setAnswers] = useState<boolean[]>(new Array(statements.length).fill(undefined as any))
+  const allAnswered = answers.every(a => a !== undefined)
 
   const handleSubmit = () => {
     let correct = 0
