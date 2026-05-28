@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion } from "framer-motion"
 import { type SlovakText } from "../../data/texts"
 import { playClickSound } from "../../lib/sounds"
 import InteractiveText from "../InteractiveText"
-import { FaArrowLeft, FaVolumeUp, FaLanguage, FaCheckCircle, FaBrain } from "react-icons/fa"
+import { FaArrowLeft, FaVolumeUp, FaLanguage, FaCheckCircle, FaBrain, FaSearchPlus, FaSearchMinus } from "react-icons/fa"
 
 type TextViewerProps = {
   text: SlovakText
@@ -16,6 +16,10 @@ type TextViewerProps = {
 
 export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerProps) {
   const [showTranslation, setShowTranslation] = useState(false)
+  const [fontSize, setFontSize] = useState(16)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [scrollProgress, setScrollProgress] = useState(0)
+
   const hasQuestions = text.questions && text.questions.length > 0
 
   const speakText = (content: string) => {
@@ -26,16 +30,48 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
     window.speechSynthesis.speak(utterance)
   }
 
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!contentRef.current) return
+      const el = contentRef.current
+      const scrollTop = el.scrollTop
+      const scrollHeight = el.scrollHeight - el.clientHeight
+      const progress = (scrollTop / scrollHeight) * 100
+      setScrollProgress(progress)
+    }
+    const ref = contentRef.current
+    if (ref) ref.addEventListener("scroll", handleScroll)
+    return () => {
+      if (ref) ref.removeEventListener("scroll", handleScroll)
+    }
+  }, [])
+
+  const increaseFont = () => setFontSize(prev => Math.min(prev + 2, 28))
+  const decreaseFont = () => setFontSize(prev => Math.max(prev - 2, 12))
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <motion.button
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        onClick={() => { playClickSound(); onBack() }}
-        className="mb-6 inline-flex items-center gap-2 text-gray-500 hover:text-orange-500 dark:text-gray-400 transition font-medium"
-      >
-        <FaArrowLeft /> Назад к списку
-      </motion.button>
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+        <motion.button
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          onClick={() => { playClickSound(); onBack() }}
+          className="inline-flex items-center gap-2 text-gray-500 hover:text-orange-500 dark:text-gray-400 transition font-medium"
+        >
+          <FaArrowLeft /> Назад к списку
+        </motion.button>
+        <div className="flex gap-2">
+          <button onClick={decreaseFont} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 transition" title="Уменьшить шрифт">
+            <FaSearchMinus size={14} />
+          </button>
+          <button onClick={increaseFont} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 transition" title="Увеличить шрифт">
+            <FaSearchPlus size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Прогресс-бар чтения */}
+      <div className="fixed top-0 left-0 right-0 z-10 h-1 bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-100" style={{ width: `${scrollProgress}%` }} />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -66,15 +102,15 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
           </div>
         </div>
 
-        <div className="p-6 md:p-8 space-y-6">
-          <div className="prose prose-lg dark:prose-invert max-w-none">
+        <div ref={contentRef} className="p-6 md:p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          <div className="prose prose-lg dark:prose-invert max-w-none transition-all" style={{ fontSize: `${fontSize}px` }}>
             <InteractiveText text={text.content} />
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <button
               onClick={() => setShowTranslation(!showTranslation)}
-              className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold transition-all bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               <FaLanguage />
               {showTranslation ? "Скрыть перевод" : "Показать перевод"}
@@ -82,7 +118,7 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
             {hasQuestions && (
               <button
                 onClick={() => { playClickSound(); onQuiz(); }}
-                className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md hover:shadow-lg hover:scale-[1.02]"
+                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold transition-all bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md hover:shadow-lg hover:scale-[1.02]"
               >
                 <FaBrain />
                 Пройти викторину

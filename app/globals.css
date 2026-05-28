@@ -219,3 +219,14 @@ body {
 .dark .bg-lines {
   background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 8px);
 }
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}

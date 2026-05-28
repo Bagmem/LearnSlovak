@@ -39,11 +39,12 @@ export default function FlashcardMode({
   const { theme } = useTheme()
   const isDark = theme === "dark"
 
-  const [showAnswer, setShowAnswer] = useState(false)
+  const [isFlipped, setIsFlipped] = useState(false)
   const [showHint, setShowHint] = useState(false)
 
+  // При смене слова сбрасываем состояние
   useEffect(() => {
-    setShowAnswer(false)
+    setIsFlipped(false)
     setShowHint(false)
   }, [word])
 
@@ -62,7 +63,7 @@ export default function FlashcardMode({
 
   const handleFlip = () => {
     playClickSound()
-    setShowAnswer(true)
+    setIsFlipped(!isFlipped)
   }
 
   const handleKnown = () => {
@@ -92,7 +93,7 @@ export default function FlashcardMode({
 
   if (!word) return null
 
-  // Динамические классы
+  // Динамические классы для светлой/тёмной темы
   const bgMain = isDark ? "bg-gradient-to-br from-gray-900/90 to-gray-800/90" : "bg-gradient-to-br from-gray-100 to-gray-200"
   const cardBg = isDark ? "bg-white/10 backdrop-blur-xl border-white/20" : "bg-white/90 backdrop-blur-sm border-gray-200 shadow-xl"
   const textPrimary = isDark ? "text-white" : "text-gray-900"
@@ -134,35 +135,37 @@ export default function FlashcardMode({
               <span>✓ {sessionCorrect}/{sessionTotal}</span>
             </div>
 
-            <div className="min-h-[200px] flex items-center justify-center perspective-1000">
-              <AnimatePresence mode="wait">
-                {!showAnswer ? (
-                  <motion.div
-                    key="front"
-                    initial={{ rotateY: 90, opacity: 0 }}
-                    animate={{ rotateY: 0, opacity: 1 }}
-                    exit={{ rotateY: -90, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="w-full text-center"
-                  >
-                    <p className={`text-3xl font-bold ${textPrimary}`}>{word.slovak}</p>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="back"
-                    initial={{ rotateY: -90, opacity: 0 }}
-                    animate={{ rotateY: 0, opacity: 1 }}
-                    exit={{ rotateY: 90, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="w-full text-center"
-                  >
-                    <p className={`text-3xl font-bold ${textPrimary}`}>{word.russian}</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            {/* 3D Flip Card */}
+            <div
+              className="relative w-full h-64 perspective-1000"
+              style={{ perspective: "1000px" }}
+            >
+              <motion.div
+                className="relative w-full h-full preserve-3d"
+                animate={{ rotateY: isFlipped ? 180 : 0 }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                {/* Передняя сторона (словацкое слово) */}
+                <div
+                  className={`absolute w-full h-full backface-hidden rounded-2xl flex items-center justify-center p-6 ${cardBg} border ${isDark ? "border-white/20" : "border-gray-200"} shadow-lg`}
+                  style={{ backfaceVisibility: "hidden" }}
+                >
+                  <p className={`text-3xl font-bold text-center ${textPrimary}`}>{word.slovak}</p>
+                </div>
+
+                {/* Задняя сторона (перевод) */}
+                <div
+                  className={`absolute w-full h-full backface-hidden rounded-2xl flex items-center justify-center p-6 ${cardBg} border ${isDark ? "border-white/20" : "border-gray-200"} shadow-lg`}
+                  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+                >
+                  <p className={`text-3xl font-bold text-center ${textPrimary}`}>{word.russian}</p>
+                </div>
+              </motion.div>
             </div>
 
-            {!showAnswer ? (
+            {/* Кнопки и дополнительный UI */}
+            {!isFlipped ? (
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -177,6 +180,7 @@ export default function FlashcardMode({
                   <button
                     onClick={speakSlovak}
                     className={`${textSecondary} hover:${isDark ? "text-white" : "text-gray-900"} p-2 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"}`}
+                    title="Озвучить слово"
                   >
                     <FaVolumeUp />
                   </button>
@@ -184,6 +188,7 @@ export default function FlashcardMode({
                     <button
                       onClick={() => setShowHint(!showHint)}
                       className={`${textSecondary} hover:text-yellow-600 p-2 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"}`}
+                      title="Подсказка"
                     >
                       <FaLightbulb />
                     </button>
@@ -215,7 +220,8 @@ export default function FlashcardMode({
               </>
             )}
 
-            {!showAnswer && onSkip && remainingCount > 1 && (
+            {/* Кнопки пропуска и сложного слова – до переворота */}
+            {!isFlipped && onSkip && remainingCount > 1 && (
               <div className="flex gap-3 mt-2">
                 <button
                   onClick={handleSkip}

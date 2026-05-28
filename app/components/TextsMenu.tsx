@@ -9,7 +9,7 @@ import { FaCheckCircle, FaFilter, FaTimes, FaSearch, FaBrain, FaTrashAlt } from 
 type TextsMenuProps = {
   onSelectText: (text: SlovakText) => void
   readStatus: Record<string, boolean>
-  quizStatus: Record<string, boolean>   // добавлено
+  quizStatus: Record<string, boolean>
   userLevel: UserLevel
 }
 
@@ -40,16 +40,17 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
   const [selectedTopic, setSelectedTopic] = useState<TextTopic | "all">("all")
   const [searchQuery, setSearchQuery] = useState("")
 
-  const levels: { value: TextLevel | "all"; label: string }[] = useMemo(() => {
-    const allLevels: { value: TextLevel | "all"; label: string }[] = [
-      { value: "all", label: "Все доступные" },
-      { value: "A1", label: "A1" },
-      { value: "A2", label: "A2" },
-      { value: "B1", label: "B1" },
-      { value: "B2", label: "B2" },
+  const levels = useMemo(() => {
+    const allLevels = [
+      { value: "all" as const, label: "Все доступные" },
+      { value: "A1" as const, label: "A1" },
+      { value: "A2" as const, label: "A2" },
+      { value: "B1" as const, label: "B1" },
+      { value: "B2" as const, label: "B2" },
     ]
     return allLevels.filter((level) => {
-      return level.value === "all" || canAccessLevel(userLevel, level.value as TextLevel)
+      if (level.value === "all") return true
+      return canAccessLevel(userLevel, level.value)
     })
   }, [userLevel])
 
@@ -135,7 +136,6 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
           </div>
         </div>
 
-        {/* Активные фильтры в виде чипсов с кнопкой сброса */}
         {hasActiveFilters && (
           <div className="flex flex-wrap gap-2 mb-4">
             {selectedLevel !== "all" && (
@@ -214,6 +214,7 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
             {filteredTexts.map((text, idx) => {
               const isRead = readStatus[text.id] || false
               const isQuizDone = quizStatus[text.id] || false
+              const progressPercent = isQuizDone ? 100 : (isRead ? 50 : 0)
               return (
                 <motion.button
                   key={text.id}
@@ -253,6 +254,14 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-3 line-clamp-2">
                       {text.content.substring(0, 100)}...
                     </p>
+                    <div className="mt-3">
+                      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                    </div>
                     <div className="mt-4 flex items-center justify-between">
                       <span className="text-xs text-orange-500 font-bold">Читать →</span>
                       {!isRead && <span className="text-xs text-gray-400 dark:text-gray-500">Новое</span>}

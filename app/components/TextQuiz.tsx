@@ -4,7 +4,7 @@ import { useState } from "react"
 import { type SlovakText } from "../../data/texts"
 import { playClickSound, playCorrectSound, playWrongSound, playVictorySound } from "../../lib/sounds"
 import confetti from "canvas-confetti"
-import { FaArrowLeft, FaCheckCircle, FaTimesCircle } from "react-icons/fa"
+import { FaArrowLeft, FaCheckCircle, FaTimesCircle, FaTrophy } from "react-icons/fa"
 import { motion, AnimatePresence } from "framer-motion"
 
 type TextQuizProps = {
@@ -78,7 +78,6 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
     const accuracy = Math.round((correctCount / total) * 100)
     const xpAmount = correctCount * 5
     const isFirstTime = !xpAlreadyEarned
-    // Собираем ошибки
     const mistakes = text.questions
       .map((q, idx) => ({ question: q, userAnswer: answers[idx], isCorrect: answers[idx] === q.correct }))
       .filter(m => !m.isCorrect)
@@ -90,7 +89,7 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
         className="flex flex-col items-center justify-center min-h-[70vh] text-center px-4"
       >
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-2xl w-full border border-gray-200 dark:border-gray-700">
-          <div className="text-6xl mb-4">📊</div>
+          <div className="text-6xl mb-4">{correctCount === total ? "🏆" : "📊"}</div>
           <h2 className="text-2xl font-black text-green-600 dark:text-green-400">Викторина завершена!</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-6">{text.title}</p>
           <div className="space-y-3 text-left">
@@ -104,7 +103,7 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
               <span className="font-bold text-gray-700 dark:text-gray-300">Точность</span>
               <span className="text-green-500 font-bold">{accuracy}%</span>
             </div>
-            <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex justify-between py-2">
               <span className="font-bold text-gray-700 dark:text-gray-300">Правильные ответы</span>
               <span className="text-blue-500 font-bold">{correctCount}/{total}</span>
             </div>
@@ -152,8 +151,8 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
           <span className="text-sm font-bold bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full text-gray-800 dark:text-white">
             {currentIndex+1} / {total}
           </span>
-          <span className="text-sm font-bold bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-3 py-1 rounded-full">
-            ✓ {currentScore}/{total}
+          <span className="text-sm font-bold bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-3 py-1 rounded-full flex items-center gap-1">
+            <FaTrophy size={12} /> {currentScore}
           </span>
         </div>
       </div>
@@ -167,46 +166,51 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
         />
       </div>
 
-      <motion.div
-        key={currentIndex}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
-        transition={{ duration: 0.2 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 md:p-8 border border-gray-200 dark:border-gray-700"
-      >
-        <p className="text-xl font-bold mb-6 text-gray-800 dark:text-white">{currentQ.text}</p>
-        <div className="space-y-3">
-          {currentQ.options.map((opt, idx) => {
-            const isSelected = selected === idx
-            return (
-              <button
-                key={idx}
-                onClick={() => handleSelect(idx)}
-                disabled={selected !== -1}
-                className={`w-full text-left p-3 rounded-xl border-2 transition-all duration-200 ${
-                  isSelected
-                    ? "border-orange-500 bg-orange-50 dark:bg-orange-900/30 shadow-md"
-                    : "border-gray-200 dark:border-gray-700 hover:border-orange-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                } ${selected !== -1 && !isSelected ? "opacity-60" : ""}`}
-              >
-                <span className="font-medium text-gray-800 dark:text-white">{opt}</span>
-              </button>
-            )
-          })}
-        </div>
-        <button
-          onClick={handleNext}
-          disabled={selected === -1}
-          className={`mt-8 w-full py-3 rounded-xl font-bold transition-all ${
-            selected !== -1
-              ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md hover:shadow-lg hover:scale-[1.01]"
-              : "bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed"
-          }`}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentIndex}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 md:p-8 border border-gray-200 dark:border-gray-700"
         >
-          {isLast ? "Завершить викторину" : "Следующий вопрос →"}
-        </button>
-      </motion.div>
+          <p className="text-xl font-bold mb-6 text-gray-800 dark:text-white">{currentQ.text}</p>
+          <div className="space-y-3">
+            {currentQ.options.map((opt, idx) => {
+              const isSelected = selected === idx
+              return (
+                <motion.button
+                  key={idx}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  onClick={() => handleSelect(idx)}
+                  disabled={selected !== -1}
+                  className={`w-full text-left p-3 rounded-xl border-2 transition-all duration-200 ${
+                    isSelected
+                      ? "border-orange-500 bg-orange-50 dark:bg-orange-900/30 shadow-md scale-[1.01]"
+                      : "border-gray-200 dark:border-gray-700 hover:border-orange-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                  } ${selected !== -1 && !isSelected ? "opacity-60" : ""}`}
+                >
+                  <span className="font-medium text-gray-800 dark:text-white">{opt}</span>
+                </motion.button>
+              )
+            })}
+          </div>
+          <button
+            onClick={handleNext}
+            disabled={selected === -1}
+            className={`mt-8 w-full py-3 rounded-xl font-bold transition-all ${
+              selected !== -1
+                ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md hover:shadow-lg hover:scale-[1.01]"
+                : "bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed"
+            }`}
+          >
+            {isLast ? "Завершить викторину" : "Следующий вопрос →"}
+          </button>
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }

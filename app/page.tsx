@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog, FaClipboardList } from "react-icons/fa"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -14,7 +14,10 @@ import { grammarTasks } from "../data/grammar"
 import { texts, type SlovakText } from "../data/texts"
 import { checkAnswer, generateWrongOptions, selectNextWord, updateWordStats, type WordStats, createEmptyWordStats } from "../lib/game"
 import { saveProgress, loadProgress } from "../lib/storage"
-import { playCorrectSound, playWrongSound, playLessonStartSound, playVictorySound, playClickSound, initAudio, setMuted } from "../lib/sounds"
+import { 
+  playCorrectSound, playWrongSound, playLessonStartSound, playVictorySound, playClickSound, 
+  initAudio, setMuted, playSkipSound, playMarkHardSound, setGlobalVolume 
+} from "../lib/sounds"
 import { canEarnXpForWord, canEarnLessonBonus } from "../lib/xpLimits"
 import { useAchievements } from "../hooks/useAchievements"
 import type { AchievementState } from "../data/achievements"
@@ -33,6 +36,7 @@ import AchievementNotification from "./components/AchievementNotification"
 import SettingsModal from "./components/SettingsModal"
 import LevelTest from "./components/LevelTest"
 import FullTest from "./components/FullTest"
+import ConfirmModal from "./components/ConfirmModal"
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
@@ -159,14 +163,22 @@ export default function Home() {
   const [quizText, setQuizText] = useState<SlovakText | null>(null)
   const [testLevel, setTestLevel] = useState<LanguageLevel | null>(null)
 
-  // Сессионные статистики и сложные слова
+  // Сессия
   const [sessionCorrect, setSessionCorrect] = useState(0)
   const [sessionTotal, setSessionTotal] = useState(0)
   const [sessionMistakes, setSessionMistakes] = useState<{ word: string; translation: string }[]>([])
   const [hardWordsSet, setHardWordsSet] = useState<Set<string>>(getStoredHardWords)
   const [writeInput, setWriteInput] = useState("")
 
+  // Модалка подтверждения
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false)
+
   // ---------------------------------------------------------------------------
+
+  // Синхронизация громкости с системой звуков
+  useEffect(() => {
+    setGlobalVolume(settings.volume)
+  }, [settings.volume])
 
   const forceSaveWordStats = useCallback(() => {
     if (typeof window === "undefined") return
@@ -310,62 +322,46 @@ export default function Home() {
     })
   }, [])
 
-  // Вспомогательная функция для получения списка ещё не выученных слов
   const getRemainingWords = useCallback(() => {
     return lessonWords.filter(w => !completedWords.has(getWordKey(w)))
   }, [lessonWords, completedWords])
 
-  // ---------- ПРОПУСК (просто переключаемся на следующее слово по кругу) ----------
   const handleSkip = useCallback(() => {
     if (!currentWord) return
     playClickSound()
-
+    playSkipSound()
     const remaining = getRemainingWords()
-    if (remaining.length < 2) return  // некуда пропускать
-
+    if (remaining.length < 2) return
     const currentKey = getWordKey(currentWord)
     const currentIndex = remaining.findIndex(w => getWordKey(w) === currentKey)
     let nextWord: Word
     if (currentIndex === -1) {
-      // текущее слово уже выучено – просто берём первое
       nextWord = remaining[0]
     } else {
       const nextIndex = (currentIndex + 1) % remaining.length
       nextWord = remaining[nextIndex]
     }
-
-    if (nextWord && getWordKey(nextWord) !== currentKey) {
-      setCurrentWord(nextWord)
-    }
-
+    if (nextWord && getWordKey(nextWord) !== currentKey) setCurrentWord(nextWord)
     setMessage("")
     setIsAnswering(false)
     setSelectedOption(null)
     setWriteInput("")
   }, [currentWord, getRemainingWords])
 
-  // ---------- ОТМЕТКА СЛОЖНОГО СЛОВА (глобально + в ошибки + переключение) ----------
   const handleMarkHard = useCallback((word: Word) => {
     const wordKey = getWordKey(word)
-
-    // Глобальный список сложных слов
     setHardWordsSet(prev => {
       const newSet = new Set(prev)
       newSet.add(wordKey)
       localStorage.setItem("slovak_hard_words", JSON.stringify(Array.from(newSet)))
       return newSet
     })
-
-    // Добавляем в ошибки сессии (покажется в VictoryScreen)
     setSessionMistakes(prev => [...prev, { word: word.slovak, translation: word.russian }])
-
-    // Пропускаем текущее слово (та же логика, что в handleSkip)
     if (!currentWord) return
     playClickSound()
-
+    playMarkHardSound()
     const remaining = getRemainingWords()
     if (remaining.length < 2) return
-
     const currentKey = getWordKey(currentWord)
     const currentIndex = remaining.findIndex(w => getWordKey(w) === currentKey)
     let nextWord: Word
@@ -375,11 +371,7 @@ export default function Home() {
       const nextIndex = (currentIndex + 1) % remaining.length
       nextWord = remaining[nextIndex]
     }
-
-    if (nextWord && getWordKey(nextWord) !== currentKey) {
-      setCurrentWord(nextWord)
-    }
-
+    if (nextWord && getWordKey(nextWord) !== currentKey) setCurrentWord(nextWord)
     setMessage("")
     setIsAnswering(false)
     setSelectedOption(null)
@@ -567,13 +559,16 @@ export default function Home() {
   const handleBack = useCallback(() => {
     playClickSound()
     if (screen === "game") {
-      if (confirm("Вы уверены, что хотите выйти? Прогресс текущего урока будет потерян.")) {
-        setScreen("menu")
-      }
+      setIsExitConfirmOpen(true)
     } else {
       setScreen("menu")
     }
   }, [screen])
+
+  const confirmExit = useCallback(() => {
+    setIsExitConfirmOpen(false)
+    setScreen("menu")
+  }, [])
 
   const handleStartQuiz = (text: SlovakText) => {
     markAsRead(text.id)
@@ -650,7 +645,6 @@ export default function Home() {
     }
   }, [sessionMistakes, lessonWords, wordStatsMap])
 
-  // Количество реально невыученных слов для передачи в UI
   const remainingCount = getRemainingWords().length
 
   // ---------------------------------------------------------------------------
@@ -659,49 +653,71 @@ export default function Home() {
   if (screen === "game") {
     if (gameMode === "flashcard") {
       return (
-        <FlashcardMode
-          key={currentWord ? getWordKey(currentWord) : undefined}
-          word={currentWord}
-          onNext={handleFlashcardRating}
-          onBack={handleBack}
-          onRestart={handleRestart}
-          lessonProgress={lessonProgressPercent}
-          wordsLeft={remainingWordsCount}
-          totalWords={totalLessonWords}
-          remainingCount={remainingCount}
-          onSkip={handleSkip}
-          onMarkHard={handleMarkHard}
-          sessionCorrect={sessionCorrect}
-          sessionTotal={sessionTotal}
-        />
+        <>
+          <FlashcardMode
+            key={currentWord ? getWordKey(currentWord) : undefined}
+            word={currentWord}
+            onNext={handleFlashcardRating}
+            onBack={handleBack}
+            onRestart={handleRestart}
+            lessonProgress={lessonProgressPercent}
+            wordsLeft={remainingWordsCount}
+            totalWords={totalLessonWords}
+            remainingCount={remainingCount}
+            onSkip={handleSkip}
+            onMarkHard={handleMarkHard}
+            sessionCorrect={sessionCorrect}
+            sessionTotal={sessionTotal}
+          />
+          <ConfirmModal
+            isOpen={isExitConfirmOpen}
+            onClose={() => setIsExitConfirmOpen(false)}
+            onConfirm={confirmExit}
+            title="Выйти из урока?"
+            message="Весь прогресс текущего урока будет потерян. Вы уверены?"
+            confirmText="Да, выйти"
+            cancelText="Отмена"
+          />
+        </>
       )
     }
     return (
-      <GameUI
-        xp={xp}
-        streak={streak}
-        lives={lives}
-        word={currentWord}
-        options={options}
-        message={message}
-        selectedOption={selectedOption}
-        onAnswer={checkAnswerHandler}
-        onNext={handleNextWord}
-        onRestart={handleRestart}
-        onBack={handleBack}
-        onSkip={handleSkip}
-        onMarkHard={handleMarkHard}
-        disabled={isAnswering || lives <= 0}
-        lessonProgress={lessonProgressPercent}
-        gameMode={gameMode}
-        wordsLeft={remainingWordsCount}
-        totalWords={totalLessonWords}
-        remainingCount={remainingCount}
-        speechRate={settings.speechRate}
-        autoSpeakOnCorrect={settings.autoSpeakOnCorrect}
-        sessionCorrect={sessionCorrect}
-        sessionTotal={sessionTotal}
-      />
+      <>
+        <GameUI
+          xp={xp}
+          streak={streak}
+          lives={lives}
+          word={currentWord}
+          options={options}
+          message={message}
+          selectedOption={selectedOption}
+          onAnswer={checkAnswerHandler}
+          onNext={handleNextWord}
+          onRestart={handleRestart}
+          onBack={handleBack}
+          onSkip={handleSkip}
+          onMarkHard={handleMarkHard}
+          disabled={isAnswering || lives <= 0}
+          lessonProgress={lessonProgressPercent}
+          gameMode={gameMode}
+          wordsLeft={remainingWordsCount}
+          totalWords={totalLessonWords}
+          remainingCount={remainingCount}
+          speechRate={settings.speechRate}
+          autoSpeakOnCorrect={settings.autoSpeakOnCorrect}
+          sessionCorrect={sessionCorrect}
+          sessionTotal={sessionTotal}
+        />
+        <ConfirmModal
+          isOpen={isExitConfirmOpen}
+          onClose={() => setIsExitConfirmOpen(false)}
+          onConfirm={confirmExit}
+          title="Выйти из урока?"
+          message="Весь прогресс текущего урока будет потерян. Вы уверены?"
+          confirmText="Да, выйти"
+          cancelText="Отмена"
+        />
+      </>
     )
   }
 
