@@ -104,11 +104,17 @@ const getStoredWordStatsMap = (): Map<string, WordStats> => {
   }
 }
 
+const getStoredHardWords = (): Set<string> => {
+  if (typeof window === "undefined") return new Set()
+  const saved = localStorage.getItem("slovak_hard_words")
+  return new Set(saved ? JSON.parse(saved) : [])
+}
+
 export default function Home() {
   const { settings, toggleMute, setSpeechRate, setAutoSpeak, setVolume } = useSettings()
   const { theme, toggleTheme } = useTheme()
   const { lastUnlocked, checkAchievements, isLoaded: achievementsLoaded } = useAchievements()
-  const { isRead, markAsRead, getQuizScore, markQuizCompleted, hasXpEarned } = useTextProgress()
+  const { isRead, markAsRead, getQuizScore, markQuizCompleted, hasXpEarned, isQuizCompleted } = useTextProgress()
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [userLevel, setUserLevel] = useState<UserLevel>(null)
@@ -153,9 +159,30 @@ export default function Home() {
   const [quizText, setQuizText] = useState<SlovakText | null>(null)
   const [testLevel, setTestLevel] = useState<LanguageLevel | null>(null)
 
+  // Сессионные статистики и сложные слова
+  const [sessionCorrect, setSessionCorrect] = useState(0)
+  const [sessionTotal, setSessionTotal] = useState(0)
+  const [sessionMistakes, setSessionMistakes] = useState<{ word: string; translation: string }[]>([])
+  const [hardWordsSet, setHardWordsSet] = useState<Set<string>>(getStoredHardWords)
+  const [writeInput, setWriteInput] = useState("")
+
   // ---------------------------------------------------------------------------
 
-  // Слушаем изменения состояния аутентификации
+  const forceSaveWordStats = useCallback(() => {
+    if (typeof window === "undefined") return
+    const obj: Record<string, WordStats> = {}
+    wordStatsMap.forEach((value, key) => {
+      obj[key] = value
+    })
+    localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
+  }, [wordStatsMap])
+
+  const handleLogout = async () => {
+    forceSaveWordStats()
+    await signOut(auth)
+    router.push("/")
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser)
@@ -163,7 +190,6 @@ export default function Home() {
     return () => unsubscribe()
   }, [])
 
-  // Загрузка уровня пользователя (если пользователь есть)
   useEffect(() => {
     if (!user) {
       setUserLevel(null)
@@ -186,21 +212,6 @@ export default function Home() {
     }
     fetchUserLevel()
   }, [user])
-
-  const forceSaveWordStats = useCallback(() => {
-    if (typeof window === "undefined") return
-    const obj: Record<string, WordStats> = {}
-    wordStatsMap.forEach((value, key) => {
-      obj[key] = value
-    })
-    localStorage.setItem("slovak_word_stats", JSON.stringify(obj))
-  }, [wordStatsMap])
-
-  const handleLogout = async () => {
-    forceSaveWordStats()
-    await signOut(auth)
-    router.push("/")
-  }
 
   useEffect(() => {
     setMuted(settings.isMuted)
@@ -299,6 +310,82 @@ export default function Home() {
     })
   }, [])
 
+  // Вспомогательная функция для получения списка ещё не выученных слов
+  const getRemainingWords = useCallback(() => {
+    return lessonWords.filter(w => !completedWords.has(getWordKey(w)))
+  }, [lessonWords, completedWords])
+
+  // ---------- ПРОПУСК (просто переключаемся на следующее слово по кругу) ----------
+  const handleSkip = useCallback(() => {
+    if (!currentWord) return
+    playClickSound()
+
+    const remaining = getRemainingWords()
+    if (remaining.length < 2) return  // некуда пропускать
+
+    const currentKey = getWordKey(currentWord)
+    const currentIndex = remaining.findIndex(w => getWordKey(w) === currentKey)
+    let nextWord: Word
+    if (currentIndex === -1) {
+      // текущее слово уже выучено – просто берём первое
+      nextWord = remaining[0]
+    } else {
+      const nextIndex = (currentIndex + 1) % remaining.length
+      nextWord = remaining[nextIndex]
+    }
+
+    if (nextWord && getWordKey(nextWord) !== currentKey) {
+      setCurrentWord(nextWord)
+    }
+
+    setMessage("")
+    setIsAnswering(false)
+    setSelectedOption(null)
+    setWriteInput("")
+  }, [currentWord, getRemainingWords])
+
+  // ---------- ОТМЕТКА СЛОЖНОГО СЛОВА (глобально + в ошибки + переключение) ----------
+  const handleMarkHard = useCallback((word: Word) => {
+    const wordKey = getWordKey(word)
+
+    // Глобальный список сложных слов
+    setHardWordsSet(prev => {
+      const newSet = new Set(prev)
+      newSet.add(wordKey)
+      localStorage.setItem("slovak_hard_words", JSON.stringify(Array.from(newSet)))
+      return newSet
+    })
+
+    // Добавляем в ошибки сессии (покажется в VictoryScreen)
+    setSessionMistakes(prev => [...prev, { word: word.slovak, translation: word.russian }])
+
+    // Пропускаем текущее слово (та же логика, что в handleSkip)
+    if (!currentWord) return
+    playClickSound()
+
+    const remaining = getRemainingWords()
+    if (remaining.length < 2) return
+
+    const currentKey = getWordKey(currentWord)
+    const currentIndex = remaining.findIndex(w => getWordKey(w) === currentKey)
+    let nextWord: Word
+    if (currentIndex === -1) {
+      nextWord = remaining[0]
+    } else {
+      const nextIndex = (currentIndex + 1) % remaining.length
+      nextWord = remaining[nextIndex]
+    }
+
+    if (nextWord && getWordKey(nextWord) !== currentKey) {
+      setCurrentWord(nextWord)
+    }
+
+    setMessage("")
+    setIsAnswering(false)
+    setSelectedOption(null)
+    setWriteInput("")
+  }, [currentWord, getRemainingWords])
+
   const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
     if (!canAccessLevel(userLevel, level)) {
       setMessage(`Уровень ${level} пока закрыт. Твой текущий уровень: ${userLevel || "не задан"}`)
@@ -318,6 +405,10 @@ export default function Home() {
     setSelectedOption(null)
     setIsAnswering(false)
     setCurrentWord(filteredWords.length > 0 ? selectNextWord(filteredWords, wordStatsMap) : null)
+    setSessionCorrect(0)
+    setSessionTotal(0)
+    setSessionMistakes([])
+    setWriteInput("")
     setScreen("game")
     playLessonStartSound()
   }, [wordStatsMap, userLevel])
@@ -356,11 +447,13 @@ export default function Home() {
     const isCorrect = checkAnswer(currentWord, userInput)
     const wordKey = getWordKey(currentWord)
     setStatsForWord(wordKey, isCorrect)
+    setSessionTotal(prev => prev + 1)
     if (isCorrect) {
       playCorrectSound()
       const earnedXp = canEarnXpForWord(wordKey) ? (gameMode === "write" ? 15 : 10) : 0
       if (earnedXp > 0) setXp((v) => v + earnedXp)
       setCorrectAnswersCount((v) => v + 1)
+      setSessionCorrect(prev => prev + 1)
       if (gameMode === "choice") setChoiceCorrectCount((v) => v + 1)
       if (gameMode === "write") setWriteCorrectCount((v) => v + 1)
       setMessage("Правильно!")
@@ -374,6 +467,7 @@ export default function Home() {
       playWrongSound()
       setLives((v) => v - 1)
       setMessage(`Ошибка! Правильно: ${currentWord.slovak}`)
+      setSessionMistakes(prev => [...prev, { word: currentWord.slovak, translation: currentWord.russian }])
     }
     setIsAnswering(false)
   }, [isAnswering, currentWord, lives, gameMode, completedWords, updateCategoryProgress, setStatsForWord])
@@ -386,6 +480,7 @@ export default function Home() {
     const wordKey = getWordKey(currentWord)
     setStatsForWord(wordKey, known)
     let nextCompleted = completedWords
+    setSessionTotal(prev => prev + 1)
     if (known && !completedWords.has(wordKey)) {
       nextCompleted = new Set(completedWords)
       nextCompleted.add(wordKey)
@@ -393,10 +488,12 @@ export default function Home() {
       updateCategoryProgress(nextCompleted.size)
       setCorrectAnswersCount((v) => v + 1)
       setFlashcardCorrectCount((v) => v + 1)
+      setSessionCorrect(prev => prev + 1)
       if (canEarnXpForWord(wordKey)) setXp((v) => v + 5)
       playCorrectSound()
     } else if (!known) {
       playWrongSound()
+      setSessionMistakes(prev => [...prev, { word: currentWord.slovak, translation: currentWord.russian }])
     }
     const remainingWords = lessonWords.filter((w: Word) => !nextCompleted.has(getWordKey(w)))
     if (remainingWords.length === 0) {
@@ -430,6 +527,7 @@ export default function Home() {
       setMessage("")
       setIsAnswering(false)
       setSelectedOption(null)
+      setWriteInput("")
       return
     }
     if (remainingWordsCount === 0) {
@@ -454,6 +552,7 @@ export default function Home() {
     setMessage("")
     setIsAnswering(false)
     setSelectedOption(null)
+    setWriteInput("")
   }, [message, lives, remainingWordsCount, activeDates, notCompletedWords, wordStatsMap, selectedLevel, selectedCategory, currentDataSource])
 
   const handleRestart = useCallback(() => {
@@ -523,6 +622,40 @@ export default function Home() {
     setTestLevel(null)
   }
 
+  const handleRetryMistakes = useCallback(() => {
+    if (sessionMistakes.length === 0) {
+      setScreen("menu")
+      return
+    }
+    const mistakeWords = sessionMistakes
+      .map(m => lessonWords.find(w => w.slovak === m.word && w.russian === m.translation))
+      .filter(Boolean) as Word[]
+    if (mistakeWords.length) {
+      setLessonWords(mistakeWords)
+      setCompletedWords(new Set())
+      setCorrectAnswersCount(0)
+      setTotalClicksCount(0)
+      setLives(3)
+      setMessage("")
+      setSelectedOption(null)
+      setIsAnswering(false)
+      setCurrentWord(selectNextWord(mistakeWords, wordStatsMap))
+      setSessionCorrect(0)
+      setSessionTotal(0)
+      setSessionMistakes([])
+      setWriteInput("")
+      setScreen("game")
+    } else {
+      setScreen("menu")
+    }
+  }, [sessionMistakes, lessonWords, wordStatsMap])
+
+  // Количество реально невыученных слов для передачи в UI
+  const remainingCount = getRemainingWords().length
+
+  // ---------------------------------------------------------------------------
+  // Рендер
+  // ---------------------------------------------------------------------------
   if (screen === "game") {
     if (gameMode === "flashcard") {
       return (
@@ -535,6 +668,11 @@ export default function Home() {
           lessonProgress={lessonProgressPercent}
           wordsLeft={remainingWordsCount}
           totalWords={totalLessonWords}
+          remainingCount={remainingCount}
+          onSkip={handleSkip}
+          onMarkHard={handleMarkHard}
+          sessionCorrect={sessionCorrect}
+          sessionTotal={sessionTotal}
         />
       )
     }
@@ -551,20 +689,35 @@ export default function Home() {
         onNext={handleNextWord}
         onRestart={handleRestart}
         onBack={handleBack}
+        onSkip={handleSkip}
+        onMarkHard={handleMarkHard}
         disabled={isAnswering || lives <= 0}
         lessonProgress={lessonProgressPercent}
         gameMode={gameMode}
         wordsLeft={remainingWordsCount}
         totalWords={totalLessonWords}
+        remainingCount={remainingCount}
         speechRate={settings.speechRate}
         autoSpeakOnCorrect={settings.autoSpeakOnCorrect}
+        sessionCorrect={sessionCorrect}
+        sessionTotal={sessionTotal}
       />
     )
   }
 
   if (screen === "victory") {
-    const accuracy = Math.round((correctAnswersCount / totalClicksCount) * 100) || 0
-    return <VictoryScreen category={selectedCategory || ""} xpEarned={50} accuracy={accuracy} onBack={() => setScreen("menu")} />
+    const accuracy = sessionTotal ? Math.round((sessionCorrect / sessionTotal) * 100) : 0
+    const xpEarned = 50
+    return (
+      <VictoryScreen
+        category={selectedCategory || ""}
+        xpEarned={xpEarned}
+        accuracy={accuracy}
+        onBack={() => setScreen("menu")}
+        mistakes={sessionMistakes}
+        onRetryMistakes={handleRetryMistakes}
+      />
+    )
   }
 
   return (
@@ -677,6 +830,7 @@ export default function Home() {
               totalClicksCount={totalClicksCount}
               learnedWordsCount={learnedWordsCount}
               completedCategoriesCount={completedCategoriesCount}
+              wordStatsMap={wordStatsMap}
             />
           )}
           {globalTab === "reference" && (
@@ -706,6 +860,7 @@ export default function Home() {
               <TextsMenu
                 onSelectText={setSelectedText}
                 readStatus={Object.fromEntries(texts.map((t: SlovakText) => [t.id, isRead(t.id)]))}
+                quizStatus={Object.fromEntries(texts.map((t: SlovakText) => [t.id, isQuizCompleted(t.id)]))}
                 userLevel={userLevel}
               />
             )

@@ -4,8 +4,8 @@ import { useState } from "react"
 import { type SlovakText } from "../../data/texts"
 import { playClickSound, playCorrectSound, playWrongSound, playVictorySound } from "../../lib/sounds"
 import confetti from "canvas-confetti"
-import { FaArrowLeft } from "react-icons/fa"
-import { motion } from "framer-motion"
+import { FaArrowLeft, FaCheckCircle, FaTimesCircle } from "react-icons/fa"
+import { motion, AnimatePresence } from "framer-motion"
 
 type TextQuizProps = {
   text: SlovakText
@@ -35,6 +35,7 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
   const currentQ = text.questions[currentIndex]
   const selected = answers[currentIndex]
   const isLast = currentIndex === total - 1
+  const currentScore = answers.filter((ans, idx) => ans === text.questions[idx]?.correct).length
 
   const handleSelect = (optIdx: number) => {
     if (finished || answers[currentIndex] !== -1) return
@@ -77,13 +78,18 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
     const accuracy = Math.round((correctCount / total) * 100)
     const xpAmount = correctCount * 5
     const isFirstTime = !xpAlreadyEarned
+    // Собираем ошибки
+    const mistakes = text.questions
+      .map((q, idx) => ({ question: q, userAnswer: answers[idx], isCorrect: answers[idx] === q.correct }))
+      .filter(m => !m.isCorrect)
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="flex flex-col items-center justify-center min-h-[70vh] text-center px-4"
       >
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-2xl w-full border border-gray-200 dark:border-gray-700">
           <div className="text-6xl mb-4">📊</div>
           <h2 className="text-2xl font-black text-green-600 dark:text-green-400">Викторина завершена!</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-6">{text.title}</p>
@@ -98,11 +104,33 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
               <span className="font-bold text-gray-700 dark:text-gray-300">Точность</span>
               <span className="text-green-500 font-bold">{accuracy}%</span>
             </div>
-            <div className="flex justify-between py-2">
+            <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
               <span className="font-bold text-gray-700 dark:text-gray-300">Правильные ответы</span>
               <span className="text-blue-500 font-bold">{correctCount}/{total}</span>
             </div>
           </div>
+
+          {mistakes.length > 0 && (
+            <div className="mt-6 text-left">
+              <h3 className="font-bold text-red-500 flex items-center gap-2 mb-3">❌ Разбор ошибок</h3>
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {mistakes.map((m, idx) => (
+                  <div key={idx} className="p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                    <p className="font-semibold text-gray-800 dark:text-white">{m.question.text}</p>
+                    <p className="text-sm mt-1">
+                      <span className="text-red-600">Ваш ответ: </span>
+                      <span className="line-through text-gray-500">{m.question.options[m.userAnswer]}</span>
+                    </p>
+                    <p className="text-sm mt-1">
+                      <span className="text-green-600">Правильный ответ: </span>
+                      <span className="font-medium text-green-700 dark:text-green-400">{m.question.options[m.question.correct]}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button
             onClick={() => { playClickSound(); onBack() }}
             className="mt-8 w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition"
@@ -120,9 +148,14 @@ export default function TextQuiz({ text, onComplete, onBack, xpAlreadyEarned }: 
         <button onClick={() => { playClickSound(); onBack() }} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 flex items-center gap-1">
           <FaArrowLeft size={14} /> Назад
         </button>
-        <span className="text-sm font-bold bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full text-gray-800 dark:text-white">
-          {currentIndex+1} / {total}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full text-gray-800 dark:text-white">
+            {currentIndex+1} / {total}
+          </span>
+          <span className="text-sm font-bold bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-3 py-1 rounded-full">
+            ✓ {currentScore}/{total}
+          </span>
+        </div>
       </div>
 
       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-8 overflow-hidden">

@@ -12,7 +12,9 @@ export function normalizeString(str: string): string {
 export function checkAnswer(word: Word, userAnswer: string): boolean {
   return normalizeString(word.slovak) === normalizeString(userAnswer)
 }
-
+export function isWordLearned(stat: WordStats): boolean {
+  return stat.correctCount >= 2 && stat.correctCount >= stat.wrongCount
+}
 const randomShuffle = <T>(items: T[]): T[] => [...items].sort(() => Math.random() - 0.5)
 
 export function generateWrongOptions(

@@ -16,7 +16,6 @@ export default function RootLayout({
   return (
     <html lang="ru" className={inter.variable} suppressHydrationWarning>
       <head>
-        {/* Синхронный скрипт установки темы до отрисовки */}
         <script
           dangerouslySetInnerHTML={{
             __html: `

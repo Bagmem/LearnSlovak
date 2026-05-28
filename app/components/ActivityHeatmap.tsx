@@ -72,4 +72,4 @@ export default function ActivityHeatmap({ activeDates, days = 30 }: ActivityHeat
       </div>
     </div>
   )
-}
+} 

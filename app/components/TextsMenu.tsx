@@ -4,11 +4,12 @@ import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../data/texts"
 import { type UserLevel, canAccessLevel } from "../../lib/levels"
-import { FaCheckCircle, FaFilter, FaTimes, FaSearch } from "react-icons/fa"
+import { FaCheckCircle, FaFilter, FaTimes, FaSearch, FaBrain, FaTrashAlt } from "react-icons/fa"
 
 type TextsMenuProps = {
   onSelectText: (text: SlovakText) => void
   readStatus: Record<string, boolean>
+  quizStatus: Record<string, boolean>   // добавлено
   userLevel: UserLevel
 }
 
@@ -34,7 +35,7 @@ const levelColors: Record<TextLevel, string> = {
   B2: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
 }
 
-export default function TextsMenu({ onSelectText, readStatus, userLevel }: TextsMenuProps) {
+export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLevel }: TextsMenuProps) {
   const [selectedLevel, setSelectedLevel] = useState<TextLevel | "all">("all")
   const [selectedTopic, setSelectedTopic] = useState<TextTopic | "all">("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -87,6 +88,10 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
 
   const hasActiveFilters = selectedLevel !== "all" || selectedTopic !== "all" || searchQuery !== ""
 
+  const removeLevelFilter = () => setSelectedLevel("all")
+  const removeTopicFilter = () => setSelectedTopic("all")
+  const removeSearchFilter = () => setSearchQuery("")
+
   return (
     <div className="w-full px-4 py-8 max-w-7xl mx-auto">
       <motion.div
@@ -109,14 +114,6 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
             <FaFilter />
             <span className="font-bold">Фильтры</span>
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="ml-2 text-xs flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 transition"
-              >
-                <FaTimes size={10} /> Сбросить
-              </button>
-            )}
           </div>
           <div className="relative">
             <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -127,8 +124,53 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-orange-500 outline-none transition text-gray-900 dark:text-white"
             />
+            {searchQuery && (
+              <button
+                onClick={removeSearchFilter}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <FaTimes size={14} />
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Активные фильтры в виде чипсов с кнопкой сброса */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {selectedLevel !== "all" && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 text-sm font-medium">
+                Уровень: {selectedLevel}
+                <button onClick={removeLevelFilter} className="hover:bg-orange-200 dark:hover:bg-orange-800 rounded-full p-0.5">
+                  <FaTimes size={12} />
+                </button>
+              </span>
+            )}
+            {selectedTopic !== "all" && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-sm font-medium">
+                Тема: {topicLabels[selectedTopic]}
+                <button onClick={removeTopicFilter} className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5">
+                  <FaTimes size={12} />
+                </button>
+              </span>
+            )}
+            {searchQuery && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium">
+                Поиск: {searchQuery}
+                <button onClick={removeSearchFilter} className="hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full p-0.5">
+                  <FaTimes size={12} />
+                </button>
+              </span>
+            )}
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white text-sm font-medium hover:bg-gray-400 dark:hover:bg-gray-500 transition"
+            >
+              <FaTrashAlt size={12} /> Сбросить всё
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2 mb-4">
           {levels.map((level) => (
             <button
@@ -171,6 +213,7 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
           <AnimatePresence>
             {filteredTexts.map((text, idx) => {
               const isRead = readStatus[text.id] || false
+              const isQuizDone = quizStatus[text.id] || false
               return (
                 <motion.button
                   key={text.id}
@@ -187,7 +230,10 @@ export default function TextsMenu({ onSelectText, readStatus, userLevel }: Texts
                     <div className="flex justify-between items-start gap-2">
                       <h3 className="text-xl font-black text-gray-800 dark:text-white flex items-center gap-2">
                         {text.title}
-                        {isRead && <FaCheckCircle className="text-green-500 text-sm" />}
+                        <div className="flex gap-1">
+                          {isRead && <FaCheckCircle className="text-green-500 text-sm" title="Прочитан" />}
+                          {isQuizDone && <FaBrain className="text-purple-500 text-sm" title="Викторина пройдена" />}
+                        </div>
                       </h3>
                       <span className={`text-xs font-bold px-2 py-1 rounded-full ${levelColors[text.level]}`}>
                         {text.level}

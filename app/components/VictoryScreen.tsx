@@ -3,33 +3,44 @@
 import { useEffect } from "react"
 import { motion } from "framer-motion"
 import confetti from "canvas-confetti"
+import { FaCheckCircle, FaTimesCircle, FaRedoAlt } from "react-icons/fa"
+import { useTheme } from "../../hooks/useTheme"
 
 type VictoryProps = {
   category: string
   xpEarned: number
   accuracy: number
   onBack: () => void
+  onRetryMistakes?: () => void
+  mistakes?: { word: string; translation: string }[]
 }
 
-export default function VictoryScreen({ category, xpEarned, accuracy, onBack }: VictoryProps) {
+export default function VictoryScreen({ category, xpEarned, accuracy, onBack, onRetryMistakes, mistakes = [] }: VictoryProps) {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+
   useEffect(() => {
     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } })
     setTimeout(() => confetti({ particleCount: 100, spread: 100, origin: { y: 0.5 } }), 200)
   }, [])
 
+  const radius = 80
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference - (accuracy / 100) * circumference
+
+  const bgMain = isDark ? "bg-gradient-to-br from-gray-900/90 to-gray-800/90" : "bg-gradient-to-br from-gray-100 to-gray-200"
+  const cardBg = isDark ? "bg-white/10 backdrop-blur-sm border-white/20" : "bg-white/90 backdrop-blur-sm border-gray-200 shadow-xl"
+  const textPrimary = isDark ? "text-white" : "text-gray-900"
+  const textSecondary = isDark ? "text-white/70" : "text-gray-600"
+  const borderColor = isDark ? "border-white/20" : "border-gray-200"
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800"
-    >
+    <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${bgMain} transition-colors duration-300`}>
       <motion.div
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         transition={{ delay: 0.1, type: "spring", damping: 20 }}
-        className="text-center px-4"
+        className="text-center px-4 w-full max-w-md"
       >
         <motion.div
           animate={{ y: [0, -10, 0] }}
@@ -38,29 +49,83 @@ export default function VictoryScreen({ category, xpEarned, accuracy, onBack }: 
         >
           🎉
         </motion.div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
           Урок завершён!
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">Тема: {category}</p>
-        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl p-6 w-full max-w-sm shadow-xl border border-gray-200/50 dark:border-gray-700/50 mx-auto">
-          <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-            <span className="font-bold text-gray-700 dark:text-gray-300">Награда</span>
+        <p className={`${textSecondary} mb-6`}>Тема: {category}</p>
+
+        <div className="flex justify-center mb-6">
+          <div className="relative w-44 h-44">
+            <svg className="w-full h-full transform -rotate-90">
+              <circle cx="88" cy="88" r={radius} fill="none" stroke={isDark ? "rgba(255,255,255,0.2)" : "#ddd"} strokeWidth="12" />
+              <circle
+                cx="88"
+                cy="88"
+                r={radius}
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="12"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                className="transition-all duration-1000"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className={`text-4xl font-black ${textPrimary}`}>{accuracy}%</span>
+              <span className={`text-xs ${textSecondary}`}>точность</span>
+            </div>
+          </div>
+        </div>
+
+        <div className={`${cardBg} rounded-2xl p-6 w-full shadow-xl border ${borderColor}`}>
+          <div className={`flex justify-between py-2 border-b ${borderColor}`}>
+            <span className={`font-bold ${textPrimary}`}>Награда</span>
             <span className="text-amber-500 font-bold">+{xpEarned} XP</span>
           </div>
           <div className="flex justify-between py-2">
-            <span className="font-bold text-gray-700 dark:text-gray-300">Точность</span>
-            <span className="text-green-500 font-bold">{accuracy}%</span>
+            <span className={`font-bold ${textPrimary}`}>Правильные ответы</span>
+            <span className="text-green-500 font-bold">{Math.round((accuracy / 100) * (xpEarned / 5))}/{xpEarned / 5}</span>
           </div>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onBack}
-          className="mt-8 px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold shadow-lg"
-        >
-          ПРОДОЛЖИТЬ
-        </motion.button>
+
+        {mistakes.length > 0 && (
+          <div className={`mt-6 ${isDark ? "bg-white/5 border-white/10" : "bg-gray-100 border-gray-300"} rounded-xl p-4 text-left border`}>
+            <h3 className="font-bold text-red-500 flex items-center gap-2 mb-2">
+              <FaTimesCircle /> Слова для повторения
+            </h3>
+            <div className="max-h-32 overflow-y-auto space-y-1">
+              {mistakes.map((m, idx) => (
+                <div key={idx} className="text-sm flex justify-between">
+                  <span className={textPrimary}>{m.word}</span>
+                  <span className={textSecondary}>{m.translation}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 mt-6">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onBack}
+            className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold shadow-lg"
+          >
+            ПРОДОЛЖИТЬ
+          </motion.button>
+          {onRetryMistakes && mistakes.length > 0 && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onRetryMistakes}
+              className="flex-1 py-3 bg-white/10 border border-white/20 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
+            >
+              <FaRedoAlt /> Повторить ошибки
+            </motion.button>
+          )}
+        </div>
       </motion.div>
-    </motion.div>
+    </div>
   )
 }

@@ -5,9 +5,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { type Word } from "../../data/words"
 import { type GameMode } from "./StartMenu"
 import { playClickSound } from "../../lib/sounds"
-import { useAnimation } from "../../hooks/useAnimation"
-import AnimatedFeedback from "./AnimatedFeedback"
-import { FaCheck, FaTimes } from "react-icons/fa"
+import { FaVolumeUp, FaLightbulb, FaStepForward, FaSkull, FaCheck, FaTimes } from "react-icons/fa"
+import { useTheme } from "../../hooks/useTheme"
 
 type GameUIProps = {
   xp: number
@@ -21,13 +20,18 @@ type GameUIProps = {
   onNext: () => void
   onRestart: () => void
   onBack: () => void
+  onSkip?: () => void
+  onMarkHard?: (word: Word) => void
   disabled: boolean
   lessonProgress: number
   gameMode: GameMode
   wordsLeft: number
   totalWords: number
+  remainingCount: number
   speechRate: number
   autoSpeakOnCorrect: boolean
+  sessionCorrect: number
+  sessionTotal: number
 }
 
 export default function GameUI({
@@ -40,23 +44,26 @@ export default function GameUI({
   onNext,
   onRestart,
   onBack,
+  onSkip,
+  onMarkHard,
   disabled,
   lessonProgress,
   gameMode,
   wordsLeft,
   totalWords,
+  remainingCount,
   speechRate,
   autoSpeakOnCorrect,
+  sessionCorrect,
+  sessionTotal,
 }: GameUIProps) {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+
   const [writeInput, setWriteInput] = useState("")
+  const [showHint, setShowHint] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasAutoSpokenRef = useRef(false)
-  const { animation, trigger } = useAnimation(300)
-  const prevLivesRef = useRef(lives)
-
-  useEffect(() => {
-    prevLivesRef.current = lives
-  }, [lives])
 
   const speakSlovak = useCallback((text: string) => {
     if (!text) return
@@ -83,23 +90,29 @@ export default function GameUI({
   const isCorrect = message === "Правильно!"
 
   useEffect(() => {
-    if (isAnswered && !isCorrect) trigger("shake")
-  }, [isAnswered, isCorrect, trigger])
-
-  useEffect(() => {
     if (gameMode === "write" && !isAnswered && inputRef.current) inputRef.current.focus()
   }, [word, isAnswered, gameMode])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (disabled || lives <= 0) return
+      if (e.key === "s" && onSkip && remainingCount > 1 && !isAnswered) {
+        e.preventDefault()
+        onSkip()
+        return
+      }
+      if (e.key === "h" && onMarkHard && word && !isAnswered) {
+        e.preventDefault()
+        onMarkHard(word)
+        return
+      }
       if (isAnswered && e.key === "Enter") {
         e.preventDefault()
         setWriteInput("")
         onNext()
         return
       }
-      if (gameMode === "choice" && !isAnswered) {
+      if (gameMode === "choice" && !isAnswered && !disabled && lives > 0) {
         if (e.key === "1" && options[0]) onAnswer(options[0])
         if (e.key === "2" && options[1]) onAnswer(options[1])
         if (e.key === "3" && options[2]) onAnswer(options[2])
@@ -107,7 +120,7 @@ export default function GameUI({
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [disabled, isAnswered, gameMode, options, onAnswer, onNext, lives])
+  }, [disabled, isAnswered, gameMode, options, onAnswer, onNext, lives, onSkip, onMarkHard, word, remainingCount])
 
   if (!word) return null
 
@@ -123,46 +136,70 @@ export default function GameUI({
     onNext()
   }
 
+  const handleSkip = () => {
+    if (!onSkip) return
+    if (remainingCount <= 1) return
+    playClickSound()
+    setWriteInput("")
+    onSkip()
+  }
+
+  const handleMarkHard = () => {
+    if (!onMarkHard || !word) return
+    playClickSound()
+    onMarkHard(word)
+  }
+
+  const sessionAccuracy = sessionTotal ? Math.round((sessionCorrect / sessionTotal) * 100) : 0
+
+  // Динамические классы для светлой/тёмной темы
+  const bgMain = isDark ? "bg-gradient-to-br from-gray-900/90 to-gray-800/90" : "bg-gradient-to-br from-gray-100 to-gray-200"
+  const cardBg = isDark ? "bg-white/10 backdrop-blur-xl border-white/20" : "bg-white/90 backdrop-blur-sm border-gray-200 shadow-xl"
+  const textPrimary = isDark ? "text-white" : "text-gray-900"
+  const textSecondary = isDark ? "text-white/70" : "text-gray-700"
+  const textMuted = isDark ? "text-white/50" : "text-gray-500"
+  const progressBg = isDark ? "bg-white/20" : "bg-gray-300"
+  const livesBg = isDark ? "bg-white/10 border-white/20" : "bg-gray-200 border-gray-300"
+  const answerBg = isDark ? "bg-white/10 border-white/20 hover:bg-white/20" : "bg-gray-50 border-gray-300 hover:bg-gray-100"
+  const answerSelectedCorrect = isDark ? "border-green-500 bg-green-500/20 text-green-200" : "border-green-500 bg-green-100 text-green-800"
+  const answerSelectedWrong = isDark ? "border-red-500 bg-red-500/20 text-red-200" : "border-red-500 bg-red-100 text-red-800"
+  const answerDisabled = isDark ? "border-white/10 bg-white/5 text-white/50" : "border-gray-200 bg-gray-100 text-gray-400"
+  const buttonSkip = isDark ? "bg-white/10 border-white/20 text-white/80 hover:bg-white/20" : "bg-gray-200 border-gray-300 text-gray-800 hover:bg-gray-300"
+  const buttonHard = isDark ? "bg-white/10 border-white/20 text-white/80 hover:bg-red-500/30" : "bg-gray-200 border-gray-300 text-gray-800 hover:bg-red-200"
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex flex-col items-center py-8 px-4"
-    >
+    <div className={`min-h-screen ${bgMain} flex flex-col items-center py-8 px-4 transition-colors duration-300`}>
       <div className="w-full max-w-2xl">
-        {/* Верхняя панель с прогрессом и жизнями */}
         <div className="flex items-center justify-between gap-4 mb-6">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={onBack}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl"
+            className={`${textSecondary} hover:${isDark ? "text-white" : "text-gray-900"} text-2xl`}
           >
             ✕
           </motion.button>
           <div className="flex-1">
-            <div className="flex justify-between text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">
+            <div className={`flex justify-between text-xs font-bold ${textSecondary} mb-1`}>
               <span>Прогресс урока</span>
               <span>{totalWords - wordsLeft}/{totalWords}</span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+            <div className={`w-full ${progressBg} rounded-full h-2 overflow-hidden`}>
               <motion.div
-                className="bg-gradient-to-r from-green-500 to-green-600 h-full rounded-full"
+                className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${lessonProgress}%` }}
                 transition={{ duration: 0.3 }}
               />
             </div>
           </div>
-          <div className="flex gap-1 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700">
-            {[1,2,3].map((_, idx) => (
+          <div className={`flex gap-1 ${livesBg} backdrop-blur-sm px-3 py-1 rounded-full border`}>
+            {[1, 2, 3].map((_, idx) => (
               <motion.span
                 key={idx}
-                initial={{ scale: 1 }}
                 animate={{ scale: idx < lives ? [1, 1.2, 1] : 1 }}
                 transition={{ duration: 0.2 }}
-                className={`text-xl transition ${idx < lives ? "text-red-500" : "text-gray-300 opacity-50"}`}
+                className={`text-xl transition ${idx < lives ? "text-red-500" : "text-gray-400"}`}
               >
                 ❤️
               </motion.span>
@@ -170,37 +207,32 @@ export default function GameUI({
           </div>
         </div>
 
-        {/* Карточка вопроса с градиентной рамкой */}
-        <div className="relative rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-xl overflow-hidden border border-gray-200/50 dark:border-gray-700/50">
+        <div className={`relative rounded-2xl ${cardBg} shadow-2xl overflow-hidden border transition-colors`}>
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-500 to-amber-500" />
+          <div className={`flex justify-between items-center px-6 pt-4 text-sm font-bold ${textSecondary}`}>
+            <span>🎯 Точность сессии: {sessionAccuracy}%</span>
+            <span>✓ {sessionCorrect}/{sessionTotal}</span>
+          </div>
           <div className="p-6 md:p-8 space-y-6">
-            {/* Текст вопроса */}
             <div className="text-center">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Как переводится:</h2>
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-5 shadow-inner">
-                <p className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">{word.russian}</p>
+              <h2 className={`text-xs font-bold ${textMuted} uppercase tracking-wider mb-2`}>Как переводится:</h2>
+              <div className={`${isDark ? "bg-white/5" : "bg-gray-100"} rounded-xl p-5 backdrop-blur-sm border ${isDark ? "border-white/10" : "border-gray-200"}`}>
+                <p className={`text-2xl md:text-3xl font-bold ${textPrimary}`}>{word.russian}</p>
               </div>
             </div>
 
-            {/* Блок вариантов ответа */}
-            <motion.div
-              className={`space-y-3 min-h-[200px] ${animation === "shake" ? "animate-shake" : ""}`}
-              animate={animation === "shake" ? { x: [-5, 5, -5, 5, 0] } : {}}
-              transition={{ duration: 0.2 }}
-            >
+            <div className="space-y-3 min-h-[200px]">
               {gameMode === "choice" ? (
                 options.map((opt, idx) => {
-                  let btnClass = "w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-200 hover:shadow-md"
+                  let btnClass = `w-full text-left p-4 rounded-xl border backdrop-blur-sm font-medium transition-all duration-200 hover:shadow-lg ${answerBg}`
                   if (isAnswered) {
                     if (opt === word.slovak) {
-                      btnClass += " border-green-500 bg-green-50 dark:bg-green-900/50 text-green-700 shadow-md"
+                      btnClass = `w-full text-left p-4 rounded-xl border font-medium transition-all duration-200 ${answerSelectedCorrect}`
                     } else if (selectedOption === opt) {
-                      btnClass += " border-red-500 bg-red-50 dark:bg-red-900/50 text-red-700 line-through"
+                      btnClass = `w-full text-left p-4 rounded-xl border font-medium transition-all duration-200 ${answerSelectedWrong} line-through`
                     } else {
-                      btnClass += " border-gray-200 dark:border-gray-700 opacity-50"
+                      btnClass = `w-full text-left p-4 rounded-xl border font-medium transition-all duration-200 ${answerDisabled}`
                     }
-                  } else {
-                    btnClass += " border-gray-200 dark:border-gray-700 hover:border-orange-300 hover:bg-orange-50/30 dark:hover:bg-orange-900/20"
                   }
                   return (
                     <motion.button
@@ -214,10 +246,10 @@ export default function GameUI({
                       onClick={() => onAnswer(opt)}
                       className={btnClass}
                     >
-                      <span className="text-gray-800 dark:text-gray-200">{opt}</span>
+                      <span>{opt}</span>
                       {!isAnswered && (
-                        <span className="float-right text-xs font-bold text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                          {idx+1}
+                        <span className={`float-right text-xs font-bold ${textMuted} ${isDark ? "bg-white/10" : "bg-gray-200"} px-2 py-0.5 rounded-full`}>
+                          {idx + 1}
                         </span>
                       )}
                     </motion.button>
@@ -225,15 +257,13 @@ export default function GameUI({
                 })
               ) : (
                 <form onSubmit={handleSubmitWrite} className="space-y-4">
-                  <motion.input
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
+                  <input
                     ref={inputRef}
                     type="text"
                     disabled={isAnswered || lives <= 0}
                     value={writeInput}
-                    onChange={e => setWriteInput(e.target.value)}
-                    className="w-full p-4 border-2 rounded-xl focus:border-orange-400 focus:ring-2 focus:ring-orange-200 outline-none transition bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                    onChange={(e) => setWriteInput(e.target.value)}
+                    className={`w-full p-4 rounded-xl border ${isDark ? "bg-white/10 border-white/20 focus:ring-orange-400/50 text-white placeholder-white/50" : "bg-gray-50 border-gray-300 focus:ring-orange-400 text-gray-900 placeholder-gray-400"} focus:border-orange-400 focus:ring-2 outline-none transition`}
                     placeholder="Введите перевод..."
                   />
                   {!isAnswered && (
@@ -242,17 +272,39 @@ export default function GameUI({
                       whileTap={{ scale: 0.98 }}
                       type="submit"
                       disabled={!writeInput.trim() || disabled}
-                      className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition"
+                      className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold shadow-md"
                     >
                       Проверить (Enter)
                     </motion.button>
                   )}
                 </form>
               )}
-            </motion.div>
+            </div>
 
-            {/* Нижняя панель результата и действий */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-5 space-y-4 min-h-[110px]">
+            {!isAnswered && onSkip && remainingCount > 1 && (
+              <div className="flex gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleSkip}
+                  className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors ${buttonSkip}`}
+                >
+                  <FaStepForward /> Пропустить (S)
+                </motion.button>
+                {onMarkHard && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleMarkHard}
+                    className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors ${buttonHard}`}
+                  >
+                    <FaSkull /> Сложное (H)
+                  </motion.button>
+                )}
+              </div>
+            )}
+
+            <div className={`border-t ${isDark ? "border-white/20" : "border-gray-200"} pt-5 space-y-4 min-h-[110px]`}>
               {lives <= 0 ? (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -273,8 +325,8 @@ export default function GameUI({
                         exit={{ opacity: 0, y: -10 }}
                         className={`p-4 rounded-xl text-center font-bold flex items-center justify-center gap-2 shadow-sm ${
                           isCorrect
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                            ? isDark ? "bg-green-500/20 text-green-200 border border-green-500/30" : "bg-green-100 text-green-800 border border-green-300"
+                            : isDark ? "bg-red-500/20 text-red-200 border border-red-500/30" : "bg-red-100 text-red-800 border border-red-300"
                         }`}
                       >
                         {isCorrect ? <FaCheck className="text-lg" /> : <FaTimes className="text-lg" />}
@@ -283,6 +335,37 @@ export default function GameUI({
                       </motion.div>
                     )}
                   </AnimatePresence>
+
+                  {isAnswered && word && (
+                    <div className="flex gap-2 justify-center mt-2">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => speakSlovak(word.slovak)}
+                        className={`${textSecondary} hover:${isDark ? "text-white" : "text-gray-900"} p-2 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"}`}
+                        title="Озвучить слово"
+                      >
+                        <FaVolumeUp />
+                      </motion.button>
+                      {word.hint && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setShowHint(!showHint)}
+                          className={`${textSecondary} hover:text-yellow-600 p-2 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"}`}
+                          title="Показать подсказку"
+                        >
+                          <FaLightbulb />
+                        </motion.button>
+                      )}
+                    </div>
+                  )}
+                  {showHint && word?.hint && (
+                    <div className={`mt-2 text-sm rounded-lg p-2 text-center ${isDark ? "text-yellow-300 bg-yellow-900/30 border-yellow-500/30" : "text-yellow-800 bg-yellow-100 border-yellow-300"} border`}>
+                      💡 {word.hint}
+                    </div>
+                  )}
+
                   {isAnswered && (
                     <motion.button
                       initial={{ opacity: 0, y: 10 }}
@@ -292,12 +375,12 @@ export default function GameUI({
                       onClick={handleNextClick}
                       className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold shadow-md"
                     >
-                      {wordsLeft === 0 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
+                      {remainingCount === 0 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
                     </motion.button>
                   )}
                   {!isAnswered && (
-                    <p className="text-center text-xs text-gray-400 pt-2">
-                      Используй мышь или клавиатуру (1,2,3, Enter)
+                    <p className={`text-center text-xs ${textMuted} pt-2`}>
+                      Используй мышь или клавиатуру (1,2,3, Enter, S – пропуск, H – сложное)
                     </p>
                   )}
                 </>
@@ -306,7 +389,6 @@ export default function GameUI({
           </div>
         </div>
       </div>
-      <AnimatedFeedback isCorrect={isAnswered ? isCorrect : null} duration={800} />
-    </motion.div>
+    </div>
   )
 }

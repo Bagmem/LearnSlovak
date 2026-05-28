@@ -222,6 +222,26 @@ export default function ProfilePage() {
 
   const streak = useMemo(() => calculateStreak(activeDates), [activeDates])
 
+  function isWordLearned(stat: { correctCount: number; wrongCount: number }): boolean {
+    return stat.correctCount >= 2 && stat.correctCount >= stat.wrongCount
+  }
+
+  const wordKeysSet = useMemo(() => {
+    return new Set(words.map(w => `${w.slovak}|${w.russian}`))
+  }, [])
+
+  const uniqueLearnedWords = useMemo(() => {
+    let count = 0
+    for (const [key, stat] of wordStatsMap.entries()) {
+      if (wordKeysSet.has(key) && isWordLearned(stat)) {
+        count++
+      }
+    }
+    return count
+  }, [wordStatsMap, wordKeysSet])
+
+  const totalWordsCount = words.length
+
   useEffect(() => {
     const handleFirstClick = () => {
       try { initAudio() } catch {}
@@ -307,10 +327,6 @@ export default function ProfilePage() {
     navigator.clipboard.writeText(text)
   }
 
-  const uniqueLearnedWords = useMemo(() => {
-    return Array.from(wordStatsMap.values()).filter(stat => stat.correctCount > 0).length
-  }, [wordStatsMap])
-
   const allItems = useMemo(() => [...words, ...grammarTasks], [])
   const categoryTotalCount = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -341,27 +357,27 @@ export default function ProfilePage() {
   const totalAnswers = totalCorrect + totalWrong
   const accuracy = totalAnswers ? Math.round((totalCorrect / totalAnswers) * 100) : 0
 
-  const totalWordsCount = words.length
   const wordsPercent = totalWordsCount ? (uniqueLearnedWords / totalWordsCount) * 100 : 0
   const totalCategories = Object.keys(categoryTotalCount).length
   const categoriesPercent = totalCategories ? (completedCategoriesCount / totalCategories) * 100 : 0
 
+  // Прогресс по уровням на основе завершённых категорий
   const levelStats = useMemo(() => {
     const levels = ["A1", "A2", "B1", "B2", "C1"] as const
     return levels.map(level => {
       const itemsInLevel = allItems.filter(i => i.level === level)
-      const total = itemsInLevel.length
-      if (!total) return { level, total, learned: 0, percent: 0 }
-      const cats = new Set(itemsInLevel.map(i => i.category))
-      let learned = 0
-      cats.forEach(cat => {
+      if (!itemsInLevel.length) return { level, total: 0, learned: 0, percent: 0 }
+      const uniqueCategories = new Set(itemsInLevel.map(i => i.category))
+      let completedCategories = 0
+      uniqueCategories.forEach(cat => {
         const totalInCat = itemsInLevel.filter(i => i.category === cat).length
         const passed = progressData[`cat_progress_${level}_${cat}`] || 0
-        learned += Math.min(passed, totalInCat)
+        if (passed >= totalInCat) completedCategories++
       })
-      return { level, total, learned, percent: (learned / total) * 100 }
+      const total = uniqueCategories.size
+      return { level, total, learned: completedCategories, percent: total ? (completedCategories / total) * 100 : 0 }
     })
-  }, [progressData, allItems])
+  }, [allItems, progressData])
 
   const hardWords = useMemo(() => {
     const wordsList: { word: string; translation: string; wrong: number; correct: number }[] = []
@@ -398,10 +414,9 @@ export default function ProfilePage() {
   const progressPercent = Math.min((currentLevelProgress / 100) * 100, 100)
   const xpLeft = Math.max(nextLevelXp - xp, 0)
 
-  // Загрузочный экран – теперь светлый фон берётся из body, тёмный задаём явно
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white to-gray-100 dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
         <div className="rounded-2xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white shadow-xl p-8 font-bold text-xl">
           Загрузка профиля...
         </div>
@@ -409,10 +424,9 @@ export default function ProfilePage() {
     )
   }
 
-  // Экран "не авторизован"
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-white to-gray-100 dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
         <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-xl p-8 text-center">
           <FaUserCircle className="mx-auto mb-4 text-7xl text-orange-500 dark:text-orange-400" />
           <h1 className="text-3xl font-black text-gray-800 dark:text-white">Вы не вошли</h1>
@@ -430,9 +444,8 @@ export default function ProfilePage() {
     )
   }
 
-  // Основной контент – светлый фон наследуется от body (радиальный градиент), тёмный задаём явно
   return (
-    <div className="min-h-screen dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
+    <div className="min-h-screen bg-gradient-to-br from-white to-gray-100 dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
       <div className="mx-auto w-full max-w-7xl px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -449,7 +462,7 @@ export default function ProfilePage() {
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Левая колонка */}
+          {/* ЛЕВАЯ КОЛОНКА */}
           <div className="lg:col-span-1 space-y-4">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -527,12 +540,13 @@ export default function ProfilePage() {
                 </div>
               </StatCard>
             </div>
-<StatCard delay={0.4}>
-  <ActivityHeatmap activeDates={activeDates} days={30} />
-</StatCard>
+
+            <StatCard delay={0.4}>
+              <ActivityHeatmap activeDates={activeDates} days={30} />
+            </StatCard>
           </div>
 
-          {/* Правая колонка */}
+          {/* ПРАВАЯ КОЛОНКА */}
           <div className="lg:col-span-2 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <StatCard delay={0.25}>
@@ -599,7 +613,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Модалки */}
       <AnimatePresence>
         {showXpModal && (
           <div key="xp-modal" className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowXpModal(false)}>
@@ -658,7 +671,7 @@ export default function ProfilePage() {
                 <div className="space-y-4 mb-6">
                   {levelStats.map(stat => (
                     <div key={stat.level}>
-                      <div className="flex justify-between text-sm font-bold mb-1"><span className="text-gray-700 dark:text-gray-300">{stat.level}</span><span className="text-gray-500 dark:text-gray-400">{stat.learned}/{stat.total} слов</span></div>
+                      <div className="flex justify-between text-sm font-bold mb-1"><span className="text-gray-700 dark:text-gray-300">{stat.level}</span><span className="text-gray-500 dark:text-gray-400">{stat.learned}/{stat.total} тем</span></div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden"><div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all" style={{ width: `${stat.percent}%` }} /></div>
                     </div>
                   ))}

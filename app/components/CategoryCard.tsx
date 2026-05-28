@@ -41,7 +41,6 @@ export default function CategoryCard({ name, passedCount, totalCount, isComplete
   const clean = cleanName(name)
   const icon = getIcon(name)
 
-  // Заглушка для сервера и первого клиентского рендера (без динамических данных)
   if (!mounted) {
     return (
       <div className="relative w-full overflow-hidden rounded-xl text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
@@ -63,24 +62,15 @@ export default function CategoryCard({ name, passedCount, totalCount, isComplete
             </div>
           </div>
           <div className="mt-3 flex justify-end">
-            {!isLocked ? (
-              <FaArrowRight className="text-gray-400 dark:text-gray-500 text-sm" />
-            ) : (
-              <span className="text-xs text-gray-500 dark:text-gray-400">🔒 Закрыто</span>
-            )}
+            {!isLocked ? <FaArrowRight className="text-gray-400 dark:text-gray-500 text-sm" /> : <span className="text-xs text-gray-500 dark:text-gray-400">🔒 Закрыто</span>}
           </div>
         </div>
       </div>
     )
   }
 
-  // Полноценный рендер на клиенте (после гидратации)
   const percent = (passedCount / totalCount) * 100
-  const topBarGradient = isCompleted
-    ? "from-green-500 to-emerald-600"
-    : isLocked
-    ? "from-gray-400 to-gray-500"
-    : "from-orange-500 to-amber-500"
+  const topBarGradient = isCompleted ? "from-green-500 to-emerald-600" : isLocked ? "from-gray-400 to-gray-500" : "from-orange-500 to-amber-500"
 
   return (
     <motion.button
@@ -115,9 +105,7 @@ export default function CategoryCard({ name, passedCount, totalCount, isComplete
           </div>
         </div>
         <div className="mt-3 flex justify-end">
-          {!isLocked && (
-            <FaArrowRight className="text-gray-400 dark:text-gray-500 group-hover:text-orange-500 transition-colors text-sm" />
-          )}
+          {!isLocked && <FaArrowRight className="text-gray-400 dark:text-gray-500 group-hover:text-orange-500 transition-colors text-sm" />}
           {isLocked && <span className="text-xs text-gray-500 dark:text-gray-400">🔒 Закрыто</span>}
         </div>
       </div>
