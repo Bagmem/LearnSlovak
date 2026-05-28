@@ -3,10 +3,8 @@
 import Link from "next/link"
 import { FormEvent, useState } from "react"
 import { useRouter } from "next/navigation"
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
-import { doc, serverTimestamp, setDoc } from "firebase/firestore"
+import { supabase } from "../../lib/supabase"
 import { FaEnvelope, FaLock, FaUserPlus, FaUser } from "react-icons/fa"
-import { auth, db } from "../../lib/firebase"
 import AuthShell from "../components/AuthShell"
 
 export default function RegisterPage() {
@@ -16,48 +14,47 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [message, setMessage] = useState("")
   const [loading, setLoading] = useState(false)
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (loading) return
+
     setError("")
+    setMessage("")
     setLoading(true)
 
     try {
-      // 1. Создаём пользователя в Firebase Auth
-      const result = await createUserWithEmailAndPassword(auth, email, password)
-      const user = result.user
+      const trimmedName = name.trim()
+      const trimmedEmail = email.trim()
 
-      // 2. Обновляем профиль (displayName)
-      await updateProfile(user, { displayName: name })
-
-      // 3. Создаём документ пользователя в Firestore
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        name,
-        email: user.email,
-        photoURL: "",
-        xp: 0,
-        level: "A1",
-        createdAt: serverTimestamp(),
+      const { data, error } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+        options: {
+          data: {
+            name: trimmedName,
+            full_name: trimmedName,
+          },
+        },
       })
 
-      // 4. Перенаправляем на профиль
-      router.push("/profile")
-    } catch (err: unknown) {
-      console.error("Registration error:", err)
-      const error = err as { code?: string; message?: string }
-      let message = "Ошибка регистрации. Попробуйте позже."
-      if (error.code === "auth/email-already-in-use") {
-        message = "Этот email уже используется."
-      } else if (error.code === "auth/weak-password") {
-        message = "Пароль слишком слабый (минимум 6 символов)."
-      } else if (error.code === "auth/invalid-email") {
-        message = "Некорректный email."
-      } else if (error.message) {
-        message = error.message
+      if (error) {
+        setError(error.message)
+        return
       }
-      setError(message)
+
+      if (!data.session) {
+        setMessage("Аккаунт создан. Проверь email для подтверждения.")
+        return
+      }
+
+      router.push("/profile")
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка регистрации")
     } finally {
       setLoading(false)
     }
@@ -67,7 +64,7 @@ export default function RegisterPage() {
     <AuthShell
       title="Регистрация"
       subtitle="Создай аккаунт и сохраняй свой прогресс"
-      backgroundImage="/images/auth-bg.jpg"   
+      backgroundImage="/images/auth-bg.jpg"
       icon={<FaUserPlus className="text-2xl text-white" />}
     >
       <form onSubmit={handleRegister} className="space-y-4">
@@ -80,7 +77,8 @@ export default function RegisterPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Твоё имя"
               required
-              className="w-full bg-transparent text-white outline-none placeholder:text-gray-300"
+              disabled={loading}
+              className="w-full bg-transparent text-white outline-none placeholder:text-gray-300 disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
         </label>
@@ -95,7 +93,8 @@ export default function RegisterPage() {
               placeholder="example@gmail.com"
               type="email"
               required
-              className="w-full bg-transparent text-white outline-none placeholder:text-gray-300"
+              disabled={loading}
+              className="w-full bg-transparent text-white outline-none placeholder:text-gray-300 disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
         </label>
@@ -111,7 +110,8 @@ export default function RegisterPage() {
               type="password"
               minLength={6}
               required
-              className="w-full bg-transparent text-white outline-none placeholder:text-gray-300"
+              disabled={loading}
+              className="w-full bg-transparent text-white outline-none placeholder:text-gray-300 disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
         </label>
@@ -124,6 +124,12 @@ export default function RegisterPage() {
           {loading ? "Создаём..." : "Создать профиль"}
         </button>
       </form>
+
+      {message && (
+        <div className="mt-4 rounded-2xl border border-green-400/40 bg-green-500/15 p-3 text-sm text-green-200">
+          {message}
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-2xl border border-red-400/40 bg-red-500/15 p-3 text-sm text-red-200">

@@ -3,14 +3,8 @@
 import Link from "next/link"
 import { FormEvent, useState } from "react"
 import { useRouter } from "next/navigation"
-import {
-  GoogleAuthProvider,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-} from "firebase/auth"
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
 import { FaEnvelope, FaGoogle, FaLock, FaSignInAlt } from "react-icons/fa"
-import { auth, db } from "../../lib/firebase"
+import { supabase } from "../../lib/supabase"
 import AuthShell from "../components/AuthShell"
 
 export default function LoginPage() {
@@ -21,62 +15,57 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  async function createProfileIfMissing(user: {
-    uid: string
-    displayName: string | null
-    email: string | null
-    photoURL: string | null
-  }) {
-    const profileRef = doc(db, "users", user.uid)
-    const profileSnap = await getDoc(profileRef)
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault()
 
-    if (profileSnap.exists()) {
+  if (loading) return
+
+  setError("")
+  setLoading(true)
+
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    })
+
+    if (error) {
+      setError(error.message)
       return
     }
 
-    await setDoc(profileRef, {
-      uid: user.uid,
-      name: user.displayName || "Без имени",
-      email: user.email || "",
-      photoURL: user.photoURL || "",
-      xp: 0,
-      level: "A1",
-      createdAt: serverTimestamp(),
-    })
+    router.push("/profile")
+    router.refresh()
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Ошибка входа")
+  } finally {
+    setLoading(false)
   }
-
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError("")
-    setLoading(true)
-
-    try {
-      await signInWithEmailAndPassword(auth, email, password)
-      router.push("/profile")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка входа")
-    } finally {
-      setLoading(false)
-    }
-  }
+}
 
   async function handleGoogleLogin() {
-    setError("")
-    setLoading(true)
+  if (loading) return
 
-    try {
-      const provider = new GoogleAuthProvider()
-      const result = await signInWithPopup(auth, provider)
+  setError("")
+  setLoading(true)
 
-      await createProfileIfMissing(result.user)
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/profile`,
+      },
+    })
 
-      router.push("/profile")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка входа через Google")
-    } finally {
+    if (error) {
+      setError(error.message)
       setLoading(false)
     }
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Ошибка входа через Google")
+    setLoading(false)
   }
+}
 
   return (
     <AuthShell

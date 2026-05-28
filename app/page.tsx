@@ -5,9 +5,8 @@ import { motion } from "framer-motion"
 import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog, FaClipboardList } from "react-icons/fa"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { auth, db } from "../lib/firebase"
-import { signOut, onAuthStateChanged, type User } from "firebase/auth"
-import { doc, getDoc, updateDoc } from "firebase/firestore"
+import type { User } from "@supabase/supabase-js"
+import { supabase } from "../lib/supabase"
 import { canAccessLevel, normalizeUserLevel, getNextLevel, type UserLevel } from "../lib/levels"
 import { words, type Word, type LanguageLevel } from "../data/words"
 import { grammarTasks } from "../data/grammar"
@@ -115,6 +114,18 @@ const getStoredHardWords = (): Set<string> => {
   return new Set(saved ? JSON.parse(saved) : [])
 }
 
+const getUserDisplayName = (user: User | null): string => {
+  if (!user) return ""
+
+  return (
+    user.user_metadata?.name ||
+    user.user_metadata?.full_name ||
+    user.user_metadata?.display_name ||
+    user.email?.split("@")[0] ||
+    "Пользователь"
+  )
+}
+
 export default function Home() {
   const { settings, toggleMute, setSpeechRate, setAutoSpeak, setVolume } = useSettings()
   const { theme, toggleTheme } = useTheme()
@@ -125,7 +136,6 @@ export default function Home() {
   const [userLevel, setUserLevel] = useState<UserLevel>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  // ---------- Все useState ----------
   const [globalTab, setGlobalTab] = useState<"study" | "texts" | "test" | "reference">("study")
   const [screen, setScreen] = useState<"menu" | "game" | "victory">("menu")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -164,19 +174,16 @@ export default function Home() {
   const [quizText, setQuizText] = useState<SlovakText | null>(null)
   const [testLevel, setTestLevel] = useState<LanguageLevel | null>(null)
 
-  // Сессионные статистики и сложные слова
   const [sessionCorrect, setSessionCorrect] = useState(0)
   const [sessionTotal, setSessionTotal] = useState(0)
   const [sessionMistakes, setSessionMistakes] = useState<{ word: string; translation: string }[]>([])
   const [hardWordsSet, setHardWordsSet] = useState<Set<string>>(getStoredHardWords)
   const [writeInput, setWriteInput] = useState("")
 
-  // Модалка подтверждения выхода
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false)
   const [showTestResultModal, setShowTestResultModal] = useState(false)
   const [testResultData, setTestResultData] = useState<{ level: string; percent: number; xpEarned: number; isPassed: boolean } | null>(null)
 
-  // Дополнительные счётчики для достижений
   const [skipCount, setSkipCount] = useState(() => {
     if (typeof window === "undefined") return 0
     const saved = localStorage.getItem("slovak_skip_count")
@@ -188,7 +195,6 @@ export default function Home() {
     return saved ? parseInt(saved, 10) : 0
   })
 
-  // Сохранение счётчиков в localStorage
   useEffect(() => {
     localStorage.setItem("slovak_skip_count", skipCount.toString())
   }, [skipCount])
@@ -197,9 +203,6 @@ export default function Home() {
     localStorage.setItem("slovak_perfect_lesson_count", perfectLessonCount.toString())
   }, [perfectLessonCount])
 
-  // ---------------------------------------------------------------------------
-
-  // Синхронизация громкости
   useEffect(() => {
     setGlobalVolume(settings.volume)
   }, [settings.volume])
@@ -215,38 +218,100 @@ export default function Home() {
 
   const handleLogout = async () => {
     forceSaveWordStats()
-    await signOut(auth)
+
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      console.error("Ошибка выхода:", error)
+      return
+    }
+
+    setUser(null)
+    setUserLevel(null)
     router.push("/")
+    router.refresh()
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser)
-    })
-    return () => unsubscribe()
-  }, [])
+    let isMounted = true
 
-  useEffect(() => {
-    if (!user) {
-      setUserLevel(null)
-      return
-    }
-    const fetchUserLevel = async () => {
-      try {
-        const profileRef = doc(db, "users", user.uid)
-        const profileSnap = await getDoc(profileRef)
-        if (profileSnap.exists()) {
-          const data = profileSnap.data()
-          setUserLevel(normalizeUserLevel(data.level))
-        } else {
-          setUserLevel(null)
-        }
-      } catch (error) {
-        console.error("Ошибка загрузки уровня пользователя:", error)
+    async function loadCurrentUser() {
+      const {
+        data: { user: currentUser },
+        error,
+      } = await supabase.auth.getUser()
+
+      if (!isMounted) return
+
+      if (error) {
+        console.error("Ошибка загрузки пользователя:", error)
+        setUser(null)
+        setUserLevel(null)
+        return
+      }
+
+      setUser(currentUser)
+
+      if (!currentUser) {
         setUserLevel(null)
       }
     }
+
+    loadCurrentUser()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return
+
+      const nextUser = session?.user ?? null
+      setUser(nextUser)
+
+      if (!nextUser) {
+        setUserLevel(null)
+      }
+    })
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+
+    let isMounted = true
+
+    const fetchUserLevel = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("level")
+          .eq("id", user.id)
+          .maybeSingle()
+
+        if (error) {
+          throw error
+        }
+
+        if (!isMounted) return
+
+        setUserLevel(normalizeUserLevel(data?.level))
+      } catch (error) {
+        console.error("Ошибка загрузки уровня пользователя:", error)
+
+        if (!isMounted) return
+
+        setUserLevel(null)
+      }
+    }
+
     fetchUserLevel()
+
+    return () => {
+      isMounted = false
+    }
   }, [user])
 
   useEffect(() => {
@@ -268,6 +333,7 @@ export default function Home() {
     () => Array.from(wordStatsMap.values()).filter(stat => stat.correctCount > 0).length,
     [wordStatsMap]
   )
+
   const completedCategoriesCount = useMemo(
     () => Object.values(progressData).filter(passed => passed > 0).length,
     [progressData]
@@ -350,61 +416,6 @@ export default function Home() {
     return lessonWords.filter(w => !completedWords.has(getWordKey(w)))
   }, [lessonWords, completedWords])
 
-  const handleSkip = useCallback(() => {
-    if (!currentWord) return
-    playClickSound()
-    playSkipSound()
-    setSkipCount(prev => prev + 1)
-    const remaining = getRemainingWords()
-    if (remaining.length < 2) return
-    const currentKey = getWordKey(currentWord)
-    const currentIndex = remaining.findIndex(w => getWordKey(w) === currentKey)
-    let nextWord: Word
-    if (currentIndex === -1) {
-      nextWord = remaining[0]
-    } else {
-      const nextIndex = (currentIndex + 1) % remaining.length
-      nextWord = remaining[nextIndex]
-    }
-    if (nextWord && getWordKey(nextWord) !== currentKey) setCurrentWord(nextWord)
-    setMessage("")
-    setIsAnswering(false)
-    setSelectedOption(null)
-    setWriteInput("")
-    triggerAchievementCheck()
-  }, [currentWord, getRemainingWords])
-
-  const handleMarkHard = useCallback((word: Word) => {
-    const wordKey = getWordKey(word)
-    setHardWordsSet(prev => {
-      const newSet = new Set(prev)
-      newSet.add(wordKey)
-      localStorage.setItem("slovak_hard_words", JSON.stringify(Array.from(newSet)))
-      return newSet
-    })
-    setSessionMistakes(prev => [...prev, { word: word.slovak, translation: word.russian }])
-    if (!currentWord) return
-    playClickSound()
-    playMarkHardSound()
-    const remaining = getRemainingWords()
-    if (remaining.length < 2) return
-    const currentKey = getWordKey(currentWord)
-    const currentIndex = remaining.findIndex(w => getWordKey(w) === currentKey)
-    let nextWord: Word
-    if (currentIndex === -1) {
-      nextWord = remaining[0]
-    } else {
-      const nextIndex = (currentIndex + 1) % remaining.length
-      nextWord = remaining[nextIndex]
-    }
-    if (nextWord && getWordKey(nextWord) !== currentKey) setCurrentWord(nextWord)
-    setMessage("")
-    setIsAnswering(false)
-    setSelectedOption(null)
-    setWriteInput("")
-    triggerAchievementCheck()
-  }, [currentWord, getRemainingWords])
-
   const handleSelectCategory = useCallback((category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => {
     if (!canAccessLevel(userLevel, level)) {
       setMessage(`Уровень ${level} пока закрыт. Твой текущий уровень: ${userLevel || "не задан"}`)
@@ -454,12 +465,92 @@ export default function Home() {
       perfectLessonCount: perfectLessonCount,
       textsReadCount: textsRead,
     }
+
     const newAchievements = checkAchievements(state)
+
     if (newAchievements.length > 0) {
-      const reward = newAchievements.reduce((sum: number, ach: { reward?: number }) => sum + (ach.reward || 0), 0)
-      if (reward > 0) setXp((v) => v + reward)
+      const reward = newAchievements.reduce(
+        (sum: number, ach: { reward?: number }) => sum + (ach.reward || 0),
+        0
+      )
+
+      if (reward > 0) {
+        setXp((v) => v + reward)
+      }
     }
-  }, [xp, correctAnswersCount, totalClicksCount, streak, maxStreak, completedCategoriesCount, learnedWordsCount, flashcardCorrectCount, writeCorrectCount, choiceCorrectCount, isQuizCompleted, isRead, hardWordsSet, skipCount, perfectLessonCount])
+  }, [
+    xp,
+    correctAnswersCount,
+    totalClicksCount,
+    streak,
+    maxStreak,
+    completedCategoriesCount,
+    learnedWordsCount,
+    flashcardCorrectCount,
+    writeCorrectCount,
+    choiceCorrectCount,
+    isQuizCompleted,
+    isRead,
+    hardWordsSet,
+    skipCount,
+    perfectLessonCount,
+    checkAchievements,
+  ])
+
+  const handleSkip = useCallback(() => {
+    if (!currentWord) return
+    playClickSound()
+    playSkipSound()
+    setSkipCount(prev => prev + 1)
+    const remaining = getRemainingWords()
+    if (remaining.length < 2) return
+    const currentKey = getWordKey(currentWord)
+    const currentIndex = remaining.findIndex(w => getWordKey(w) === currentKey)
+    let nextWord: Word
+    if (currentIndex === -1) {
+      nextWord = remaining[0]
+    } else {
+      const nextIndex = (currentIndex + 1) % remaining.length
+      nextWord = remaining[nextIndex]
+    }
+    if (nextWord && getWordKey(nextWord) !== currentKey) setCurrentWord(nextWord)
+    setMessage("")
+    setIsAnswering(false)
+    setSelectedOption(null)
+    setWriteInput("")
+    triggerAchievementCheck()
+  }, [currentWord, getRemainingWords, triggerAchievementCheck])
+
+  const handleMarkHard = useCallback((word: Word) => {
+    const wordKey = getWordKey(word)
+    setHardWordsSet(prev => {
+      const newSet = new Set(prev)
+      newSet.add(wordKey)
+      localStorage.setItem("slovak_hard_words", JSON.stringify(Array.from(newSet)))
+      return newSet
+    })
+    setSessionMistakes(prev => [...prev, { word: word.slovak, translation: word.russian }])
+    if (!currentWord) return
+    playClickSound()
+    playMarkHardSound()
+    const remaining = getRemainingWords()
+    if (remaining.length < 2) return
+    const currentKey = getWordKey(currentWord)
+    const currentIndex = remaining.findIndex(w => getWordKey(w) === currentKey)
+    let nextWord: Word
+    if (currentIndex === -1) {
+      nextWord = remaining[0]
+    } else {
+      const nextIndex = (currentIndex + 1) % remaining.length
+      nextWord = remaining[nextIndex]
+    }
+    if (nextWord && getWordKey(nextWord) !== currentKey) setCurrentWord(nextWord)
+    setMessage("")
+    setIsAnswering(false)
+    setSelectedOption(null)
+    setWriteInput("")
+    triggerAchievementCheck()
+  }, [currentWord, getRemainingWords, triggerAchievementCheck])
 
   useEffect(() => {
     if (!mountedRef.current || !achievementsLoaded) return
@@ -499,7 +590,16 @@ export default function Home() {
     }
     setIsAnswering(false)
     triggerAchievementCheck()
-  }, [isAnswering, currentWord, lives, gameMode, completedWords, updateCategoryProgress, setStatsForWord])
+  }, [
+    isAnswering,
+    currentWord,
+    lives,
+    gameMode,
+    completedWords,
+    updateCategoryProgress,
+    setStatsForWord,
+    triggerAchievementCheck,
+  ])
 
   const handleFlashcardRating = useCallback((known: boolean) => {
     if (isAnswering || !currentWord) return
@@ -542,7 +642,6 @@ export default function Home() {
         saveProgress(storageKey, totalLessonWords)
         setProgressData(prev => ({ ...prev, [storageKey]: totalLessonWords }))
       }
-      // Проверка на идеальный урок
       if (sessionTotal === sessionCorrect && sessionTotal > 0) {
         setPerfectLessonCount(prev => prev + 1)
       }
@@ -554,7 +653,23 @@ export default function Home() {
     setCurrentWord(selectNextWord(remainingWords, wordStatsMap))
     setIsAnswering(false)
     triggerAchievementCheck()
-  }, [isAnswering, currentWord, completedWords, lessonWords, updateCategoryProgress, setStatsForWord, wordStatsMap, activeDates, selectedLevel, selectedCategory, currentDataSource, totalLessonWords, sessionTotal, sessionCorrect])
+  }, [
+    isAnswering,
+    currentWord,
+    completedWords,
+    lessonWords,
+    updateCategoryProgress,
+    setStatsForWord,
+    wordStatsMap,
+    activeDates,
+    selectedLevel,
+    selectedCategory,
+    currentDataSource,
+    totalLessonWords,
+    sessionTotal,
+    sessionCorrect,
+    triggerAchievementCheck,
+  ])
 
   const handleNextWord = useCallback(() => {
     if (lives <= 0) return
@@ -576,7 +691,6 @@ export default function Home() {
         localStorage.setItem("slovak_active_dates", JSON.stringify(nextDates))
       }
       setStreak(calculateStreak(nextDates))
-      // Проверка на идеальный урок
       if (sessionTotal === sessionCorrect && sessionTotal > 0) {
         setPerfectLessonCount(prev => prev + 1)
       }
@@ -594,7 +708,20 @@ export default function Home() {
     setIsAnswering(false)
     setSelectedOption(null)
     setWriteInput("")
-  }, [message, lives, remainingWordsCount, activeDates, notCompletedWords, wordStatsMap, selectedLevel, selectedCategory, currentDataSource, sessionTotal, sessionCorrect])
+  }, [
+    message,
+    lives,
+    remainingWordsCount,
+    activeDates,
+    notCompletedWords,
+    wordStatsMap,
+    selectedLevel,
+    selectedCategory,
+    currentDataSource,
+    sessionTotal,
+    sessionCorrect,
+    triggerAchievementCheck,
+  ])
 
   const handleRestart = useCallback(() => {
     playClickSound()
@@ -643,7 +770,7 @@ export default function Home() {
     const percent = Math.round((score / total) * 100)
     const saved = localStorage.getItem("test_completed_levels")
     const completed = saved ? JSON.parse(saved) : {}
-    // Сохраняем лучший процент
+
     const bestPercent = Math.max(completed[testLevel!] || 0, percent)
     const newProgress = { ...completed, [testLevel!]: bestPercent }
     localStorage.setItem("test_completed_levels", JSON.stringify(newProgress))
@@ -664,14 +791,22 @@ export default function Home() {
       const nextLevel = getNextLevel(userLevel)
       if (nextLevel) {
         try {
-          const userRef = doc(db, "users", user.uid)
-          await updateDoc(userRef, { level: nextLevel })
+          const { error } = await supabase
+            .from("profiles")
+            .update({ level: nextLevel })
+            .eq("id", user.id)
+
+          if (error) {
+            throw error
+          }
+
           setUserLevel(nextLevel)
         } catch (error) {
           console.error("Ошибка повышения уровня:", error)
         }
       }
     }
+
     setTestLevel(null)
     triggerAchievementCheck()
   }
@@ -712,9 +847,6 @@ export default function Home() {
 
   const remainingCount = getRemainingWords().length
 
-  // ---------------------------------------------------------------------------
-  // Рендер
-  // ---------------------------------------------------------------------------
   if (screen === "game") {
     if (gameMode === "flashcard") {
       return (
@@ -746,6 +878,7 @@ export default function Home() {
         </>
       )
     }
+
     return (
       <>
         <GameUI
@@ -864,7 +997,7 @@ export default function Home() {
                     <FaUserCircle size={16} className="text-white" />
                   </div>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[120px]">
-                    {user.displayName || user.email?.split('@')[0]}
+                    {getUserDisplayName(user)}
                   </span>
                 </div>
                 <button
