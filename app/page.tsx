@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { motion } from "framer-motion"
 import type { User } from "@supabase/supabase-js"
 import toast from "react-hot-toast"
 import { supabase } from "../lib/supabase"
@@ -31,6 +32,14 @@ import Sidebar from "./components/Sidebar"
 import GameScreen from "./components/GameScreen"
 import { SkeletonLevelCard } from "./components/shared/Skeleton"
 import { useGameEngine } from "../hooks/useGameEngine"
+import { useDailyGoals } from "../hooks/useDailyGoals"
+import Leaderboard from "./components/activity/Leaderboard"
+import UserRank from "./components/activity/UserRank"
+import LevelDistribution from "./components/friends/LevelDistribution"
+import AddFriend from "./components/friends/AddFriend"
+import FriendRequests from "./components/friends/FriendRequests"
+import FriendsList from "./components/friends/FriendsList"
+import { FaUserCircle, FaIdBadge } from "react-icons/fa"
 
 const ReferenceView = dynamic(() => import("./components/ReferenceView"), {
   loading: () => (
@@ -84,7 +93,7 @@ export default function Home() {
   const [userLevel, setUserLevel] = useState<UserLevel>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isLoadingUser, setIsLoadingUser] = useState(true)
-  const [globalTab, setGlobalTab] = useState<"study" | "texts" | "test" | "reference">("study")
+  const [globalTab, setGlobalTab] = useState<"study" | "texts" | "test" | "reference" | "activity" | "friends">("study")
 
   const [xp, setXp] = useState<number>(() => {
     const savedXp = loadProgress<number>("xp")
@@ -237,6 +246,64 @@ export default function Home() {
     onAchievementCheck: triggerAchievementCheck,
   })
 
+  const { goals, updateProgress, completedGoal, clearCompletedGoal } = useDailyGoals()
+
+  useEffect(() => {
+    if (completedGoal) {
+      toast.success(`🎉 Цель выполнена: ${completedGoal.description} (+${completedGoal.reward} XP)`, { duration: 4000 })
+      setXp(prev => prev + completedGoal.reward)
+      clearCompletedGoal()
+    }
+  }, [completedGoal, clearCompletedGoal, setXp])
+
+  const prevSessionCorrect = useRef(0)
+  const prevScreen = useRef<"menu" | "game" | "victory">("menu")
+  const prevXp = useRef(xp)
+  const prevLearnedWords = useRef(learnedWordsCount)
+
+  useEffect(() => {
+    if (game.sessionCorrect > prevSessionCorrect.current) {
+      const diff = game.sessionCorrect - prevSessionCorrect.current
+      updateProgress("correctAnswers", diff)
+      if (game.gameMode === "flashcard") {
+        updateProgress("reviewWords", diff)
+      }
+    }
+    prevSessionCorrect.current = game.sessionCorrect
+  }, [game.sessionCorrect, game.gameMode, updateProgress])
+
+  useEffect(() => {
+    if (prevScreen.current === "game" && game.screen === "victory") {
+      updateProgress("sessionsCompleted", 1)
+      if (game.sessionMistakes.length === 0) {
+        updateProgress("perfectLesson", 1)
+      }
+    }
+    prevScreen.current = game.screen
+  }, [game.screen, game.sessionMistakes, updateProgress])
+
+  useEffect(() => {
+    if (xp > prevXp.current) {
+      const diff = xp - prevXp.current
+      updateProgress("xpGain", diff)
+    }
+    prevXp.current = xp
+  }, [xp, updateProgress])
+
+  useEffect(() => {
+    if (learnedWordsCount > prevLearnedWords.current) {
+      const diff = learnedWordsCount - prevLearnedWords.current
+      updateProgress("newWordsLearned", diff)
+    }
+    prevLearnedWords.current = learnedWordsCount
+  }, [learnedWordsCount, updateProgress])
+
+  useEffect(() => {
+    if (streak >= 1) {
+      updateProgress("streakDays", streak)
+    }
+  }, [streak, updateProgress])
+
   useEffect(() => {
     localStorage.setItem("choiceCorrectCount", choiceCorrectCount.toString())
   }, [choiceCorrectCount])
@@ -373,6 +440,7 @@ export default function Home() {
 
   const handleTestComplete = async (score: number, total: number, xpEarned: number) => {
     setXp(prev => prev + xpEarned)
+    updateProgress("completeTest", 1)
     const percent = Math.round((score / total) * 100)
     const saved = localStorage.getItem("test_completed_levels")
     const completed = saved ? JSON.parse(saved) : {}
@@ -596,6 +664,56 @@ export default function Home() {
             ) : (
               <LevelTest onStartTest={handleStartTest} />
             )
+          )}
+          {globalTab === "activity" && (
+            <div className="space-y-6">
+              {user && <UserRank currentXp={xp} currentUserId={user.id} />}
+              <Leaderboard 
+                currentUserId={user?.id} 
+                currentUserName={user ? getUserDisplayName(user) : undefined}
+                currentUserAvatar={user?.user_metadata?.avatar_url}
+              />
+            </div>
+          )}
+          {globalTab === "friends" && (
+            <div className="space-y-6">
+              {user && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-gray-700/20 shadow-xl p-5"
+                >
+                  <h3 className="font-black text-lg text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                    <FaIdBadge className="text-orange-500" /> Ваш профиль
+                  </h3>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
+                      {user.user_metadata?.avatar_url ? (
+                        <img src={user.user_metadata.avatar_url} alt={getUserDisplayName(user)} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <FaUserCircle className="text-gray-500 dark:text-gray-400 text-2xl" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-800 dark:text-white">{getUserDisplayName(user)}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Уровень: {userLevel || "—"} • {xp} XP
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+              <AddFriend />
+              <FriendRequests />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2">
+                  <FriendsList />
+                </div>
+                <LevelDistribution currentUserId={user?.id} />
+              </div>
+            </div>
           )}
         </div>
       </main>

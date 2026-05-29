@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import type { User } from "@supabase/supabase-js"
 import {
   FaArrowLeft, FaFire, FaSignOutAlt, FaTrophy,
-  FaUserCircle, FaCheckCircle, FaUserFriends,
-  FaMedal, FaTimes,
+  FaUserCircle, FaCheckCircle,
+  FaMedal, FaTimes, FaStar,
 } from "react-icons/fa"
 import toast from "react-hot-toast"
 import { supabase } from "../../lib/supabase"
@@ -16,6 +16,7 @@ import { words } from "../../data/words"
 import { grammarTasks } from "../../data/grammar"
 import { achievements } from "../../data/achievements"
 import { useAchievements } from "../../hooks/useAchievements"
+import { useDailyGoals } from "../../hooks/useDailyGoals"
 import { initAudio, playClickSound } from "../../lib/sounds"
 import AchievementsList from "../components/achievements/AchievementsList"
 import ActivityHeatmap from "../components/streak/ActivityHeatmap"
@@ -46,7 +47,7 @@ type SavedAchievement =
       reward?: number
     }
 
-// ─── Утилиты для streak / localStorage ────────────────
+// ─── Утилиты ─────────────────────────────────────────
 function getLocalDateString(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -187,7 +188,7 @@ async function getOrCreateProfile(user: User): Promise<UserProfile> {
   return createdProfile as UserProfile
 }
 
-// ─── Презентационная обёртка для анимированных блоков ────
+// ─── Презентационная обёртка ─────────────────────────
 function AnimatedBlock({
   children,
   delay = 0,
@@ -210,7 +211,7 @@ function AnimatedBlock({
   )
 }
 
-// ─── Модальное окно достижений ─────────────────────────
+// ─── Модальное окно достижений ──────────────────────
 function AchievementsModal({
   isOpen,
   onClose,
@@ -221,12 +222,8 @@ function AchievementsModal({
   unlocked: any[]
 }) {
   if (!isOpen) return null
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -259,10 +256,89 @@ function AchievementsModal({
   )
 }
 
-// ─── Основной компонент страницы ─────────────────────────
+// ─── Модальное окно ежедневных заданий ──────────────
+function DailyGoalsModal({
+  isOpen,
+  onClose,
+  goals,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  goals: any[]
+}) {
+  if (!isOpen) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="rounded-2xl w-full max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20">
+          <div className="p-2 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
+            <FaStar className="text-orange-500 text-base" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-base font-black text-gray-800 dark:text-white">Ежедневные задания</h2>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">выполняйте и получайте награду</p>
+          </div>
+          <button onClick={() => { playClickSound(); onClose() }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
+            <FaTimes size={18} />
+          </button>
+        </div>
+        <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+          {goals.map((goal) => {
+            const percent = Math.min((goal.progress / goal.target) * 100, 100)
+            const completed = goal.progress >= goal.target
+            return (
+              <motion.div
+                key={goal.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-3 rounded-xl border backdrop-blur-sm ${
+                  completed
+                    ? "bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700"
+                    : "bg-white/70 dark:bg-gray-800/70 border-gray-200/50 dark:border-gray-700/50"
+                }`}
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <p className={`font-bold text-sm ${completed ? "text-green-600 dark:text-green-400" : "text-gray-800 dark:text-white"}`}>
+                    {goal.description}
+                  </p>
+                  <span className="text-xs font-bold text-orange-500">+{goal.reward} XP</span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-1">
+                  <motion.div
+                    className={`h-full rounded-full ${completed ? "bg-green-500" : "bg-gradient-to-r from-orange-500 to-amber-500"}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${percent}%` }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                  {goal.progress} / {goal.target}
+                </p>
+              </motion.div>
+            )
+          })}
+        </div>
+        <div className="p-3 border-t border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900/30">
+          <button onClick={() => { playClickSound(); onClose() }} className="w-full py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-lg text-sm hover:shadow-lg transition">
+            Закрыть
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ─── Основной компонент страницы ─────────────────────
 export default function ProfilePage() {
   const router = useRouter()
   const { unlocked } = useAchievements()
+  const { goals } = useDailyGoals()
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -279,11 +355,22 @@ export default function ProfilePage() {
   const [showAchievements, setShowAchievements] = useState(false)
   const [showLevelModal, setShowLevelModal] = useState(false)
   const [showStreakModal, setShowStreakModal] = useState(false)
+  const [showGoalsModal, setShowGoalsModal] = useState(false)
   const [recentAchievements] = useState<SavedAchievement[]>(() => getStoredAchievements().recent)
 
   const [choiceCorrectCount] = useState(() => getStoredChoiceCorrectCount())
   const [writeCorrectCount] = useState(() => getStoredWriteCorrectCount())
   const [flashcardCorrectCount] = useState(() => getStoredFlashcardCorrectCount())
+
+  const [goalsViewed, setGoalsViewed] = useState(() => {
+    if (typeof window === "undefined") return false
+    const viewed = localStorage.getItem("daily_goals_viewed")
+    if (!viewed) return false
+    try {
+      const { date } = JSON.parse(viewed)
+      return date === getLocalDateString(new Date())
+    } catch { return false }
+  })
 
   const streak = useMemo(() => calculateStreak(activeDates), [activeDates])
 
@@ -380,6 +467,15 @@ export default function ProfilePage() {
   const currentLevelProgress = xp - levelBase
   const progressPercent = Math.min((currentLevelProgress / 100) * 100, 100)
   const xpLeft = Math.max(nextLevelXp - xp, 0)
+
+  const handleOpenGoals = () => {
+    if (!goalsViewed) {
+      localStorage.setItem("daily_goals_viewed", JSON.stringify({ date: getLocalDateString(new Date()) }))
+      setGoalsViewed(true)
+    }
+    playClickSound()
+    setShowGoalsModal(true)
+  }
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
@@ -587,7 +683,9 @@ export default function ProfilePage() {
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Левая колонка */}
           <div className="lg:col-span-1 space-y-4">
+            {/* Профиль */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -610,39 +708,44 @@ export default function ProfilePage() {
               />
             </motion.div>
 
-            <AnimatedBlock delay={0.15}>
-              <div className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className="p-1.5 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
-                      <FaUserFriends className="text-orange-500 text-sm" />
+            {/* Ежедневные задания */}
+            {goals.length > 0 && (
+              <AnimatedBlock delay={0.25}>
+                <div
+                  onClick={handleOpenGoals}
+                  className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-4 cursor-pointer hover:shadow-lg transition-all group"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40 shrink-0">
+                      <FaStar className="text-orange-500 text-xl" />
                     </div>
-                    <h3 className="font-black text-gray-800 dark:text-white text-xs">Друзья</h3>
-                  </div>
-                  <button className="text-[10px] bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-full text-orange-600 dark:text-orange-400 opacity-60 cursor-not-allowed">
-                    Пригласить
-                  </button>
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="flex flex-col items-center gap-0.5 opacity-60">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500">
-                        <FaUserCircle className="text-base" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-black text-gray-800 dark:text-white text-sm group-hover:text-orange-500 transition-colors">
+                          Ежедневные задания
+                        </h3>
+                        {!goalsViewed && (
+                          <span className="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">
+                            Новое!
+                          </span>
+                        )}
                       </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {goals.filter(g => g.progress >= g.target).length}/{goals.length} выполнено
+                      </p>
                     </div>
-                  ))}
+                  </div>
                 </div>
-                <p className="text-[9px] text-gray-400 dark:text-gray-500 text-center mt-2">
-                  Приглашайте друзей, чтобы соревноваться
-                </p>
-              </div>
-            </AnimatedBlock>
+              </AnimatedBlock>
+            )}
 
+            {/* Тепловая карта активности */}
             <AnimatedBlock delay={0.4}>
               <ActivityHeatmap activeDates={activeDates} days={30} />
             </AnimatedBlock>
           </div>
 
+          {/* Правая колонка */}
           <div className="lg:col-span-2 space-y-4">
             <StatsCards
               wordsPercent={wordsPercent}
@@ -733,6 +836,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Модальные окна */}
       <AnimatePresence>
         <LevelDetailModal
           key="level-modal"
@@ -761,6 +865,13 @@ export default function ProfilePage() {
           isOpen={showAchievements}
           onClose={() => setShowAchievements(false)}
           unlocked={unlocked}
+        />
+
+        <DailyGoalsModal
+          key="goals-modal"
+          isOpen={showGoalsModal}
+          onClose={() => setShowGoalsModal(false)}
+          goals={goals}
         />
       </AnimatePresence>
     </div>

@@ -1,11 +1,11 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog, FaClipboardList } from "react-icons/fa"
+import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog, FaClipboardList, FaChartLine, FaUserFriends } from "react-icons/fa"
 import Link from "next/link"
 import type { User } from "@supabase/supabase-js"
 
-type TabId = "study" | "texts" | "test" | "reference"
+type TabId = "study" | "texts" | "test" | "reference" | "activity" | "friends"
 
 type SidebarProps = {
   user: User | null
@@ -42,6 +42,8 @@ export default function Sidebar({
           { id: "texts", label: "Тексты", icon: <FaScroll size={20} />, active: globalTab === "texts" },
           { id: "test", label: "Тест", icon: <FaClipboardList size={20} />, active: globalTab === "test" },
           { id: "reference", label: "Справочник", icon: <FaBookOpen size={20} />, active: globalTab === "reference" },
+          { id: "activity", label: "Активность", icon: <FaChartLine size={20} />, active: globalTab === "activity" },
+          { id: "friends", label: "Друзья", icon: <FaUserFriends size={20} />, active: globalTab === "friends" },
         ] as const).map((item) => (
           <button
             key={item.id}
