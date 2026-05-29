@@ -1,6 +1,7 @@
 import { type Word } from "../data/words"
 import { type GrammarWord } from "../data/grammar"
 
+// ─── Вспомогательные функции ──────────────────────────
 export function normalizeString(str: string): string {
   return str
     .trim()
@@ -12,9 +13,11 @@ export function normalizeString(str: string): string {
 export function checkAnswer(word: Word, userAnswer: string): boolean {
   return normalizeString(word.slovak) === normalizeString(userAnswer)
 }
+
 export function isWordLearned(stat: WordStats): boolean {
   return stat.correctCount >= 2 && stat.correctCount >= stat.wrongCount
 }
+
 const randomShuffle = <T>(items: T[]): T[] => [...items].sort(() => Math.random() - 0.5)
 
 export function generateWrongOptions(
@@ -45,14 +48,13 @@ export function generateWrongOptions(
   return randomShuffle(ranked).slice(0, count).map(w => w.slovak)
 }
 
+// ─── Типы и функции для статистики слов ──────────────
 export type WordStats = {
   id: string
   correctCount: number
   wrongCount: number
-  lastSeen: number
-  nextReview: number
-  easeFactor: number
-  interval: number
+  nextReview: string | null   // ISO date "YYYY-MM-DD" или null, если не назначено
+  interval: number           // дней до следующего повторения (0 = сегодня)
 }
 
 export function createEmptyWordStats(id: string): WordStats {
@@ -60,63 +62,101 @@ export function createEmptyWordStats(id: string): WordStats {
     id,
     correctCount: 0,
     wrongCount: 0,
-    lastSeen: 0,
-    nextReview: 0,
-    easeFactor: 2.5,
+    nextReview: null,
     interval: 0,
   }
 }
 
-export function updateWordStats(stats: WordStats | null, isCorrect: boolean): WordStats {
-  const now = Date.now()
-  if (!stats) {
-    return {
-      id: "",
-      correctCount: isCorrect ? 1 : 0,
-      wrongCount: isCorrect ? 0 : 1,
-      lastSeen: now,
-      nextReview: now + (isCorrect ? 3_600_000 : 600_000),
-      easeFactor: 2.5,
-      interval: 0,
+/** Приводит сырые данные из localStorage к актуальному типу WordStats */
+export function migrateStats(raw: any): WordStats {
+  const stats: WordStats = {
+    id: raw.id || "",
+    correctCount: raw.correctCount || 0,
+    wrongCount: raw.wrongCount || 0,
+    nextReview: null,
+    interval: raw.interval || 0,
+  }
+
+  if (raw.nextReview !== null && raw.nextReview !== undefined) {
+    if (typeof raw.nextReview === 'number') {
+      // Старый формат – timestamp в миллисекундах
+      const reviewDate = new Date(raw.nextReview)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (reviewDate <= today) {
+        stats.nextReview = null   // пора повторить
+        stats.interval = 0
+      } else {
+        stats.nextReview = reviewDate.toISOString().slice(0, 10)
+      }
+    } else if (typeof raw.nextReview === 'string') {
+      stats.nextReview = raw.nextReview
     }
   }
 
-  let { correctCount, wrongCount, easeFactor, interval } = stats
+  return stats
+}
+
+/**
+ * Обновляет интервал и дату следующего повторения по алгоритму SM-2 (упрощённый).
+ * Вызывается ДО updateWordStats, чтобы сначала пересчитать расписание.
+ */
+export function updateSpacedRepetition(stats: WordStats, isCorrect: boolean): WordStats {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+
   if (isCorrect) {
-    correctCount++
-    if (correctCount === 1) {
-      interval = 1
-    } else if (correctCount === 2) {
-      interval = 6
+    let newInterval: number
+    if (stats.interval === 0) {
+      newInterval = 1
+    } else if (stats.interval === 1) {
+      newInterval = 3
     } else {
-      interval = Math.round(interval * easeFactor)
+      newInterval = Math.round(stats.interval * 2.5)
     }
-    easeFactor = Math.min(2.5, Math.max(1.3, easeFactor + 0.1))
+    const nextReview = new Date(now)
+    nextReview.setDate(nextReview.getDate() + newInterval)
+    return {
+      ...stats,
+      interval: newInterval,
+      nextReview: nextReview.toISOString().slice(0, 10),
+    }
   } else {
-    wrongCount++
-    interval = 0
-    easeFactor = Math.max(1.3, easeFactor - 0.2)
-  }
-
-  const nextReview = now + (interval * 24 * 60 * 60 * 1000)
-  return {
-    ...stats,
-    correctCount,
-    wrongCount,
-    lastSeen: now,
-    nextReview: isCorrect ? nextReview : now + 600_000,
-    easeFactor,
-    interval,
+    return {
+      ...stats,
+      interval: 0,
+      nextReview: null,
+    }
   }
 }
 
+/**
+ * Обновляет счётчики правильных/неправильных ответов.
+ * Вызывается ПОСЛЕ updateSpacedRepetition, чтобы не затереть изменения интервала.
+ */
+export function updateWordStats(stats: WordStats, isCorrect: boolean): WordStats {
+  return {
+    ...stats,
+    correctCount: stats.correctCount + (isCorrect ? 1 : 0),
+    wrongCount: stats.wrongCount + (isCorrect ? 0 : 1),
+  }
+}
+
+/**
+ * Выбирает следующее слово из списка, отдавая приоритет тем,
+ * у которых время повторения уже наступило (nextReview <= сегодня).
+ */
 export function selectNextWord(words: Word[], statsMap: Map<string, WordStats>): Word {
-  const now = Date.now()
+  const today = new Date().toISOString().slice(0, 10)
+
   const dueWords = words.filter((w) => {
     const key = `${w.slovak}|${w.russian}`
     const stat = statsMap.get(key)
-    return !stat || stat.nextReview <= now
+    if (!stat || stat.nextReview === null || stat.nextReview === undefined) return true
+    const next = String(stat.nextReview)
+    return next <= today
   })
+
   if (dueWords.length > 0) {
     dueWords.sort((a, b) => {
       const aWrong = statsMap.get(`${a.slovak}|${a.russian}`)?.wrongCount || 0
@@ -125,11 +165,18 @@ export function selectNextWord(words: Word[], statsMap: Map<string, WordStats>):
     })
     return dueWords[0]
   }
+
   const all = [...words]
   all.sort((a, b) => {
-    const aNext = statsMap.get(`${a.slovak}|${a.russian}`)?.nextReview || 0
-    const bNext = statsMap.get(`${b.slovak}|${b.russian}`)?.nextReview || 0
-    return aNext - bNext
+    const getNext = (word: Word): string => {
+      const stat = statsMap.get(`${word.slovak}|${word.russian}`)
+      if (!stat || stat.nextReview === null || stat.nextReview === undefined) return "9999-12-31"
+      const raw = stat.nextReview
+      return typeof raw === 'string' ? raw : String(raw)
+    }
+    const aNext = getNext(a)
+    const bNext = getNext(b)
+    return aNext.localeCompare(bNext)
   })
   return all[0]
 }

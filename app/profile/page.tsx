@@ -10,6 +10,7 @@ import {
   FaUserCircle, FaCheckCircle, FaUserFriends,
   FaMedal, FaTimes,
 } from "react-icons/fa"
+import toast from "react-hot-toast"
 import { supabase } from "../../lib/supabase"
 import { words } from "../../data/words"
 import { grammarTasks } from "../../data/grammar"
@@ -209,7 +210,7 @@ function AnimatedBlock({
   )
 }
 
-// ─── Модальное окно достижений (обёртка для AnimatePresence) ─────
+// ─── Модальное окно достижений ─────────────────────────
 function AchievementsModal({
   isOpen,
   onClose,
@@ -263,7 +264,6 @@ export default function ProfilePage() {
   const router = useRouter()
   const { unlocked } = useAchievements()
 
-  // ─── Состояния ─────────────────────────────────────────
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -285,7 +285,6 @@ export default function ProfilePage() {
   const [writeCorrectCount] = useState(() => getStoredWriteCorrectCount())
   const [flashcardCorrectCount] = useState(() => getStoredFlashcardCorrectCount())
 
-  // ─── Производные значения ──────────────────────────────
   const streak = useMemo(() => calculateStreak(activeDates), [activeDates])
 
   function isWordLearned(stat: { correctCount: number; wrongCount: number }): boolean {
@@ -370,7 +369,6 @@ export default function ProfilePage() {
     return wordsList.slice(0, 5)
   }, [wordStatsMap])
 
-  // ─── Данные профиля ────────────────────────────────────
   const displayName = profile?.name || user?.user_metadata?.name || user?.user_metadata?.full_name || "Без имени"
   const displayEmail = profile?.email || user?.email || "Email не найден"
   const photoURL = profile?.avatar_url || user?.user_metadata?.avatar_url || ""
@@ -383,7 +381,6 @@ export default function ProfilePage() {
   const progressPercent = Math.min((currentLevelProgress / 100) * 100, 100)
   const xpLeft = Math.max(nextLevelXp - xp, 0)
 
-  // ─── Эффекты ───────────────────────────────────────────
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "xp") {
@@ -409,7 +406,10 @@ export default function ProfilePage() {
     async function loadProfile() {
       try {
         const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
-        if (userError) throw userError
+        if (userError) {
+          toast.error("Ошибка загрузки профиля. Попробуйте обновить страницу.")
+          throw userError
+        }
         if (!currentUser) {
           if (!isMounted) return
           setUser(null)
@@ -438,7 +438,6 @@ export default function ProfilePage() {
     }
   }, [])
 
-  // ─── Обработчики ───────────────────────────────────────
   const forceSaveWordStats = () => {
     const obj: Record<string, { correctCount: number; wrongCount: number }> = {}
     wordStatsMap.forEach((value, key) => {
@@ -453,6 +452,7 @@ export default function ProfilePage() {
     const { error } = await supabase.auth.signOut()
     if (error) {
       console.error("Ошибка выхода:", error)
+      toast.error("Не удалось выйти. Попробуйте ещё раз.")
       return
     }
     router.push("/login")
@@ -478,6 +478,7 @@ export default function ProfilePage() {
       setEditingName(false)
     } catch (error) {
       console.error("Ошибка изменения имени:", error)
+      toast.error("Не удалось сохранить имя. Попробуйте ещё раз.")
     }
   }
 
@@ -517,6 +518,7 @@ export default function ProfilePage() {
       event.target.value = ""
     } catch (error) {
       console.error("Ошибка загрузки аватара:", error)
+      toast.error("Не удалось загрузить аватар. Проверьте формат и размер файла.")
     } finally {
       setUploadingAvatar(false)
     }
@@ -527,7 +529,6 @@ export default function ProfilePage() {
     navigator.clipboard.writeText(text)
   }
 
-  // ─── Рендер ────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
@@ -564,7 +565,6 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
       <div className="mx-auto w-full max-w-7xl px-4 py-6">
-        {/* Шапка */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -587,9 +587,7 @@ export default function ProfilePage() {
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Левая колонка */}
           <div className="lg:col-span-1 space-y-4">
-            {/* Карточка профиля */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -612,7 +610,6 @@ export default function ProfilePage() {
               />
             </motion.div>
 
-            {/* Друзья */}
             <AnimatedBlock delay={0.15}>
               <div className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3">
                 <div className="flex items-center justify-between mb-2">
@@ -641,15 +638,12 @@ export default function ProfilePage() {
               </div>
             </AnimatedBlock>
 
-            {/* Тепловая карта активности */}
             <AnimatedBlock delay={0.4}>
               <ActivityHeatmap activeDates={activeDates} days={30} />
             </AnimatedBlock>
           </div>
 
-          {/* Правая колонка */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Статистические круги */}
             <StatsCards
               wordsPercent={wordsPercent}
               uniqueLearnedWords={uniqueLearnedWords}
@@ -662,7 +656,6 @@ export default function ProfilePage() {
               totalAnswers={totalAnswers}
             />
 
-            {/* Карточки: уровень языка, серия, достижения */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <AnimatedBlock delay={0.4}>
                 <div
@@ -708,7 +701,6 @@ export default function ProfilePage() {
               </AnimatedBlock>
             </div>
 
-            {/* График прогресса */}
             <AnimatedBlock delay={0.55}>
               <ProgressChart
                 choiceCorrectCount={choiceCorrectCount}
@@ -717,7 +709,6 @@ export default function ProfilePage() {
               />
             </AnimatedBlock>
 
-            {/* Недавние достижения */}
             {recentAchievements.length > 0 && (
               <AnimatedBlock delay={0.6}>
                 <div className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3">
@@ -742,7 +733,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Модальные окна */}
       <AnimatePresence>
         <LevelDetailModal
           key="level-modal"

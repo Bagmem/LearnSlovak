@@ -15,7 +15,7 @@ import {
   FaLanguage,
   FaLock,
 } from "react-icons/fa"
-import { words, type LanguageLevel } from "../../../data/words"
+import { words, type LanguageLevel, type Word } from "../../../data/words"
 import { grammarTasks } from "../../../data/grammar"
 import StreakWidget from "../streak/StreakWidget"
 import CategoryCard from "./CategoryCard"
@@ -29,7 +29,7 @@ import { SkeletonLevelCard } from "../shared/Skeleton"
 export type GameMode = "choice" | "write" | "flashcard"
 
 type StartMenuProps = {
-  onSelectCategory: (category: string, level: LanguageLevel, dataSource: "vocab" | "grammar") => void
+  onSelectCategory: (category: string, level: LanguageLevel, dataSource: "vocab" | "grammar", customWords?: Word[]) => void
   userLevel: UserLevel
   xp: number
   progressData: Record<string, number>
@@ -42,6 +42,7 @@ type StartMenuProps = {
   learnedWordsCount: number
   completedCategoriesCount: number
   wordStatsMap: Map<string, WordStats>
+  onStartReview?: (words: Word[]) => void
 }
 
 const levelIcons: Record<LanguageLevel, React.ReactNode> = {
@@ -80,10 +81,6 @@ const levelColors: Record<LanguageLevel, { bg: string; border: string; text: str
   C2: { bg: "from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-900/50", border: "border-gray-200 dark:border-gray-700", text: "text-gray-600 dark:text-gray-400", progress: "from-gray-500 to-gray-600" },
 }
 
-function getItemKey(item: { slovak: string; russian: string }): string {
-  return `${item.slovak}|${item.russian}`
-}
-
 export default function StartMenu({
   onSelectCategory,
   userLevel,
@@ -98,6 +95,7 @@ export default function StartMenu({
   learnedWordsCount,
   completedCategoriesCount,
   wordStatsMap,
+  onStartReview,
 }: StartMenuProps) {
   const [studyTab, setStudyTab] = useState<"vocab" | "grammar">("vocab")
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -107,7 +105,7 @@ export default function StartMenu({
   })
   const { unlocked } = useAchievements()
   const [mounted, setMounted] = useState(false)
-
+  const [isReviewHovered, setIsReviewHovered] = useState(false)
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -175,6 +173,18 @@ export default function StartMenu({
     const map: Record<LanguageLevel, LanguageLevel> = { A1: "A1", A2: "A1", B1: "A2", B2: "B1", C1: "B2", C2: "C1" }
     return map[level]
   }
+
+  const wordsToReview = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const result: Word[] = []
+    for (const [key, stats] of wordStatsMap.entries()) {
+      if (stats.nextReview && stats.nextReview <= today) {
+        const word = words.find(w => `${w.slovak}|${w.russian}` === key) || grammarTasks.find(w => `${w.slovak}|${w.russian}` === key)
+        if (word) result.push(word)
+      }
+    }
+    return result
+  }, [wordStatsMap])
 
   return (
     <motion.div
@@ -262,6 +272,34 @@ export default function StartMenu({
         <span>{userLevel === null ? "Для открытия уровней пройдите тест A1 на 100%." : userLevel === "C1" ? "Поздравляем! Вы достигли максимального уровня C1!" : `Ваш уровень: ${userLevel}. Пройдите тест ${userLevel} на 100%, чтобы открыть уровень ${getNextLevel(userLevel)}.`}</span>
       </div>
 
+  {wordsToReview.length > 0 && (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    whileHover={{ scale: 1.02 }}
+    whileTap={{ scale: 0.98 }}
+    transition={{ duration: 0.2 }}
+    className="group cursor-pointer relative overflow-hidden rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-5 transition-all transform"
+    onClick={() => onStartReview?.(wordsToReview)}
+  >
+    {/* Плавно появляющийся градиентный слой */}
+    <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out" />
+    
+    <div className="relative z-10 flex items-center justify-between">
+      <div>
+        <h3 className="font-black text-lg text-gray-800 dark:text-white group-hover:text-white transition-colors duration-500">
+          🔄 Повторить слова
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-white/90 transition-colors duration-500">
+          Готово к повторению: {wordsToReview.length} слов
+        </p>
+      </div>
+      <div className="text-3xl transition-transform duration-200 group-hover:scale-110 group-hover:text-white">
+        📚
+      </div>
+    </div>
+  </motion.div>
+)}
       {!mounted ? (
         <div className="space-y-8">
           {[...Array(5)].map((_, i) => <SkeletonLevelCard key={i} />)}
