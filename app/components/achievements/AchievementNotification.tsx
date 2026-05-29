@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion"
 import { useEffect, useState } from "react"
 import { FaTrophy, FaStar, FaMedal } from "react-icons/fa"
-import { useTheme } from "../../hooks/useTheme"
+import { useTheme } from "../../../hooks/useTheme"
 
 type AchievementNotificationProps = {
   achievement: {

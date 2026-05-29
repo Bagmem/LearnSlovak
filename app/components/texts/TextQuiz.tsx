@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { type SlovakText } from "../../data/texts"
-import { playClickSound, playCorrectSound, playWrongSound, playVictorySound } from "../../lib/sounds"
+import { type SlovakText } from "../../../data/texts"
+import { playClickSound, playCorrectSound, playWrongSound, playVictorySound } from "../../../lib/sounds"
 import confetti from "canvas-confetti"
 import { FaArrowLeft, FaCheckCircle, FaTimesCircle, FaTrophy } from "react-icons/fa"
 import { motion, AnimatePresence } from "framer-motion"

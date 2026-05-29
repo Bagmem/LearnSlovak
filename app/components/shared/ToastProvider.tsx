@@ -1,7 +1,7 @@
 "use client"
 
 import { Toaster } from 'react-hot-toast'
-import { useTheme } from '../../hooks/useTheme'
+import { useTheme } from '../../../hooks/useTheme'
 
 export default function ToastProvider() {
   const { theme } = useTheme()

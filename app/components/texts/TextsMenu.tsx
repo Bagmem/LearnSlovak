@@ -2,10 +2,10 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../data/texts"
-import { type UserLevel, canAccessLevel } from "../../lib/levels"
+import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../../data/texts"
+import { type UserLevel, canAccessLevel } from "../../../lib/levels"
 import { FaCheckCircle, FaFilter, FaTimes, FaSearch, FaBrain, FaTrashAlt } from "react-icons/fa"
-import { SkeletonTextsGrid } from "./Skeleton"
+import { SkeletonTextsGrid } from "../shared/Skeleton"
 
 type TextsMenuProps = {
   onSelectText: (text: SlovakText) => void

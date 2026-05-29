@@ -1,8 +1,8 @@
 "use client"
 
-import { achievements } from "../../data/achievements"
-import { type UnlockedAchievement } from "../../hooks/useAchievements"
-import { getIconForAchievement } from "../../utils/achievementIcons"
+import { achievements } from "../../../data/achievements"
+import { type UnlockedAchievement } from "../../../hooks/useAchievements"
+import { getIconForAchievement } from "../../../utils/achievementIcons"
 import { FaTrophy } from "react-icons/fa"
 import { motion } from "framer-motion"
 

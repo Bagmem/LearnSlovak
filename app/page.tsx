@@ -1,11 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { motion } from "framer-motion"
-import { FaBullseye, FaBookOpen, FaScroll, FaUserCircle, FaSignOutAlt, FaCog, FaClipboardList } from "react-icons/fa"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
+import toast from "react-hot-toast"
 import { supabase } from "../lib/supabase"
 import { canAccessLevel, normalizeUserLevel, getNextLevel, type UserLevel } from "../lib/levels"
 import { words, type Word, type LanguageLevel } from "../data/words"
@@ -13,9 +11,9 @@ import { grammarTasks } from "../data/grammar"
 import { texts, type SlovakText } from "../data/texts"
 import { checkAnswer, generateWrongOptions, selectNextWord, updateWordStats, type WordStats, createEmptyWordStats } from "../lib/game"
 import { saveProgress, loadProgress } from "../lib/storage"
-import { 
-  playCorrectSound, playWrongSound, playLessonStartSound, playVictorySound, playClickSound, 
-  initAudio, setMuted, playSkipSound, playMarkHardSound, setGlobalVolume 
+import {
+  playCorrectSound, playWrongSound, playLessonStartSound, playVictorySound, playClickSound,
+  initAudio, setMuted, playSkipSound, playMarkHardSound, setGlobalVolume
 } from "../lib/sounds"
 import { canEarnXpForWord, canEarnLessonBonus } from "../lib/xpLimits"
 import { useAchievements } from "../hooks/useAchievements"
@@ -23,22 +21,23 @@ import type { AchievementState } from "../data/achievements"
 import { useTextProgress } from "../hooks/useTextProgress"
 import { useSettings } from "../hooks/useSettings"
 import { useTheme } from "./../hooks/useTheme"
-import GameUI from "./components/GameUI"
-import StartMenu from "./components/StartMenu"
-import VictoryScreen from "./components/VictoryScreen"
-import ReferenceView from "./components/ReferenceView"
-import FlashcardMode from "./components/FlashcardMode"
-import TextsMenu from "./components/TextsMenu"
-import TextViewer from "./components/TextViewer"
-import TextQuiz from "./components/TextQuiz"
-import AchievementNotification from "./components/AchievementNotification"
+import GameUI from "./components/game/GameUI"
+import StartMenu from "./components/game/StartMenu"
+import VictoryScreen from "./components/game/VictoryScreen"
+import ReferenceView from "./components/ReferenceView" // он на месте
+import FlashcardMode from "./components/game/FlashcardMode"
+import TextsMenu from "./components/texts/TextsMenu"
+import TextViewer from "./components/texts/TextViewer"
+import TextQuiz from "./components/texts/TextQuiz"
+import AchievementNotification from "./components/achievements/AchievementNotification"
 import SettingsModal from "./components/SettingsModal"
-import LevelTest from "./components/LevelTest"
-import FullTest from "./components/FullTest"
-import ConfirmModal from "./components/ConfirmModal"
-import TestResultModal from "./components/TestResultModal"
-import toast from "react-hot-toast"
-import { SkeletonLevelCard } from "./components/Skeleton"
+import LevelTest from "./components/test/LevelTest"
+import FullTest from "./components/test/FullTest"
+import ConfirmModal from "./components/shared/ConfirmModal"
+import TestResultModal from "./components/test/TestResultModal"
+import Sidebar from "./components/Sidebar"
+import GameScreen from "./components/GameScreen"
+import { SkeletonLevelCard } from "./components/shared/Skeleton"
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5)
@@ -197,7 +196,6 @@ export default function Home() {
   const [sessionTotal, setSessionTotal] = useState(0)
   const [sessionMistakes, setSessionMistakes] = useState<{ word: string; translation: string }[]>([])
   const [hardWordsSet, setHardWordsSet] = useState<Set<string>>(getStoredHardWords)
-  const [writeInput, setWriteInput] = useState("")
 
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false)
   const [showTestResultModal, setShowTestResultModal] = useState(false)
@@ -253,25 +251,34 @@ export default function Home() {
     if (error) console.error("Ошибка выхода:", error)
     setUser(null)
     setUserLevel(null)
-    router.push("/")
-    router.refresh()
+    if (window.location.pathname !== "/") {
+      router.push("/")
+    }
   }
 
   useEffect(() => {
     let isMounted = true
     async function loadCurrentUser() {
       setIsLoadingUser(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        if (isMounted) {
+          setUser(null)
+          setUserLevel(null)
+          setIsLoadingUser(false)
+        }
+        return
+      }
       const { data: { user: currentUser }, error } = await supabase.auth.getUser()
       if (!isMounted) return
       if (error) {
         console.error("Ошибка загрузки пользователя:", error)
         setUser(null)
         setUserLevel(null)
-        setIsLoadingUser(false)
-        return
+      } else {
+        setUser(currentUser)
+        if (!currentUser) setUserLevel(null)
       }
-      setUser(currentUser)
-      if (!currentUser) setUserLevel(null)
       setIsLoadingUser(false)
     }
     loadCurrentUser()
@@ -430,7 +437,6 @@ export default function Home() {
     setSessionCorrect(0)
     setSessionTotal(0)
     setSessionMistakes([])
-    setWriteInput("")
     setScreen("game")
     playLessonStartSound()
   }, [wordStatsMap, userLevel])
@@ -489,7 +495,6 @@ export default function Home() {
     setMessage("")
     setIsAnswering(false)
     setSelectedOption(null)
-    setWriteInput("")
     triggerAchievementCheck()
   }, [currentWord, getRemainingWords, triggerAchievementCheck])
 
@@ -520,7 +525,6 @@ export default function Home() {
     setMessage("")
     setIsAnswering(false)
     setSelectedOption(null)
-    setWriteInput("")
     triggerAchievementCheck()
   }, [currentWord, getRemainingWords, triggerAchievementCheck])
 
@@ -629,7 +633,6 @@ export default function Home() {
       setMessage("")
       setIsAnswering(false)
       setSelectedOption(null)
-      setWriteInput("")
       return
     }
     if (remainingWordsCount === 0) {
@@ -657,7 +660,6 @@ export default function Home() {
     setMessage("")
     setIsAnswering(false)
     setSelectedOption(null)
-    setWriteInput("")
   }, [
     message, lives, remainingWordsCount, activeDates, notCompletedWords,
     wordStatsMap, selectedLevel, selectedCategory, currentDataSource,
@@ -770,7 +772,6 @@ export default function Home() {
       setSessionCorrect(0)
       setSessionTotal(0)
       setSessionMistakes([])
-      setWriteInput("")
       setScreen("game")
     } else {
       setScreen("menu")
@@ -810,73 +811,38 @@ export default function Home() {
   }
 
   if (screen === "game") {
-    if (gameMode === "flashcard") {
-      return (
-        <>
-          <FlashcardMode
-            key={currentWord ? getWordKey(currentWord) : undefined}
-            word={currentWord}
-            onNext={handleFlashcardRating}
-            onBack={handleBack}
-            onRestart={handleRestart}
-            lessonProgress={lessonProgressPercent}
-            wordsLeft={remainingWordsCount}
-            totalWords={totalLessonWords}
-            remainingCount={remainingCount}
-            onSkip={handleSkip}
-            onMarkHard={handleMarkHard}
-            sessionCorrect={sessionCorrect}
-            sessionTotal={sessionTotal}
-          />
-          <ConfirmModal
-            isOpen={isExitConfirmOpen}
-            onClose={() => setIsExitConfirmOpen(false)}
-            onConfirm={confirmExit}
-            title="Выйти из урока?"
-            message="Весь прогресс текущего урока будет потерян. Вы уверены?"
-            confirmText="Да, выйти"
-            cancelText="Отмена"
-          />
-        </>
-      )
-    }
     return (
-      <>
-        <GameUI
-          xp={xp}
-          streak={streak}
-          lives={lives}
-          word={currentWord}
-          options={options}
-          message={message}
-          selectedOption={selectedOption}
-          onAnswer={checkAnswerHandler}
-          onNext={handleNextWord}
-          onRestart={handleRestart}
-          onBack={handleBack}
-          onSkip={handleSkip}
-          onMarkHard={handleMarkHard}
-          disabled={isAnswering || lives <= 0}
-          lessonProgress={lessonProgressPercent}
-          gameMode={gameMode}
-          wordsLeft={remainingWordsCount}
-          totalWords={totalLessonWords}
-          remainingCount={remainingCount}
-          speechRate={settings.speechRate}
-          autoSpeakOnCorrect={settings.autoSpeakOnCorrect}
-          sessionCorrect={sessionCorrect}
-          sessionTotal={sessionTotal}
-        />
-        <ConfirmModal
-          isOpen={isExitConfirmOpen}
-          onClose={() => setIsExitConfirmOpen(false)}
-          onConfirm={confirmExit}
-          title="Выйти из урока?"
-          message="Весь прогресс текущего урока будет потерян. Вы уверены?"
-          confirmText="Да, выйти"
-          cancelText="Отмена"
-        />
-      </>
+      <GameScreen
+        gameMode={gameMode}
+        currentWord={currentWord}
+        options={options}
+        message={message}
+        selectedOption={selectedOption}
+        isAnswering={isAnswering}
+        lives={lives}
+        disabled={isAnswering || lives <= 0}
+        lessonProgress={lessonProgressPercent}
+        wordsLeft={remainingWordsCount}
+        totalWords={totalLessonWords}
+        remainingCount={remainingCount}
+        xp={xp}
+        streak={streak}
+        sessionCorrect={sessionCorrect}
+        sessionTotal={sessionTotal}
+        speechRate={settings.speechRate}
+        autoSpeakOnCorrect={settings.autoSpeakOnCorrect}
+        onFlashcardNext={handleFlashcardRating}
+        onAnswer={checkAnswerHandler}
+        onNext={handleNextWord}
+        onRestart={handleRestart}
+        onBack={handleBack}
+        onSkip={handleSkip}
+        onMarkHard={handleMarkHard}
+        isExitConfirmOpen={isExitConfirmOpen}
+        onCloseExitConfirm={() => setIsExitConfirmOpen(false)}
+        onConfirmExit={confirmExit}
+        getWordKey={getWordKey}
+      />
     )
   }
 
@@ -897,99 +863,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <aside className="fixed left-0 top-0 h-full w-64 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-2xl z-30 flex flex-col border-r border-gray-200/50 dark:border-gray-700/50">
-        <div className="px-5 pt-6 pb-4 border-b border-gray-200/50 dark:border-gray-700/50">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
-            LearnSlovak
-          </h1>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1.5">
-          {([
-            { id: "study", label: "Изучение", icon: <FaBullseye size={20} />, active: globalTab === "study" },
-            { id: "texts", label: "Тексты", icon: <FaScroll size={20} />, active: globalTab === "texts" },
-            { id: "test", label: "Тест", icon: <FaClipboardList size={20} />, active: globalTab === "test" },
-            { id: "reference", label: "Справочник", icon: <FaBookOpen size={20} />, active: globalTab === "reference" },
-          ] as const).map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setGlobalTab(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                item.active
-                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
-              }`}
-              aria-label={item.label}
-            >
-              <span className={`${item.active ? "text-white" : "text-gray-500 dark:text-gray-400 group-hover:text-orange-500 transition-colors"}`}>
-                {item.icon}
-              </span>
-              <span className="font-bold text-sm">{item.label}</span>
-              {item.active && (
-                <motion.div
-                  layoutId="activeNav"
-                  className="ml-auto w-1.5 h-1.5 rounded-full bg-white/80"
-                  transition={{ duration: 0.2 }}
-                />
-              )}
-            </button>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3">
-          {user ? (
-            <>
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all group"
-              >
-                <FaCog size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-                <span className="font-bold text-sm">Настройки</span>
-              </button>
-              <Link
-                href="/profile"
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all group"
-              >
-                <FaUserCircle size={20} className="group-hover:scale-105 transition-transform" />
-                <span className="font-bold text-sm">Мой профиль</span>
-              </Link>
-              <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-200/50 dark:border-gray-700/50">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-md">
-                    <FaUserCircle size={16} className="text-white" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[120px]">
-                    {getUserDisplayName(user)}
-                  </span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400"
-                  title="Выйти"
-                  aria-label="Выйти из аккаунта"
-                >
-                  <FaSignOutAlt size={16} />
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-2">
-              <button
-                onClick={() => router.push("/login")}
-                className="w-full py-2.5 text-center text-sm font-bold bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl shadow-md hover:shadow-lg transition"
-              >
-                Войти
-              </button>
-              <button
-                onClick={() => router.push("/register")}
-                className="w-full py-2.5 text-center text-sm font-bold border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition text-gray-800 dark:text-gray-200"
-              >
-                Регистрация
-              </button>
-            </div>
-          )}
-        </div>
-      </aside>
+      <Sidebar
+        user={user}
+        globalTab={globalTab}
+        onTabChange={setGlobalTab}
+        onSettingsClick={() => setIsSettingsOpen(true)}
+        onLogout={handleLogout}
+        getUserDisplayName={getUserDisplayName}
+        onLoginClick={() => router.push("/login")}
+        onRegisterClick={() => router.push("/register")}
+      />
 
       <main className="ml-64 min-h-screen p-8">
         <div className="max-w-7xl mx-auto">

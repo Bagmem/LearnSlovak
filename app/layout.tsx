@@ -1,7 +1,7 @@
 import { Inter } from 'next/font/google'
 import "./globals.css"
-import ToastProvider from "./components/ToastProvider"
-import ThemeInitializer from "./components/ThemeInitializer"
+import ToastProvider from "./components/shared/ToastProvider"
+import ThemeInitializer from "./components/shared/ThemeInitializer"
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'], variable: '--font-inter' })
 

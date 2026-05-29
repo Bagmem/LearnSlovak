@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { motion } from "framer-motion"
 import confetti from "canvas-confetti"
 import { FaCheckCircle, FaTimesCircle, FaRedoAlt } from "react-icons/fa"
-import { useTheme } from "../../hooks/useTheme"
+import { useTheme } from "../../../hooks/useTheme"
 
 type VictoryProps = {
   category: string

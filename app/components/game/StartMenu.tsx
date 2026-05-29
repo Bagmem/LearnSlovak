@@ -15,17 +15,16 @@ import {
   FaLanguage,
   FaLock,
 } from "react-icons/fa"
-import { words, type LanguageLevel } from "../../data/words"
-import { grammarTasks } from "../../data/grammar"
-import StreakWidget from "./StreakWidget"
+import { words, type LanguageLevel } from "../../../data/words"
+import { grammarTasks } from "../../../data/grammar"
+import StreakWidget from "../streak/StreakWidget"
 import CategoryCard from "./CategoryCard"
-import { playModeSwitchSound, initAudio } from "../../lib/sounds"
-import ProfileModal from "./ProfileModal"
-import { useAchievements } from "../../hooks/useAchievements"
-import { canAccessLevel, getNextLevel, type UserLevel } from "../../lib/levels"
-import type { WordStats } from "../../lib/game"
-import { isWordLearned } from "../../lib/game"
-import { SkeletonLevelCard } from "./Skeleton"
+import { playModeSwitchSound, initAudio } from "../../../lib/sounds"
+import ProfileModal from "../ProfileModal"
+import { useAchievements } from "../../../hooks/useAchievements"
+import { canAccessLevel, getNextLevel, type UserLevel } from "../../../lib/levels"
+import type { WordStats } from "../../../lib/game"
+import { SkeletonLevelCard } from "../shared/Skeleton"
 
 export type GameMode = "choice" | "write" | "flashcard"
 

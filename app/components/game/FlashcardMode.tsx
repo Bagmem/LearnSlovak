@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { type Word } from "../../data/words"
-import { playClickSound } from "../../lib/sounds"
+import { type Word } from "../../../data/words"
+import { playClickSound } from "../../../lib/sounds"
 import { FaVolumeUp, FaLightbulb, FaStepForward, FaSkull } from "react-icons/fa"
-import { useTheme } from "../../hooks/useTheme"
+import { useTheme } from "../../../hooks/useTheme"
 
 type FlashcardModeProps = {
   word: Word | null

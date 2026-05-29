@@ -6,10 +6,9 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import type { User } from "@supabase/supabase-js"
 import {
-  FaArrowLeft, FaCamera, FaEnvelope, FaFire, FaPen, FaSignOutAlt,
-  FaStar, FaTrophy, FaUserCircle, FaCalendarAlt, FaSkull, FaGraduationCap,
-  FaCheckCircle, FaTimes, FaCopy, FaUserFriends, FaGem, FaMedal,
-  FaChartPie, FaBook, FaLayerGroup, FaBullseye,
+  FaArrowLeft, FaFire, FaSignOutAlt, FaTrophy,
+  FaUserCircle, FaCheckCircle, FaUserFriends,
+  FaMedal, FaTimes,
 } from "react-icons/fa"
 import { supabase } from "../../lib/supabase"
 import { words } from "../../data/words"
@@ -17,11 +16,15 @@ import { grammarTasks } from "../../data/grammar"
 import { achievements } from "../../data/achievements"
 import { useAchievements } from "../../hooks/useAchievements"
 import { initAudio, playClickSound } from "../../lib/sounds"
-import AchievementsList from "../components/AchievementsList"
-import ActivityHeatmap from "../components/ActivityHeatmap"
-import StreakModal from "../components/StreakModal"
-import ProgressChart from "../components/ProgressChart"
+import AchievementsList from "../components/achievements/AchievementsList"
+import ActivityHeatmap from "../components/streak/ActivityHeatmap"
+import StreakModal from "../components/streak/StreakModal"
+import ProgressChart from "../components/streak/ProgressChart"
+import UserProfileCard from "./UserProfileCard"
+import StatsCards from "./StatsCards"
+import LevelDetailModal from "./LevelDetailModal"
 
+// ─── Типы ────────────────────────────────────────────────
 type UserProfile = {
   id: string
   name: string
@@ -42,15 +45,7 @@ type SavedAchievement =
       reward?: number
     }
 
-function getDayWord(count: number): string {
-  const lastDigit = count % 10
-  const lastTwoDigits = count % 100
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return "дней"
-  if (lastDigit === 1) return "день"
-  if (lastDigit >= 2 && lastDigit <= 4) return "дня"
-  return "дней"
-}
-
+// ─── Утилиты для streak / localStorage ────────────────
 function getLocalDateString(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -191,94 +186,84 @@ async function getOrCreateProfile(user: User): Promise<UserProfile> {
   return createdProfile as UserProfile
 }
 
-function CircularProgress({
-  percent,
-  label,
-  icon,
-  color = "#f97316",
-  size = 80,
+// ─── Презентационная обёртка для анимированных блоков ────
+function AnimatedBlock({
+  children,
+  delay = 0,
+  className = "",
 }: {
-  percent: number
-  label: string
-  icon: string
-  color?: string
-  size?: number
+  children: React.ReactNode
+  delay?: number
+  className?: string
 }) {
-  const radius = (size - 8) / 2
-  const circumference = 2 * Math.PI * radius
-  const [animatedPercent, setAnimatedPercent] = useState(0)
-
-  useEffect(() => {
-    const timer = setTimeout(() => setAnimatedPercent(percent), 100)
-    return () => clearTimeout(timer)
-  }, [percent])
-
-  const offset = circumference - (animatedPercent / 100) * circumference
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, type: "spring" }}
-      className="flex flex-col items-center p-2 overflow-visible"
-    >
-      <div className="relative overflow-visible" style={{ width: size, height: size }}>
-        <svg className="transform -rotate-90 w-full h-full overflow-visible">
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            className="stroke-gray-200 dark:stroke-gray-700"
-            strokeWidth="5"
-          />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth="5"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className="transition-all duration-1000 ease-out"
-            style={{ filter: `drop-shadow(0 0 6px ${color}80)` }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl">{icon}</span>
-          <span className="text-base font-black text-gray-800 dark:text-white">
-            {Math.round(animatedPercent)}%
-          </span>
-        </div>
-      </div>
-      <span className="text-[10px] font-semibold mt-1 text-gray-600 dark:text-gray-300">
-        {label}
-      </span>
-    </motion.div>
-  )
-}
-
-function StatCard({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.3, delay }}
-      className="w-full"
+      className={`w-full ${className}`}
     >
       {children}
     </motion.div>
   )
 }
 
+// ─── Модальное окно достижений (обёртка для AnimatePresence) ─────
+function AchievementsModal({
+  isOpen,
+  onClose,
+  unlocked,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  unlocked: any[]
+}) {
+  if (!isOpen) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="rounded-2xl w-full max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20">
+          <div className="p-2 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
+            <FaTrophy className="text-orange-500 text-base" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-base font-black text-gray-800 dark:text-white">Достижения</h2>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">ваши награды и успехи</p>
+          </div>
+          <button onClick={() => { playClickSound(); onClose() }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
+            <FaTimes size={18} />
+          </button>
+        </div>
+        <div className="p-3 max-h-[70vh] overflow-y-auto">
+          <AchievementsList unlocked={unlocked} />
+        </div>
+        <div className="p-3 border-t border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900/30">
+          <button onClick={() => { playClickSound(); onClose() }} className="w-full py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-lg text-sm hover:shadow-lg transition">
+            Закрыть
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ─── Основной компонент страницы ─────────────────────────
 export default function ProfilePage() {
   const router = useRouter()
   const { unlocked } = useAchievements()
 
+  // ─── Состояния ─────────────────────────────────────────
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -300,18 +285,8 @@ export default function ProfilePage() {
   const [writeCorrectCount] = useState(() => getStoredWriteCorrectCount())
   const [flashcardCorrectCount] = useState(() => getStoredFlashcardCorrectCount())
 
+  // ─── Производные значения ──────────────────────────────
   const streak = useMemo(() => calculateStreak(activeDates), [activeDates])
-
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "xp") {
-        const newXp = e.newValue ? parseInt(e.newValue, 10) : 0
-        setXp(newXp)
-      }
-    }
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
-  }, [])
 
   function isWordLearned(stat: { correctCount: number; wrongCount: number }): boolean {
     return stat.correctCount >= 2 && stat.correctCount >= stat.wrongCount
@@ -330,6 +305,95 @@ export default function ProfilePage() {
   }, [wordStatsMap, wordKeysSet])
 
   const totalWordsCount = words.length
+
+  const allItems = useMemo(() => [...words, ...grammarTasks], [])
+
+  const categoryTotalCount = useMemo(() => {
+    const counts: Record<string, number> = {}
+    allItems.forEach((item) => {
+      const key = `${item.level}_${item.category}`
+      counts[key] = (counts[key] || 0) + 1
+    })
+    return counts
+  }, [allItems])
+
+  const completedCategoriesCount = useMemo(() => {
+    let completed = 0
+    Object.entries(progressData).forEach(([key, passed]) => {
+      const total = categoryTotalCount[key] || 1
+      if (passed >= total) completed++
+    })
+    return completed
+  }, [progressData, categoryTotalCount])
+
+  const { totalCorrect, totalWrong } = useMemo(() => {
+    let correct = 0, wrong = 0
+    wordStatsMap.forEach((stat) => {
+      correct += stat.correctCount
+      wrong += stat.wrongCount
+    })
+    return { totalCorrect: correct, totalWrong: wrong }
+  }, [wordStatsMap])
+
+  const totalAnswers = totalCorrect + totalWrong
+  const accuracy = totalAnswers ? Math.round((totalCorrect / totalAnswers) * 100) : 0
+  const wordsPercent = totalWordsCount ? (uniqueLearnedWords / totalWordsCount) * 100 : 0
+  const totalCategories = Object.keys(categoryTotalCount).length
+  const categoriesPercent = totalCategories ? (completedCategoriesCount / totalCategories) * 100 : 0
+
+  const levelStats = useMemo(() => {
+    const levels = ["A1", "A2", "B1", "B2", "C1"] as const
+    return levels.map((levelItem) => {
+      const itemsInLevel = allItems.filter((item) => item.level === levelItem)
+      if (!itemsInLevel.length) return { level: levelItem, total: 0, learned: 0, percent: 0 }
+      const uniqueCategories = new Set(itemsInLevel.map((item) => item.category))
+      let completedCategories = 0
+      uniqueCategories.forEach((category) => {
+        const totalInCat = itemsInLevel.filter((item) => item.category === category).length
+        const passed = progressData[`cat_progress_${levelItem}_${category}`] || 0
+        if (passed >= totalInCat) completedCategories++
+      })
+      const total = uniqueCategories.size
+      return { level: levelItem, total, learned: completedCategories, percent: total ? (completedCategories / total) * 100 : 0 }
+    })
+  }, [allItems, progressData])
+
+  const hardWords = useMemo(() => {
+    const wordsList: { word: string; translation: string; wrong: number; correct: number }[] = []
+    wordStatsMap.forEach((stat, key) => {
+      if (stat.wrongCount > 0 || stat.correctCount > 0) {
+        const [slovak, russian] = key.split("|")
+        wordsList.push({ word: slovak, translation: russian, wrong: stat.wrongCount, correct: stat.correctCount })
+      }
+    })
+    wordsList.sort((a, b) => (b.wrong - b.correct) - (a.wrong - a.correct))
+    return wordsList.slice(0, 5)
+  }, [wordStatsMap])
+
+  // ─── Данные профиля ────────────────────────────────────
+  const displayName = profile?.name || user?.user_metadata?.name || user?.user_metadata?.full_name || "Без имени"
+  const displayEmail = profile?.email || user?.email || "Email не найден"
+  const photoURL = profile?.avatar_url || user?.user_metadata?.avatar_url || ""
+  const level = profile?.level || null
+
+  const profileLevel = Math.floor(xp / 100) + 1
+  const levelBase = profileLevel > 1 ? (profileLevel - 1) * 100 : 0
+  const nextLevelXp = levelBase + 100
+  const currentLevelProgress = xp - levelBase
+  const progressPercent = Math.min((currentLevelProgress / 100) * 100, 100)
+  const xpLeft = Math.max(nextLevelXp - xp, 0)
+
+  // ─── Эффекты ───────────────────────────────────────────
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "xp") {
+        const newXp = e.newValue ? parseInt(e.newValue, 10) : 0
+        setXp(newXp)
+      }
+    }
+    window.addEventListener("storage", handleStorageChange)
+    return () => window.removeEventListener("storage", handleStorageChange)
+  }, [])
 
   useEffect(() => {
     const handleFirstClick = () => {
@@ -374,6 +438,7 @@ export default function ProfilePage() {
     }
   }, [])
 
+  // ─── Обработчики ───────────────────────────────────────
   const forceSaveWordStats = () => {
     const obj: Record<string, { correctCount: number; wrongCount: number }> = {}
     wordStatsMap.forEach((value, key) => {
@@ -462,82 +527,7 @@ export default function ProfilePage() {
     navigator.clipboard.writeText(text)
   }
 
-  const allItems = useMemo(() => [...words, ...grammarTasks], [])
-
-  const categoryTotalCount = useMemo(() => {
-    const counts: Record<string, number> = {}
-    allItems.forEach((item) => {
-      const key = `${item.level}_${item.category}`
-      counts[key] = (counts[key] || 0) + 1
-    })
-    return counts
-  }, [allItems])
-
-  const completedCategoriesCount = useMemo(() => {
-    let completed = 0
-    Object.entries(progressData).forEach(([key, passed]) => {
-      const total = categoryTotalCount[key] || 1
-      if (passed >= total) completed++
-    })
-    return completed
-  }, [progressData, categoryTotalCount])
-
-  const { totalCorrect, totalWrong } = useMemo(() => {
-    let correct = 0, wrong = 0
-    wordStatsMap.forEach((stat) => {
-      correct += stat.correctCount
-      wrong += stat.wrongCount
-    })
-    return { totalCorrect: correct, totalWrong: wrong }
-  }, [wordStatsMap])
-
-  const totalAnswers = totalCorrect + totalWrong
-  const accuracy = totalAnswers ? Math.round((totalCorrect / totalAnswers) * 100) : 0
-  const wordsPercent = totalWordsCount ? (uniqueLearnedWords / totalWordsCount) * 100 : 0
-  const totalCategories = Object.keys(categoryTotalCount).length
-  const categoriesPercent = totalCategories ? (completedCategoriesCount / totalCategories) * 100 : 0
-
-  const levelStats = useMemo(() => {
-    const levels = ["A1", "A2", "B1", "B2", "C1"] as const
-    return levels.map((levelItem) => {
-      const itemsInLevel = allItems.filter((item) => item.level === levelItem)
-      if (!itemsInLevel.length) return { level: levelItem, total: 0, learned: 0, percent: 0 }
-      const uniqueCategories = new Set(itemsInLevel.map((item) => item.category))
-      let completedCategories = 0
-      uniqueCategories.forEach((category) => {
-        const totalInCat = itemsInLevel.filter((item) => item.category === category).length
-        const passed = progressData[`cat_progress_${levelItem}_${category}`] || 0
-        if (passed >= totalInCat) completedCategories++
-      })
-      const total = uniqueCategories.size
-      return { level: levelItem, total, learned: completedCategories, percent: total ? (completedCategories / total) * 100 : 0 }
-    })
-  }, [allItems, progressData])
-
-  const hardWords = useMemo(() => {
-    const wordsList: { word: string; translation: string; wrong: number; correct: number }[] = []
-    wordStatsMap.forEach((stat, key) => {
-      if (stat.wrongCount > 0 || stat.correctCount > 0) {
-        const [slovak, russian] = key.split("|")
-        wordsList.push({ word: slovak, translation: russian, wrong: stat.wrongCount, correct: stat.correctCount })
-      }
-    })
-    wordsList.sort((a, b) => (b.wrong - b.correct) - (a.wrong - a.correct))
-    return wordsList.slice(0, 5)
-  }, [wordStatsMap])
-
-  const displayName = profile?.name || user?.user_metadata?.name || user?.user_metadata?.full_name || "Без имени"
-  const displayEmail = profile?.email || user?.email || "Email не найден"
-  const photoURL = profile?.avatar_url || user?.user_metadata?.avatar_url || ""
-  const level = profile?.level || null
-
-  const profileLevel = Math.floor(xp / 100) + 1
-  const levelBase = profileLevel > 1 ? (profileLevel - 1) * 100 : 0
-  const nextLevelXp = levelBase + 100
-  const currentLevelProgress = xp - levelBase
-  const progressPercent = Math.min((currentLevelProgress / 100) * 100, 100)
-  const xpLeft = Math.max(nextLevelXp - xp, 0)
-
+  // ─── Рендер ────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
@@ -574,6 +564,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 dark:bg-gradient-to-br dark:from-[#1a1b3a] dark:to-[#0a0f2a]">
       <div className="mx-auto w-full max-w-7xl px-4 py-6">
+        {/* Шапка */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -596,69 +587,33 @@ export default function ProfilePage() {
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ЛЕВАЯ КОЛОНКА */}
+          {/* Левая колонка */}
           <div className="lg:col-span-1 space-y-4">
-            {/* Профиль */}
+            {/* Карточка профиля */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.1 }}
               className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 overflow-hidden"
             >
-              <div className="p-4">
-                <div className="flex flex-col items-center text-center">
-                  <div className="relative mb-2">
-                    <div className="h-16 w-16 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
-                      {photoURL ? (
-                        <img src={photoURL} alt="Аватар" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <FaUserCircle className="text-3xl text-gray-500 dark:text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <label className="absolute bottom-0 right-0 cursor-pointer rounded-full bg-orange-500 p-0.5 text-white shadow-md transition hover:bg-orange-600">
-                      <FaCamera className="text-[10px]" />
-                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
-                    </label>
-                  </div>
-                  {editingName ? (
-                    <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
-                      <input
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        placeholder="Новое имя"
-                        className="rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-2 py-0.5 text-xs text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-orange-400"
-                      />
-                      <button onClick={handleSaveName} className="rounded-lg bg-orange-500 px-2 py-0.5 text-[10px] font-black text-white hover:bg-orange-600 transition">
-                        Сохранить
-                      </button>
-                    </div>
-                  ) : (
-                    <h2 className="text-base font-black text-gray-800 dark:text-white">{displayName}</h2>
-                  )}
-                  <p className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                    <FaEnvelope className="text-[10px]" /> {displayEmail}
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                    <span>🆔</span>
-                    <span className="font-mono">{user.id.slice(0, 8)}...</span>
-                    <button onClick={() => copyToClipboard(user.id)} className="text-gray-400 hover:text-orange-500 transition">
-                      <FaCopy size={8} />
-                    </button>
-                  </p>
-                  <button
-                    onClick={() => { playClickSound(); setEditingName(true); setNewName(displayName) }}
-                    className="mt-1 inline-flex items-center gap-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-2 py-0.5 text-[10px] font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition"
-                  >
-                    <FaPen size={8} /> Редактировать
-                  </button>
-                </div>
-              </div>
+              <UserProfileCard
+                photoURL={photoURL}
+                displayName={displayName}
+                editingName={editingName}
+                newName={newName}
+                setNewName={setNewName}
+                onSaveName={handleSaveName}
+                onStartEdit={() => { playClickSound(); setEditingName(true); setNewName(displayName) }}
+                displayEmail={displayEmail}
+                userId={user.id}
+                onCopyId={copyToClipboard}
+                uploadingAvatar={uploadingAvatar}
+                onAvatarUpload={handleAvatarUpload}
+              />
             </motion.div>
 
             {/* Друзья */}
-            <StatCard delay={0.15}>
+            <AnimatedBlock delay={0.15}>
               <div className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
@@ -684,69 +639,32 @@ export default function ProfilePage() {
                   Приглашайте друзей, чтобы соревноваться
                 </p>
               </div>
-            </StatCard>
+            </AnimatedBlock>
 
-            <StatCard delay={0.4}>
+            {/* Тепловая карта активности */}
+            <AnimatedBlock delay={0.4}>
               <ActivityHeatmap activeDates={activeDates} days={30} />
-            </StatCard>
+            </AnimatedBlock>
           </div>
 
-          {/* ПРАВАЯ КОЛОНКА */}
+          {/* Правая колонка */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Строка 1: слова / темы / точность */}
+            {/* Статистические круги */}
+            <StatsCards
+              wordsPercent={wordsPercent}
+              uniqueLearnedWords={uniqueLearnedWords}
+              totalWordsCount={totalWordsCount}
+              categoriesPercent={categoriesPercent}
+              completedCategoriesCount={completedCategoriesCount}
+              totalCategories={totalCategories}
+              accuracy={accuracy}
+              totalCorrect={totalCorrect}
+              totalAnswers={totalAnswers}
+            />
+
+            {/* Карточки: уровень языка, серия, достижения */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <StatCard delay={0.25}>
-                <div className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3 text-center h-full flex flex-col">
-                  <div className="flex justify-center mb-1">
-                    <div className="p-1.5 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
-                      <FaBook className="text-orange-500 text-base" />
-                    </div>
-                  </div>
-                  <div className="flex-grow flex flex-col justify-center">
-                    <CircularProgress percent={wordsPercent} label="Слов изучено" icon="📚" color="#f97316" size={80} />
-                  </div>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                    {uniqueLearnedWords} из {totalWordsCount}
-                  </p>
-                </div>
-              </StatCard>
-
-              <StatCard delay={0.3}>
-                <div className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3 text-center h-full flex flex-col">
-                  <div className="flex justify-center mb-1">
-                    <div className="p-1.5 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
-                      <FaLayerGroup className="text-orange-500 text-base" />
-                    </div>
-                  </div>
-                  <div className="flex-grow flex flex-col justify-center">
-                    <CircularProgress percent={categoriesPercent} label="Тем завершено" icon="🏆" color="#3b82f6" size={80} />
-                  </div>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                    {completedCategoriesCount} из {totalCategories}
-                  </p>
-                </div>
-              </StatCard>
-
-              <StatCard delay={0.35}>
-                <div className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3 text-center h-full flex flex-col">
-                  <div className="flex justify-center mb-1">
-                    <div className="p-1.5 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
-                      <FaBullseye className="text-orange-500 text-base" />
-                    </div>
-                  </div>
-                  <div className="flex-grow flex flex-col justify-center">
-                    <CircularProgress percent={accuracy} label="Точность" icon="🎯" color="#22c55e" size={80} />
-                  </div>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                    {totalCorrect} из {totalAnswers} ответов
-                  </p>
-                </div>
-              </StatCard>
-            </div>
-
-            {/* Строка 2: уровень языка / серия / достижения */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <StatCard delay={0.4}>
+              <AnimatedBlock delay={0.4}>
                 <div
                   className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3 text-center cursor-pointer hover:shadow-lg transition-all hover:border-orange-300 dark:hover:border-orange-700 h-full flex flex-col justify-center"
                   onClick={() => { playClickSound(); setShowLevelModal(true) }}
@@ -759,9 +677,8 @@ export default function ProfilePage() {
                   <h3 className="text-xs font-black text-gray-800 dark:text-white mb-0.5">Уровень языка</h3>
                   <p className="text-2xl font-black text-gray-800 dark:text-white">{level || "—"}</p>
                 </div>
-              </StatCard>
-
-              <StatCard delay={0.45}>
+              </AnimatedBlock>
+              <AnimatedBlock delay={0.45}>
                 <div
                   className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3 text-center cursor-pointer hover:shadow-lg transition-all hover:border-orange-300 dark:hover:border-orange-700 h-full flex flex-col justify-center"
                   onClick={() => { playClickSound(); setShowStreakModal(true) }}
@@ -774,9 +691,8 @@ export default function ProfilePage() {
                   <h3 className="text-xs font-black text-gray-800 dark:text-white mb-0.5">Серия</h3>
                   <p className="text-2xl font-black text-gray-800 dark:text-white">{streak}</p>
                 </div>
-              </StatCard>
-
-              <StatCard delay={0.5}>
+              </AnimatedBlock>
+              <AnimatedBlock delay={0.5}>
                 <div
                   className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3 text-center cursor-pointer hover:shadow-lg transition-all hover:border-orange-300 dark:hover:border-orange-700 h-full flex flex-col justify-center"
                   onClick={() => { playClickSound(); setShowAchievements(true) }}
@@ -789,21 +705,21 @@ export default function ProfilePage() {
                   <h3 className="text-xs font-black text-gray-800 dark:text-white mb-0.5">Достижения</h3>
                   <p className="text-2xl font-black text-gray-800 dark:text-white">{unlockedAchievementsCount}/{achievements.length}</p>
                 </div>
-              </StatCard>
+              </AnimatedBlock>
             </div>
 
-            {/* Распределение XP */}
-            <StatCard delay={0.55}>
+            {/* График прогресса */}
+            <AnimatedBlock delay={0.55}>
               <ProgressChart
                 choiceCorrectCount={choiceCorrectCount}
                 writeCorrectCount={writeCorrectCount}
                 flashcardCorrectCount={flashcardCorrectCount}
               />
-            </StatCard>
+            </AnimatedBlock>
 
             {/* Недавние достижения */}
             {recentAchievements.length > 0 && (
-              <StatCard delay={0.6}>
+              <AnimatedBlock delay={0.6}>
                 <div className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3">
                   <div className="flex items-center gap-1.5 mb-2">
                     <div className="p-1.5 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
@@ -820,7 +736,7 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 </div>
-              </StatCard>
+              </AnimatedBlock>
             )}
           </div>
         </div>
@@ -828,146 +744,34 @@ export default function ProfilePage() {
 
       {/* Модальные окна */}
       <AnimatePresence>
-        {showLevelModal && (
-          <div
-            key="level-modal"
-            className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowLevelModal(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="rounded-2xl w-full max-w-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
-                  <FaGraduationCap className="text-orange-500 text-base" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-base font-black text-gray-800 dark:text-white">Детали прогресса</h2>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400">ваш путь в изучении словацкого</p>
-                </div>
-                <button onClick={() => { playClickSound(); setShowLevelModal(false) }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
-                  <FaTimes size={18} />
-                </button>
-              </div>
-              <div className="p-4 max-h-[70vh] overflow-y-auto space-y-4">
-                <div className="text-center">
-                  <div className="text-3xl font-black text-orange-500 dark:text-orange-400">{profileLevel}</div>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400">текущий уровень профиля</p>
-                  <div className="mt-2 flex justify-between text-xs">
-                    <span className="text-gray-600 dark:text-gray-300">XP</span>
-                    <span className="text-orange-500 font-bold">{xp} / {nextLevelXp}</span>
-                  </div>
-                  <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mt-1">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progressPercent}%` }}
-                      transition={{ duration: 0.6 }}
-                    />
-                  </div>
-                  <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1">до следующего уровня: {xpLeft} XP</p>
-                </div>
-                <div>
-                  <h3 className="font-bold mb-2 flex items-center gap-1.5 text-xs text-gray-800 dark:text-white">
-                    <FaChartPie className="text-orange-500 text-[10px]" /> Уровни языка
-                  </h3>
-                  <div className="space-y-2">
-                    {levelStats.map((stat, idx) => (
-                      <motion.div key={stat.level} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05 }}>
-                        <div className="flex justify-between text-xs font-bold mb-0.5">
-                          <span className="text-gray-700 dark:text-gray-300">{stat.level}</span>
-                          <span className="text-gray-500 dark:text-gray-400 text-[9px]">{stat.learned}/{stat.total} тем</span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1 overflow-hidden">
-                          <motion.div
-                            className="h-full bg-gradient-to-r from-orange-500 to-amber-500"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${stat.percent}%` }}
-                            transition={{ duration: 0.5, delay: idx * 0.1 }}
-                          />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-bold mb-2 flex items-center gap-1.5 text-xs text-gray-800 dark:text-white">
-                    <FaSkull className="text-red-500 text-[10px]" /> Сложные слова
-                  </h3>
-                  {hardWords.length > 0 ? (
-                    <div className="space-y-1">
-                      {hardWords.map((item, idx) => (
-                        <motion.div
-                          key={idx}
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.05 }}
-                          className="flex justify-between items-center p-1.5 rounded-lg bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700"
-                        >
-                          <div>
-                            <p className="font-bold text-xs text-gray-800 dark:text-white">{item.word}</p>
-                            <p className="text-[9px] text-gray-500 dark:text-gray-400">{item.translation}</p>
-                          </div>
-                          <div className="text-[9px] font-mono">
-                            <span className="text-red-500">✗{item.wrong}</span> <span className="text-green-600">✓{item.correct}</span>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 text-center py-2">🎉 Отлично! Сложных слов пока нет</p>
-                  )}
-                </div>
-              </div>
-              <div className="p-3 border-t border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900/30">
-                <button onClick={() => { playClickSound(); setShowLevelModal(false) }} className="w-full py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-lg text-sm hover:shadow-lg transition">
-                  Закрыть
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
+        <LevelDetailModal
+          key="level-modal"
+          isOpen={showLevelModal}
+          onClose={() => setShowLevelModal(false)}
+          profileLevel={profileLevel}
+          xp={xp}
+          nextLevelXp={nextLevelXp}
+          progressPercent={progressPercent}
+          xpLeft={xpLeft}
+          levelStats={levelStats}
+          hardWords={hardWords}
+          playClickSound={playClickSound}
+        />
 
-        {showStreakModal && (
-          <StreakModal key="streak-modal" isOpen={showStreakModal} onClose={() => setShowStreakModal(false)} currentStreak={streak} activeDates={activeDates} />
-        )}
+        <StreakModal
+          key="streak-modal"
+          isOpen={showStreakModal}
+          onClose={() => setShowStreakModal(false)}
+          currentStreak={streak}
+          activeDates={activeDates}
+        />
 
-        {showAchievements && (
-          <div key="achievements-modal" className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowAchievements(false)}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="rounded-2xl w-full max-w-md bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
-                  <FaGem className="text-orange-500 text-base" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-base font-black text-gray-800 dark:text-white">Достижения</h2>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400">ваши награды и успехи</p>
-                </div>
-                <button onClick={() => { playClickSound(); setShowAchievements(false) }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
-                  <FaTimes size={18} />
-                </button>
-              </div>
-              <div className="p-3 max-h-[70vh] overflow-y-auto">
-                <AchievementsList unlocked={unlocked} />
-              </div>
-              <div className="p-3 border-t border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900/30">
-                <button onClick={() => { playClickSound(); setShowAchievements(false) }} className="w-full py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-lg text-sm hover:shadow-lg transition">
-                  Закрыть
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
+        <AchievementsModal
+          key="achievements-modal"
+          isOpen={showAchievements}
+          onClose={() => setShowAchievements(false)}
+          unlocked={unlocked}
+        />
       </AnimatePresence>
     </div>
   )

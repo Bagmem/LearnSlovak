@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from "react"
 import { motion } from "framer-motion"
-import { type SlovakText } from "../../data/texts"
-import { playClickSound } from "../../lib/sounds"
-import InteractiveText from "../InteractiveText"
+import { type SlovakText } from "../../../data/texts"
+import { playClickSound } from "../../../lib/sounds"
+import InteractiveText from "../../InteractiveText"
 import { FaArrowLeft, FaVolumeUp, FaLanguage, FaCheckCircle, FaBrain, FaSearchPlus, FaSearchMinus } from "react-icons/fa"
 
 type TextViewerProps = {

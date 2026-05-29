@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { FaTimes, FaTrophy, FaCheckCircle, FaChartLine } from "react-icons/fa"
-import { useTheme } from "../../hooks/useTheme"
+import { useTheme } from "../../../hooks/useTheme"
 
 type TestResultModalProps = {
   isOpen: boolean

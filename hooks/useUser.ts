@@ -9,6 +9,14 @@ export function useUser() {
     let isMounted = true
 
     async function loadUser() {
+      // Сначала проверяем наличие сессии
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        if (isMounted) setUser(null)
+        return
+      }
+
+      // Сессия есть – получаем пользователя
       const {
         data: { user: currentUser },
         error,
@@ -31,7 +39,6 @@ export function useUser() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return
-
       setUser(session?.user ?? null)
     })
 

@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback, type FormEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { type Word } from "../../data/words"
+import { type Word } from "../../../data/words"
 import { type GameMode } from "./StartMenu"
-import { playClickSound } from "../../lib/sounds"
+import { playClickSound } from "../../../lib/sounds"
 import { FaVolumeUp, FaLightbulb, FaStepForward, FaSkull, FaCheck, FaTimes } from "react-icons/fa"
-import { useTheme } from "../../hooks/useTheme"
+import { useTheme } from "../../../hooks/useTheme"
 
 type GameUIProps = {
   xp: number
