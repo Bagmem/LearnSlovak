@@ -15,6 +15,7 @@ type UserProfileCardProps = {
   onCopyId: (text: string) => void
   uploadingAvatar: boolean
   onAvatarUpload: (event: React.ChangeEvent<HTMLInputElement>) => void
+  isCreator?: boolean
 }
 
 export default function UserProfileCard({
@@ -30,12 +31,13 @@ export default function UserProfileCard({
   onCopyId,
   uploadingAvatar,
   onAvatarUpload,
+  isCreator = false,
 }: UserProfileCardProps) {
   return (
     <div className="p-4">
       <div className="flex flex-col items-center text-center">
         <div className="relative mb-2">
-          <div className="h-16 w-16 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
+          <div className="h-16 w-16 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 ring-2 ring-orange-200/70 dark:ring-orange-800/50">
             {photoURL ? (
               <img src={photoURL} alt="Аватар" className="h-full w-full object-cover" />
             ) : (
@@ -44,11 +46,26 @@ export default function UserProfileCard({
               </div>
             )}
           </div>
+
           <label className="absolute bottom-0 right-0 cursor-pointer rounded-full bg-orange-500 p-0.5 text-white shadow-md transition hover:bg-orange-600">
             <FaCamera className="text-[10px]" />
-            <input type="file" accept="image/*" className="hidden" onChange={onAvatarUpload} disabled={uploadingAvatar} />
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onAvatarUpload}
+              disabled={uploadingAvatar}
+            />
           </label>
         </div>
+
+        {isCreator && (
+          <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-gradient-to-r from-amber-100 to-orange-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700 shadow-sm dark:border-amber-700/60 dark:from-amber-900/40 dark:to-orange-900/30 dark:text-amber-300">
+            <span>👑</span>
+            <span>Creator</span>
+          </div>
+        )}
+
         {editingName ? (
           <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
             <input
@@ -57,16 +74,21 @@ export default function UserProfileCard({
               placeholder="Новое имя"
               className="rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-2 py-0.5 text-xs text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-orange-400"
             />
-            <button onClick={onSaveName} className="rounded-lg bg-orange-500 px-2 py-0.5 text-[10px] font-black text-white hover:bg-orange-600 transition">
+            <button
+              onClick={onSaveName}
+              className="rounded-lg bg-orange-500 px-2 py-0.5 text-[10px] font-black text-white hover:bg-orange-600 transition"
+            >
               Сохранить
             </button>
           </div>
         ) : (
           <h2 className="text-base font-black text-gray-800 dark:text-white">{displayName}</h2>
         )}
+
         <p className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
           <FaEnvelope className="text-[10px]" /> {displayEmail}
         </p>
+
         <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
           <span>🆔</span>
           <span className="font-mono">{userId.slice(0, 8)}...</span>
@@ -74,6 +96,7 @@ export default function UserProfileCard({
             <FaCopy size={8} />
           </button>
         </p>
+
         <button
           onClick={onStartEdit}
           className="mt-1 inline-flex items-center gap-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-2 py-0.5 text-[10px] font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition"

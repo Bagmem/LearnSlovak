@@ -26,6 +26,7 @@ import UserProfileCard from "./UserProfileCard"
 import StatsCards from "./StatsCards"
 import LevelDetailModal from "./LevelDetailModal"
 import { useSyncXP } from "../../hooks/useSyncXP"
+import { isCreator } from "../../lib/creators"
 
 // ─── Типы ────────────────────────────────────────────────
 type UserProfile = {
@@ -477,6 +478,7 @@ export default function ProfilePage() {
   const displayEmail = profile?.email || user?.email || "Email не найден"
   const photoURL = profile?.avatar_url || user?.user_metadata?.avatar_url || ""
   const level = profile?.level || null
+  const userIsCreator = isCreator(displayEmail)
 
   const profileLevel = Math.floor(xp / 100) + 1
   const levelBase = profileLevel > 1 ? (profileLevel - 1) * 100 : 0
@@ -723,6 +725,7 @@ export default function ProfilePage() {
                 onCopyId={copyToClipboard}
                 uploadingAvatar={uploadingAvatar}
                 onAvatarUpload={handleAvatarUpload}
+                isCreator={userIsCreator}
               />
             </motion.div>
 
