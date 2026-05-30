@@ -9,7 +9,6 @@ import {
   playCorrectSound, playWrongSound, playLessonStartSound, playVictorySound, playClickSound,
   initAudio, playSkipSound, playMarkHardSound
 } from "../lib/sounds"
-import { canEarnXpForWord, canEarnLessonBonus } from "../lib/xpLimits"
 import { canAccessLevel, type UserLevel } from "../lib/levels"
 import toast from "react-hot-toast"
 
@@ -18,26 +17,6 @@ const getLocalDateString = (date = new Date()): string => {
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
-}
-
-const calculateStreak = (dates: string[]): number => {
-  if (!dates || dates.length === 0) return 0
-  const uniqueDates = new Set(dates)
-  const todayStr = getLocalDateString(new Date())
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = getLocalDateString(yesterday)
-  const startDateStr = uniqueDates.has(todayStr) ? todayStr : uniqueDates.has(yesterdayStr) ? yesterdayStr : ""
-  if (!startDateStr) return 0
-  let streakCount = 0
-  const checkDate = new Date(startDateStr)
-  while (true) {
-    const checkStr = getLocalDateString(checkDate)
-    if (!uniqueDates.has(checkStr)) break
-    streakCount++
-    checkDate.setDate(checkDate.getDate() - 1)
-  }
-  return streakCount
 }
 
 function shuffleArray<T>(items: T[]): T[] {
@@ -67,6 +46,7 @@ type GameEngineInput = {
   hardWordsSet: Set<string>
   setHardWordsSet: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void
   onAchievementCheck: (skipCount: number, perfectLessonCount: number) => void
+  onXpEarned?: (amount: number, source: string) => void   // коллбэк для записи истории
 }
 
 export type GameEngine = {
@@ -124,6 +104,7 @@ export function useGameEngine(input: GameEngineInput): GameEngine {
     flashcardCorrectCount, setFlashcardCorrectCount,
     hardWordsSet, setHardWordsSet,
     onAchievementCheck,
+    onXpEarned,
   } = input
 
   const [screen, setScreen] = useState<"menu" | "game" | "victory">("menu")
@@ -241,8 +222,12 @@ export function useGameEngine(input: GameEngineInput): GameEngine {
     setSessionTotal(prev => prev + 1)
     if (isCorrect) {
       playCorrectSound()
-      const earnedXp = canEarnXpForWord(wordKey) ? (gameMode === "write" ? 15 : 10) : 0
-      if (earnedXp > 0) setXp((v) => v + earnedXp)
+      // Всегда даём XP (лимиты отключены)
+      const earnedXp = gameMode === "write" ? 3 : 2
+      if (earnedXp > 0) {
+        setXp((v) => v + earnedXp)
+        onXpEarned?.(earnedXp, gameMode === "write" ? "write" : "choice")
+      }
       setCorrectAnswersCount((v) => v + 1)
       setSessionCorrect(prev => prev + 1)
       if (gameMode === "choice") setChoiceCorrectCount((v) => v + 1)
@@ -274,7 +259,8 @@ export function useGameEngine(input: GameEngineInput): GameEngine {
     isAnswering, currentWord, lives, gameMode, completedWords,
     selectedCategory, selectedLevel, setProgressData, setStatsForWord,
     setXp, setCorrectAnswersCount, setChoiceCorrectCount, setWriteCorrectCount,
-    setTotalClicksCount, onAchievementCheck, skipCount, perfectLessonCount
+    setTotalClicksCount, onAchievementCheck, skipCount, perfectLessonCount,
+    onXpEarned
   ])
 
   const handleFlashcardRating = useCallback((known: boolean) => {
@@ -302,7 +288,9 @@ export function useGameEngine(input: GameEngineInput): GameEngine {
       setCorrectAnswersCount((v) => v + 1)
       setFlashcardCorrectCount((v) => v + 1)
       setSessionCorrect(prev => prev + 1)
-      if (canEarnXpForWord(wordKey)) setXp((v) => v + 5)
+      // Всегда даём XP и пишем историю
+      setXp((v) => v + 1)
+      onXpEarned?.(1, "flashcard")
       playCorrectSound()
     } else if (!known) {
       playWrongSound()
@@ -318,8 +306,6 @@ export function useGameEngine(input: GameEngineInput): GameEngine {
         setActiveDates(updatedDates)
         localStorage.setItem("slovak_active_dates", JSON.stringify(updatedDates))
       }
-      const categoryKey = `${selectedLevel}_${selectedCategory}_${currentDataSource}`
-      if (canEarnLessonBonus(categoryKey)) setXp((v) => v + 50)
       if (selectedCategory && selectedLevel && currentDataSource) {
         const storageKey = `cat_progress_${selectedLevel}_${selectedCategory}`
         saveProgress(storageKey, totalLessonWords)
@@ -340,7 +326,8 @@ export function useGameEngine(input: GameEngineInput): GameEngine {
     sessionTotal, sessionCorrect, activeDates,
     setStatsForWord, setProgressData, setXp, setCorrectAnswersCount,
     setFlashcardCorrectCount, setTotalClicksCount, setActiveDates,
-    setPerfectLessonCount, onAchievementCheck, wordStatsMap, skipCount, perfectLessonCount
+    setPerfectLessonCount, onAchievementCheck, wordStatsMap, skipCount, perfectLessonCount,
+    onXpEarned
   ])
 
   const handleNextWord = useCallback(() => {
@@ -353,8 +340,6 @@ export function useGameEngine(input: GameEngineInput): GameEngine {
     }
     if (remainingWordsCount === 0) {
       playVictorySound()
-      const categoryKey = `${selectedLevel}_${selectedCategory}_${currentDataSource}`
-      if (canEarnLessonBonus(categoryKey)) setXp((v) => v + 50)
       const todayStr = getLocalDateString()
       const nextDates = activeDates.includes(todayStr) ? activeDates : [...activeDates, todayStr]
       if (!activeDates.includes(todayStr)) {
@@ -378,7 +363,7 @@ export function useGameEngine(input: GameEngineInput): GameEngine {
   }, [
     message, lives, remainingWordsCount, activeDates, notCompletedWords,
     wordStatsMap, selectedLevel, selectedCategory, currentDataSource,
-    sessionTotal, sessionCorrect, setXp, setActiveDates, setPerfectLessonCount,
+    sessionTotal, sessionCorrect, setActiveDates, setPerfectLessonCount,
     onAchievementCheck, skipCount, perfectLessonCount
   ])
 

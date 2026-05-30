@@ -40,7 +40,7 @@ export default function Leaderboard({ currentUserId, currentUserName, currentUse
       setLoading(true)
       try {
         if (tab === "friends" && currentUserId) {
-          // 1. Получаем ID друзей
+          // Логика друзей без изменений
           const { data: friendships, error: friendError } = await supabase
             .from("friendships")
             .select("requester_id, addressee_id")
@@ -53,7 +53,6 @@ export default function Leaderboard({ currentUserId, currentUserName, currentUse
             f.requester_id === currentUserId ? f.addressee_id : f.requester_id
           )
 
-          // 2. Загружаем профили друзей
           const { data: profiles, error: profileError } = await supabase
             .from("profiles")
             .select("id, name, xp, level, avatar_url")
@@ -62,7 +61,6 @@ export default function Leaderboard({ currentUserId, currentUserName, currentUse
 
           if (profileError) throw profileError
 
-          // 3. Загружаем собственный профиль
           const { data: selfProfiles, error: selfError } = await supabase
             .from("profiles")
             .select("id, name, xp, level, avatar_url")
@@ -71,15 +69,53 @@ export default function Leaderboard({ currentUserId, currentUserName, currentUse
 
           if (selfError) throw selfError
 
-          // 4. Объединяем, убираем дубликаты и сортируем
           const combined = [...(profiles || [])]
           if (selfProfiles && !combined.some(p => p.id === currentUserId)) {
             combined.push(selfProfiles)
           }
           combined.sort((a, b) => b.xp - a.xp)
           setUsers(combined)
+        } else if (tab === "weekly") {
+          // Недельный рейтинг: сумма xp_gained за последние 7 дней
+          const sevenDaysAgo = new Date()
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+          const { data, error } = await supabase
+            .from("xp_history")
+            .select("user_id, xp_gained, profiles(id, name, level, avatar_url)")
+            .gte("created_at", sevenDaysAgo.toISOString())
+            .order("created_at", { ascending: false })
+
+          if (error) throw error
+
+          // Агрегируем по пользователям
+          const userMap = new Map<string, { xp: number; profile: any }>()
+          data?.forEach(entry => {
+            const userId = entry.user_id
+            const profile = entry.profiles
+            if (!profile) return
+            const current = userMap.get(userId)
+            userMap.set(userId, {
+              xp: (current?.xp || 0) + entry.xp_gained,
+              profile,
+            })
+          })
+
+          // Преобразуем в массив и сортируем
+          const weeklyUsers = Array.from(userMap.entries())
+            .map(([id, { xp, profile }]) => ({
+              id,
+              name: profile.name || "Без имени",
+              xp,
+              level: profile.level,
+              avatar_url: profile.avatar_url,
+            }))
+            .sort((a, b) => b.xp - a.xp)
+            .slice(0, 10)
+
+          setUsers(weeklyUsers)
         } else {
-          // Глобальный / недельный
+          // Общий рейтинг
           const { data, error } = await supabase
             .from("profiles")
             .select("id, name, xp, level, avatar_url")
@@ -161,6 +197,8 @@ export default function Leaderboard({ currentUserId, currentUserName, currentUse
               <p className="text-center text-gray-500 dark:text-gray-400 py-6">
                 {tab === "friends"
                   ? "У вас пока нет друзей для рейтинга."
+                  : tab === "weekly"
+                  ? "За неделю пока нет активности."
                   : "Пока никто не участвовал."}
               </p>
             ) : (

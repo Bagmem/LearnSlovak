@@ -25,6 +25,7 @@ import ProgressChart from "../components/streak/ProgressChart"
 import UserProfileCard from "./UserProfileCard"
 import StatsCards from "./StatsCards"
 import LevelDetailModal from "./LevelDetailModal"
+import { useSyncXP } from "../../hooks/useSyncXP"
 
 // ─── Типы ────────────────────────────────────────────────
 type UserProfile = {
@@ -372,6 +373,22 @@ export default function ProfilePage() {
     } catch { return false }
   })
 
+  // Синхронизация XP с Supabase
+  const { flush: flushXp, initialized } = useSyncXP(user, xp, setXp)
+
+  // Пересчёт XP при загрузке, если он не соответствует новым правилам (2/3/1)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const newXp = choiceCorrectCount * 2 + writeCorrectCount * 3 + flashcardCorrectCount * 1
+    if (xp !== newXp) {
+      setXp(newXp)
+      localStorage.setItem("xp", newXp.toString())
+      if (user) {
+        supabase.from("profiles").upsert({ id: user.id, xp: newXp }, { onConflict: "id" })
+      }
+    }
+  }, [choiceCorrectCount, writeCorrectCount, flashcardCorrectCount, user, setXp, xp])
+
   const streak = useMemo(() => calculateStreak(activeDates), [activeDates])
 
   function isWordLearned(stat: { correctCount: number; wrongCount: number }): boolean {
@@ -545,6 +562,7 @@ export default function ProfilePage() {
   async function handleLogout() {
     playClickSound()
     forceSaveWordStats()
+    await flushXp()
     const { error } = await supabase.auth.signOut()
     if (error) {
       console.error("Ошибка выхода:", error)

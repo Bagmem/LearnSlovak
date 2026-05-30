@@ -19,9 +19,9 @@ export default function ProgressChart({
   const [hasAnimated, setHasAnimated] = useState(false)
 
   const xpData = useMemo(() => {
-    const choiceXp = choiceCorrectCount * 10
-    const writeXp = writeCorrectCount * 15
-    const flashcardXp = flashcardCorrectCount * 5
+    const choiceXp = choiceCorrectCount * 2
+    const writeXp = writeCorrectCount * 3
+    const flashcardXp = flashcardCorrectCount * 1
     const total = choiceXp + writeXp + flashcardXp
     return { choice: choiceXp, write: writeXp, flashcard: flashcardXp, total }
   }, [choiceCorrectCount, writeCorrectCount, flashcardCorrectCount])
@@ -51,28 +51,12 @@ export default function ProgressChart({
   }, [])
 
   const items = [
-    { name: "Тест", value: xpData.choice, color: "#f97316", icon: <FaKeyboard />, label: "10 XP / ответ" },
-    { name: "Письмо", value: xpData.write, color: "#3b82f6", icon: <FaPencilAlt />, label: "15 XP / ответ" },
-    { name: "Карточки", value: xpData.flashcard, color: "#22c55e", icon: <FaLayerGroup />, label: "5 XP / ответ" },
+    { name: "Тест", value: xpData.choice, color: "#f97316", icon: <FaKeyboard />, label: "2 XP / ответ" },
+    { name: "Письмо", value: xpData.write, color: "#3b82f6", icon: <FaPencilAlt />, label: "3 XP / ответ" },
+    { name: "Карточки", value: xpData.flashcard, color: "#22c55e", icon: <FaLayerGroup />, label: "1 XP / ответ" },
   ]
 
   const total = xpData.total
-  const radius = 70
-  const innerRadius = 58
-
-  let cumulative = 0
-  const segments = items.map(item => {
-    const angle = (item.value / total) * 360
-    const start = cumulative
-    cumulative += angle
-    const end = cumulative
-    const largeArcFlag = angle > 180 ? 1 : 0
-    const startX = 88 + radius * Math.cos((start - 90) * Math.PI / 180)
-    const startY = 88 + radius * Math.sin((start - 90) * Math.PI / 180)
-    const endX = 88 + radius * Math.cos((end - 90) * Math.PI / 180)
-    const endY = 88 + radius * Math.sin((end - 90) * Math.PI / 180)
-    return { item, startX, startY, endX, endY, largeArcFlag }
-  })
 
   if (total === 0) {
     return (
@@ -93,6 +77,23 @@ export default function ProgressChart({
       </motion.div>
     )
   }
+
+  const radius = 70
+  const innerRadius = 58
+
+  let cumulative = 0
+  const segments = items.map(item => {
+    const angle = (item.value / total) * 360
+    const start = cumulative
+    cumulative += angle
+    const end = cumulative
+    const largeArcFlag = angle > 180 ? 1 : 0
+    const startX = 88 + radius * Math.cos((start - 90) * Math.PI / 180)
+    const startY = 88 + radius * Math.sin((start - 90) * Math.PI / 180)
+    const endX = 88 + radius * Math.cos((end - 90) * Math.PI / 180)
+    const endY = 88 + radius * Math.sin((end - 90) * Math.PI / 180)
+    return { item, startX, startY, endX, endY, largeArcFlag }
+  })
 
   return (
     <motion.div

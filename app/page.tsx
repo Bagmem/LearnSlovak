@@ -17,7 +17,7 @@ import { useAchievements } from "../hooks/useAchievements"
 import type { AchievementState } from "../data/achievements"
 import { useTextProgress } from "../hooks/useTextProgress"
 import { useSettings } from "../hooks/useSettings"
-import { useTheme } from "./../hooks/useTheme"
+import { useTheme } from "../hooks/useTheme"
 import dynamic from "next/dynamic"
 import StartMenu from "./components/game/StartMenu"
 import VictoryScreen from "./components/game/VictoryScreen"
@@ -40,6 +40,9 @@ import AddFriend from "./components/friends/AddFriend"
 import FriendRequests from "./components/friends/FriendRequests"
 import FriendsList from "./components/friends/FriendsList"
 import { FaUserCircle, FaIdBadge } from "react-icons/fa"
+import { useSyncXP } from "../hooks/useSyncXP"
+import RecentActivityFeed from "./components/activity/RecentActivityFeed"
+import WeeklyXpChart from "./components/activity/WeeklyXpChart"
 
 const ReferenceView = dynamic(() => import("./components/ReferenceView"), {
   loading: () => (
@@ -99,6 +102,10 @@ export default function Home() {
     const savedXp = loadProgress<number>("xp")
     return savedXp !== null ? savedXp : 0
   })
+
+  // Синхронизация XP с Supabase
+  const { flush: flushXp, initialized } = useSyncXP(user, xp, setXp)
+
   const [activeDates, setActiveDates] = useState<string[]>(() => {
     if (typeof window === "undefined") return []
     const saved = localStorage.getItem("slovak_active_dates")
@@ -158,6 +165,64 @@ export default function Home() {
   const [testResultData, setTestResultData] = useState<{
     level: string; percent: number; xpEarned: number; isPassed: boolean
   } | null>(null)
+
+  // Пересчёт XP при загрузке, если он не соответствует новым правилам (2/3/1)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const newXp = choiceCorrectCount * 2 + writeCorrectCount * 3 + flashcardCorrectCount * 1
+    const savedXp = loadProgress<number>("xp")
+    if (savedXp !== null && savedXp !== newXp) {
+      setXp(newXp)
+      localStorage.setItem("xp", newXp.toString())
+      if (user) {
+        supabase.from("profiles").upsert({ id: user.id, xp: newXp }, { onConflict: "id" })
+      }
+    }
+  }, [choiceCorrectCount, writeCorrectCount, flashcardCorrectCount, user, setXp])
+
+  // Коллбэк для записи истории XP
+  const handleXpEarned = useCallback(async (amount: number, source: string) => {
+    if (!user) return
+    const { error } = await supabase
+      .from("xp_history")
+      .insert({ user_id: user.id, xp_gained: amount, source })
+    if (error) console.error("❌ Ошибка записи в xp_history:", error.message, error.details)
+  }, [user])
+
+  // Удаляем все сохранённые дневные лимиты XP (они больше не используются)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && (key.startsWith("xp_word_") || key.startsWith("xp_lesson_bonus_"))) {
+        keysToRemove.push(key)
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k))
+  }, [])
+
+  // Сохраняем XP перед перезагрузкой / закрытием вкладки
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      flushXp()
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [flushXp])
+
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // При переходе на вкладки активности или друзей немедленно синхронизируем XP и обновляем компоненты
+  useEffect(() => {
+    if (globalTab === "activity" || globalTab === "friends") {
+      const doSync = async () => {
+        await flushXp()
+        setRefreshKey(prev => prev + 1)
+      }
+      doSync()
+    }
+  }, [globalTab, flushXp])
 
   function calculateStreak(dates: string[]): number {
     if (!dates || dates.length === 0) return 0
@@ -222,13 +287,16 @@ export default function Home() {
     const newAchievements = checkAchievements(state)
     if (newAchievements.length > 0) {
       const reward = newAchievements.reduce((sum: number, ach: { reward?: number }) => sum + (ach.reward || 0), 0)
-      if (reward > 0) setXp((v) => v + reward)
+      if (reward > 0) {
+        setXp((v) => v + reward)
+        handleXpEarned(reward, "achievement")
+      }
     }
   }, [
     xp, correctAnswersCount, totalClicksCount, streak, maxStreak,
     completedCategoriesCount, learnedWordsCount, flashcardCorrectCount,
     writeCorrectCount, choiceCorrectCount, isQuizCompleted, isRead,
-    hardWordsSet, checkAchievements, setXp
+    hardWordsSet, checkAchievements, setXp, handleXpEarned
   ])
 
   const game = useGameEngine({
@@ -244,6 +312,7 @@ export default function Home() {
     flashcardCorrectCount, setFlashcardCorrectCount,
     hardWordsSet, setHardWordsSet,
     onAchievementCheck: triggerAchievementCheck,
+    onXpEarned: handleXpEarned,
   })
 
   const { goals, updateProgress, completedGoal, clearCompletedGoal } = useDailyGoals()
@@ -252,9 +321,10 @@ export default function Home() {
     if (completedGoal) {
       toast.success(`🎉 Цель выполнена: ${completedGoal.description} (+${completedGoal.reward} XP)`, { duration: 4000 })
       setXp(prev => prev + completedGoal.reward)
+      handleXpEarned(completedGoal.reward, "daily_goal")
       clearCompletedGoal()
     }
-  }, [completedGoal, clearCompletedGoal, setXp])
+  }, [completedGoal, clearCompletedGoal, setXp, handleXpEarned])
 
   const prevSessionCorrect = useRef(0)
   const prevScreen = useRef<"menu" | "game" | "victory">("menu")
@@ -322,6 +392,7 @@ export default function Home() {
 
   const handleLogout = async () => {
     forceSaveWordStats()
+    await flushXp()
     const { error } = await supabase.auth.signOut()
     if (error) {
       console.error("Ошибка выхода:", error)
@@ -428,7 +499,10 @@ export default function Home() {
 
   const handleQuizComplete = (textId: string, score: number, total: number, xpEarned: number, firstTime: boolean) => {
     markQuizCompleted(textId, score, true)
-    if (firstTime) setXp(prev => prev + xpEarned)
+    if (firstTime) {
+      setXp(prev => prev + xpEarned)
+      handleXpEarned(xpEarned, "quiz")
+    }
     triggerAchievementCheck(game.skipCount, game.perfectLessonCount)
   }
 
@@ -440,6 +514,7 @@ export default function Home() {
 
   const handleTestComplete = async (score: number, total: number, xpEarned: number) => {
     setXp(prev => prev + xpEarned)
+    handleXpEarned(xpEarned, "test")
     updateProgress("completeTest", 1)
     const percent = Math.round((score / total) * 100)
     const saved = localStorage.getItem("test_completed_levels")
@@ -555,12 +630,14 @@ export default function Home() {
 
   if (game.screen === "victory") {
     const accuracy = game.sessionTotal ? Math.round((game.sessionCorrect / game.sessionTotal) * 100) : 0
-    const xpEarned = 50
+    const xpEarned = (game.gameMode === "write" ? 3 : game.gameMode === "flashcard" ? 1 : 2) * game.sessionCorrect
     return (
       <VictoryScreen
         category={game.selectedCategory || ""}
         xpEarned={xpEarned}
         accuracy={accuracy}
+        sessionCorrect={game.sessionCorrect}
+        sessionTotal={game.sessionTotal}
         onBack={() => game.setScreen("menu")}
         mistakes={game.sessionMistakes}
         onRetryMistakes={game.handleRetryMistakes}
@@ -666,17 +743,19 @@ export default function Home() {
             )
           )}
           {globalTab === "activity" && (
-            <div className="space-y-6">
+            <div className="space-y-6" key={refreshKey}>
               {user && <UserRank currentXp={xp} currentUserId={user.id} />}
               <Leaderboard 
                 currentUserId={user?.id} 
                 currentUserName={user ? getUserDisplayName(user) : undefined}
                 currentUserAvatar={user?.user_metadata?.avatar_url}
               />
+              {user && <RecentActivityFeed userId={user.id} />}
+              {user && <WeeklyXpChart userId={user.id} />}
             </div>
           )}
           {globalTab === "friends" && (
-            <div className="space-y-6">
+            <div className="space-y-6" key={refreshKey}>
               {user && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}

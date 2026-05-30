@@ -10,12 +10,23 @@ type VictoryProps = {
   category: string
   xpEarned: number
   accuracy: number
+  sessionCorrect: number
+  sessionTotal: number
   onBack: () => void
   onRetryMistakes?: () => void
   mistakes?: { word: string; translation: string }[]
 }
 
-export default function VictoryScreen({ category, xpEarned, accuracy, onBack, onRetryMistakes, mistakes = [] }: VictoryProps) {
+export default function VictoryScreen({
+  category,
+  xpEarned,
+  accuracy,
+  sessionCorrect,
+  sessionTotal,
+  onBack,
+  onRetryMistakes,
+  mistakes = [],
+}: VictoryProps) {
   const { theme } = useTheme()
   const isDark = theme === "dark"
 
@@ -85,7 +96,7 @@ export default function VictoryScreen({ category, xpEarned, accuracy, onBack, on
           </div>
           <div className="flex justify-between py-2">
             <span className={`font-bold ${textPrimary}`}>Правильные ответы</span>
-            <span className="text-green-500 font-bold">{Math.round((accuracy / 100) * (xpEarned / 5))}/{xpEarned / 5}</span>
+            <span className="text-green-500 font-bold">{sessionCorrect}/{sessionTotal}</span>
           </div>
         </div>
 
