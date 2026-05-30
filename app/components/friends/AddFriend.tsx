@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { FaSearch, FaUserPlus, FaUserCircle, FaHashtag } from "react-icons/fa"
 import { supabase } from "../../../lib/supabase"
@@ -194,19 +195,21 @@ export default function AddFriend() {
                     key={profile.id}
                     className="flex items-center gap-3 p-2 rounded-xl bg-white/50 dark:bg-gray-700/50"
                   >
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
-                      {profile.avatar_url ? (
-                        <img src={profile.avatar_url} alt={profile.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <FaUserCircle className="text-gray-500 dark:text-gray-400 text-lg" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-800 dark:text-white text-sm">{profile.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Уровень: {profile.level || "—"}</p>
-                    </div>
+                    <Link href={`/users/${profile.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0 transition-transform hover:scale-105">
+                        {profile.avatar_url ? (
+                          <img src={profile.avatar_url} alt={profile.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <FaUserCircle className="text-gray-500 dark:text-gray-400 text-lg" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">{profile.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Уровень: {profile.level || "—"}</p>
+                      </div>
+                    </Link>
                     <button
                       onClick={() => sendRequest(profile.id)}
                       className="px-3 py-1 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 text-xs font-bold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition"

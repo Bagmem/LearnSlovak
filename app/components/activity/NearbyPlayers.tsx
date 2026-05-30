@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { motion } from "framer-motion"
 import { FaArrowUp, FaArrowDown, FaUserCircle } from "react-icons/fa"
 import { supabase } from "../../../lib/supabase"
@@ -72,9 +73,12 @@ export default function NearbyPlayers({ currentUserId, currentXp }: Props) {
 
       <div className="space-y-3">
         {nearby.above && (
-          <div className="flex items-center gap-3 p-2 rounded-xl bg-white/50 dark:bg-gray-700/50">
+          <Link
+            href={`/users/${nearby.above.id}`}
+            className="group flex items-center gap-3 p-2 rounded-xl bg-white/50 dark:bg-gray-700/50 transition hover:bg-orange-50/60 dark:hover:bg-gray-700/70"
+          >
             <FaArrowUp className="text-green-500 text-lg shrink-0" />
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0 transition-transform group-hover:scale-105">
               {nearby.above.avatar_url ? (
                 <img src={nearby.above.avatar_url} alt={nearby.above.name} className="w-full h-full object-cover" />
               ) : (
@@ -83,16 +87,16 @@ export default function NearbyPlayers({ currentUserId, currentXp }: Props) {
                 </div>
               )}
             </div>
-            <div className="flex-1">
-              <p className="font-semibold text-gray-800 dark:text-white text-sm">
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">
                 {nearby.above.name || "Без имени"}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                 Уровень: {nearby.above.level || "—"} • {nearby.above.xp} XP
               </p>
             </div>
             <span className="text-xs text-green-500 font-bold">+{nearby.above.xp - currentXp} XP</span>
-          </div>
+          </Link>
         )}
 
         <div className="flex items-center gap-3 p-2 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
@@ -110,9 +114,12 @@ export default function NearbyPlayers({ currentUserId, currentXp }: Props) {
         </div>
 
         {nearby.below && (
-          <div className="flex items-center gap-3 p-2 rounded-xl bg-white/50 dark:bg-gray-700/50">
+          <Link
+            href={`/users/${nearby.below.id}`}
+            className="group flex items-center gap-3 p-2 rounded-xl bg-white/50 dark:bg-gray-700/50 transition hover:bg-orange-50/60 dark:hover:bg-gray-700/70"
+          >
             <FaArrowDown className="text-red-500 text-lg shrink-0" />
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0 transition-transform group-hover:scale-105">
               {nearby.below.avatar_url ? (
                 <img src={nearby.below.avatar_url} alt={nearby.below.name} className="w-full h-full object-cover" />
               ) : (
@@ -121,16 +128,16 @@ export default function NearbyPlayers({ currentUserId, currentXp }: Props) {
                 </div>
               )}
             </div>
-            <div className="flex-1">
-              <p className="font-semibold text-gray-800 dark:text-white text-sm">
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">
                 {nearby.below.name || "Без имени"}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                 Уровень: {nearby.below.level || "—"} • {nearby.below.xp} XP
               </p>
             </div>
             <span className="text-xs text-red-500 font-bold">-{currentXp - nearby.below.xp} XP</span>
-          </div>
+          </Link>
         )}
       </div>
     </motion.div>

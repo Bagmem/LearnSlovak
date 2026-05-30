@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { motion } from "framer-motion"
 import { FaUserCircle, FaUserFriends } from "react-icons/fa"
 import { supabase } from "../../../lib/supabase"
@@ -104,21 +105,23 @@ export default function FriendsList() {
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-3 p-2 rounded-xl bg-white/50 dark:bg-gray-700/50"
           >
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
-              {friend.avatar_url ? (
-                <img src={friend.avatar_url} alt={friend.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <FaUserCircle className="text-gray-500 dark:text-gray-400 text-lg" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-gray-800 dark:text-white text-sm">{friend.name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Уровень: {friend.level || "—"} • {friend.xp} XP
-              </p>
-            </div>
+            <Link href={`/users/${friend.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0 transition-transform hover:scale-105">
+                {friend.avatar_url ? (
+                  <img src={friend.avatar_url} alt={friend.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <FaUserCircle className="text-gray-500 dark:text-gray-400 text-lg" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">{friend.name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  Уровень: {friend.level || "—"} • {friend.xp} XP
+                </p>
+              </div>
+            </Link>
           </motion.div>
         ))}
       </div>

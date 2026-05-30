@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { FaTrophy, FaMedal, FaUserCircle } from "react-icons/fa"
 import { supabase } from "../../../lib/supabase"
@@ -223,26 +224,28 @@ export default function Leaderboard({ currentUserId, currentUserName, currentUse
                          idx === 2 ? <FaMedal className="text-orange-700 text-xl" /> :
                          <span className="text-gray-500">{idx + 1}</span>}
                       </div>
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
-                        {user.avatar_url ? (
-                          <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <FaUserCircle className="text-gray-500 dark:text-gray-400 text-lg" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-800 dark:text-white text-sm">
-                          {user.name || "Без имени"}
-                          {isMe && (
-                            <span className="ml-2 text-xs font-bold text-orange-500">(Вы)</span>
+                      <Link href={`/users/${user.id}`} className="flex-1 flex items-center gap-3 min-w-0 border border-transparent rounded-xl transition hover:border-orange-200 hover:bg-orange-50/60 dark:hover:border-orange-800/70 dark:hover:bg-orange-900/10">
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0 transition-transform group-hover:scale-105">
+                          {user.avatar_url ? (
+                            <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <FaUserCircle className="text-gray-500 dark:text-gray-400 text-lg" />
+                            </div>
                           )}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Уровень: <span className={`font-bold ${getLevelColor(user.level)}`}>{user.level || "—"}</span>
-                        </p>
-                      </div>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">
+                            {user.name || "Без имени"}
+                            {isMe && (
+                              <span className="ml-2 text-xs font-bold text-orange-500">(Вы)</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            Уровень: <span className={`font-bold ${getLevelColor(user.level)}`}>{user.level || "—"}</span>
+                          </p>
+                        </div>
+                      </Link>
                       <div className="text-right">
                         <p className="font-black text-orange-500">{user.xp} XP</p>
                       </div>

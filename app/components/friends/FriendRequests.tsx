@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { motion } from "framer-motion"
 import { FaUserCircle, FaCheck, FaTimes } from "react-icons/fa"
 import { supabase } from "../../../lib/supabase"
@@ -98,21 +99,23 @@ export default function FriendRequests() {
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-3 p-2 rounded-xl bg-white/50 dark:bg-gray-700/50"
           >
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
-              {req.requester?.avatar_url ? (
-                <img src={req.requester.avatar_url} alt={req.requester.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <FaUserCircle className="text-gray-500 dark:text-gray-400 text-lg" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-gray-800 dark:text-white text-sm">{req.requester?.name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Уровень: {req.requester?.level || "—"}
-              </p>
-            </div>
+            <Link href={`/users/${req.requester_id}`} className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0 transition-transform hover:scale-105">
+                {req.requester?.avatar_url ? (
+                  <img src={req.requester.avatar_url} alt={req.requester.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <FaUserCircle className="text-gray-500 dark:text-gray-400 text-lg" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">{req.requester?.name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  Уровень: {req.requester?.level || "—"}
+                </p>
+              </div>
+            </Link>
             <div className="flex gap-1">
               <button
                 onClick={() => handleAccept(req.id)}
