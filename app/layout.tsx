@@ -6,7 +6,7 @@ import ThemeInitializer from "./components/shared/ThemeInitializer"
 const inter = Inter({ subsets: ['latin', 'cyrillic'], variable: '--font-inter' })
 
 export const metadata = {
-  title: "Slovak Game",
+  title: "Learn Slovak",
   description: "Изучение словацкого языка",
 }
 
