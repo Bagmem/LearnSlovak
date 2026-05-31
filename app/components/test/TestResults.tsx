@@ -1,7 +1,17 @@
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
+import { FaChartBar, FaCheckCircle, FaExclamationTriangle, FaChevronDown, FaChevronUp, FaRedo } from "react-icons/fa"
 import { playClickSound } from "../../../lib/sounds"
+
+type Mistake = {
+  section: string
+  question: string
+  yourAnswer: string
+  correctAnswer: string
+  explanation?: string
+}
 
 type TestResultsProps = {
   level: string
@@ -10,7 +20,9 @@ type TestResultsProps = {
   xpEarned: number
   sectionResults: { title: string; score: number; maxScore: number; percentage: number }[]
   isPassed: boolean
+  mistakes: Mistake[]
   onFinish: () => void
+  onRetryMistakes?: (mistakes: Mistake[]) => void
 }
 
 export default function TestResults({
@@ -20,9 +32,12 @@ export default function TestResults({
   xpEarned,
   sectionResults,
   isPassed,
+  mistakes,
   onFinish,
+  onRetryMistakes,
 }: TestResultsProps) {
   const totalPercentage = Math.round((totalScore / totalMax) * 100)
+  const [showMistakes, setShowMistakes] = useState(false)
 
   return (
     <motion.div
@@ -37,9 +52,9 @@ export default function TestResults({
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", delay: 0.1 }}
-            className="text-5xl mb-3"
+            className="text-5xl mb-3 flex justify-center"
           >
-            📊
+            <FaChartBar className="text-orange-500" />
           </motion.div>
           <h2 className="text-2xl font-black bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
             Результаты теста
@@ -82,7 +97,10 @@ export default function TestResults({
               className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50"
             >
               <div className="flex-1">
-                <p className="font-bold text-gray-800 dark:text-white">{res.title}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  {res.percentage >= 90 ? <FaCheckCircle className="text-green-500" /> : <FaExclamationTriangle className="text-yellow-500" />}
+                  <p className="font-bold text-gray-800 dark:text-white">{res.title}</p>
+                </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-1 overflow-hidden">
                   <motion.div
                     className="bg-gradient-to-r from-orange-500 to-amber-500 h-2 rounded-full"
@@ -112,10 +130,47 @@ export default function TestResults({
         </div>
 
         {!isPassed && (
-          <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-xl text-center">
+          <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-xl flex items-start gap-2">
+            <FaExclamationTriangle className="text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-yellow-700 dark:text-yellow-300">
-              ⚠️ Для перехода на следующий уровень необходимо набрать <strong>90% правильных ответов</strong>.
+              Для перехода на следующий уровень необходимо набрать <strong>90% правильных ответов</strong>.
             </p>
+          </div>
+        )}
+
+        {mistakes.length > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowMistakes(!showMistakes)}
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition font-bold text-gray-700 dark:text-gray-300"
+            >
+              <span className="flex items-center gap-2">
+                <FaExclamationTriangle className="text-red-500" />
+                Ошибки ({mistakes.length})
+              </span>
+              {showMistakes ? <FaChevronUp /> : <FaChevronDown />}
+            </button>
+            {showMistakes && (
+              <div className="mt-3 space-y-3 max-h-96 overflow-y-auto">
+                {mistakes.map((m, idx) => (
+                  <div key={idx} className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">{m.section}</p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">{m.question}</p>
+                    <div className="mt-1 text-sm">
+                      <span className="text-red-600">Ваш ответ: </span>
+                      <span className="line-through text-gray-500">{m.yourAnswer}</span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-green-600">Правильно: </span>
+                      <span className="font-medium text-green-700 dark:text-green-400">{m.correctAnswer}</span>
+                    </div>
+                    {m.explanation && (
+                      <div className="mt-1 text-xs text-gray-600 dark:text-gray-400 italic">{m.explanation}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -128,6 +183,18 @@ export default function TestResults({
         >
           ЗАВЕРШИТЬ
         </button>
+
+        {mistakes.length > 0 && onRetryMistakes && (
+          <button
+            onClick={() => {
+              playClickSound()
+              onRetryMistakes(mistakes)
+            }}
+            className="mt-3 w-full py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-black rounded-xl shadow-md hover:shadow-lg transition transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+          >
+            <FaRedo /> ПОВТОРИТЬ ОШИБКИ
+          </button>
+        )}
       </div>
     </motion.div>
   )

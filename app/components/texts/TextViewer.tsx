@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { type SlovakText } from "../../../data/texts"
 import { playClickSound } from "../../../lib/sounds"
 import InteractiveText from "../../InteractiveText"
@@ -19,6 +19,7 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
   const [fontSize, setFontSize] = useState(16)
   const contentRef = useRef<HTMLDivElement>(null)
   const [scrollProgress, setScrollProgress] = useState(0)
+  const [showScrollTop, setShowScrollTop] = useState(false)
 
   const hasQuestions = text.questions && text.questions.length > 0
 
@@ -38,6 +39,7 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
       const scrollHeight = el.scrollHeight - el.clientHeight
       const progress = (scrollTop / scrollHeight) * 100
       setScrollProgress(progress)
+      setShowScrollTop(scrollTop > 300)
     }
     const ref = contentRef.current
     if (ref) ref.addEventListener("scroll", handleScroll)
@@ -46,8 +48,27 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
     }
   }, [])
 
-  const increaseFont = () => setFontSize(prev => Math.min(prev + 2, 28))
-  const decreaseFont = () => setFontSize(prev => Math.max(prev - 2, 12))
+  const increaseFont = () => setFontSize((prev) => Math.min(prev + 2, 28))
+  const decreaseFont = () => setFontSize((prev) => Math.max(prev - 2, 12))
+
+  // Горячие клавиши Ctrl/Cmd + / - для изменения шрифта
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "=" || e.key === "+")) {
+        e.preventDefault()
+        increaseFont()
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "-") {
+        e.preventDefault()
+        decreaseFont()
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
+
+  const scrollToTop = () => {
+    contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -61,17 +82,28 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
           <FaArrowLeft /> Назад к списку
         </motion.button>
         <div className="flex gap-2">
-          <button onClick={decreaseFont} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 transition" title="Уменьшить шрифт">
+          <button
+            onClick={decreaseFont}
+            className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 transition"
+            title="Уменьшить шрифт (Ctrl -)"
+          >
             <FaSearchMinus size={14} />
           </button>
-          <button onClick={increaseFont} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 transition" title="Увеличить шрифт">
+          <button
+            onClick={increaseFont}
+            className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 transition"
+            title="Увеличить шрифт (Ctrl +)"
+          >
             <FaSearchPlus size={14} />
           </button>
         </div>
       </div>
 
       {/* Прогресс-бар чтения */}
-      <div className="fixed top-0 left-0 right-0 z-10 h-1 bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-100" style={{ width: `${scrollProgress}%` }} />
+      <div
+        className="fixed top-0 left-0 right-0 z-10 h-1 bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-200 ease-out"
+        style={{ width: `${scrollProgress}%` }}
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -102,7 +134,10 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
           </div>
         </div>
 
-        <div ref={contentRef} className="p-6 md:p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+        <div
+          ref={contentRef}
+          className="p-6 md:p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar relative"
+        >
           <div className="prose prose-lg dark:prose-invert max-w-none transition-all" style={{ fontSize: `${fontSize}px` }}>
             <InteractiveText text={text.content} />
           </div>
@@ -139,6 +174,22 @@ export default function TextViewer({ text, onBack, onQuiz, isRead }: TextViewerP
               </div>
             </motion.div>
           )}
+
+          {/* Кнопка "Наверх" */}
+          <AnimatePresence>
+            {showScrollTop && (
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                onClick={scrollToTop}
+                className="absolute bottom-6 right-6 bg-orange-500 text-white p-3 rounded-full shadow-lg hover:bg-orange-600 transition z-10"
+                aria-label="Прокрутить наверх"
+              >
+                ↑
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </div>

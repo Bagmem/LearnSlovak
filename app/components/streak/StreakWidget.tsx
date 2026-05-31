@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+import { FaFire, FaTrophy, FaGift, FaChartBar, FaCircle } from "react-icons/fa"
 
 type StreakWidgetProps = {
   streak: number
@@ -69,7 +70,7 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-md">
-              <span className="text-2xl" aria-hidden="true">🔥</span>
+              <FaFire className="text-white text-2xl" />
             </div>
             <div>
               <h3 className="font-black text-lg text-gray-800 dark:text-white">Ударный режим</h3>
@@ -100,7 +101,7 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
               className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg"
               aria-hidden="true"
             >
-              <span className="text-2xl">🔥</span>
+              <FaFire className="text-white text-2xl" />
             </motion.div>
             <div>
               <h3 className="font-black text-xl text-gray-800 dark:text-white">Ударный режим</h3>
@@ -121,7 +122,7 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
         <div className="mb-5">
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs font-bold text-gray-600 dark:text-gray-400 flex items-center gap-1">
-              🏆 До следующей награды
+              <FaTrophy className="text-yellow-500" /> До следующей награды
             </span>
             <span className="text-xs font-bold text-orange-500">{streak} / {nextMilestone}</span>
           </div>
@@ -138,8 +139,8 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
             <span className="text-[11px] text-gray-500 dark:text-gray-400">
               Осталось {daysLeft} {daysLeftWord}
             </span>
-            <span className="text-[11px] text-gray-500 dark:text-gray-400">
-              🎁 +50 XP
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <FaGift className="text-red-500" size={12} /> +50 XP
             </span>
           </div>
         </div>
@@ -166,7 +167,7 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
                     }`}
                     aria-label={`${day.label}: ${isActive ? "активный день" : day.isToday ? "сегодня" : ""}`}
                   >
-                    {isActive ? "🔥" : day.isToday ? "●" : ""}
+                    {isActive ? <FaFire className="text-white text-sm" /> : day.isToday ? <FaCircle className="text-orange-500 text-sm" /> : ""}
                   </div>
                   <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-1">{day.label}</span>
                 </motion.div>
@@ -177,7 +178,9 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
 
         <div className="pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-bold text-gray-600 dark:text-gray-400">📊 Активность на этой неделе</span>
+            <span className="text-xs font-bold text-gray-600 dark:text-gray-400 flex items-center gap-1">
+              <FaChartBar className="text-blue-500" /> Активность на этой неделе
+            </span>
             <span className="text-xs font-bold text-orange-500">{activeDaysThisWeek} {activeDaysWord}</span>
           </div>
           <div className="flex justify-between gap-1" aria-label="График активности">
@@ -199,8 +202,8 @@ export default function StreakWidget({ streak: initialStreak, activeDates: initi
         </div>
 
         <div className="mt-4 text-center">
-          <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            🔥 Занимайся каждый день, чтобы увеличивать серию!
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1">
+            <FaFire className="text-orange-500" size={12} /> Занимайся каждый день, чтобы увеличивать серию!
           </p>
         </div>
       </div>

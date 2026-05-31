@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { FaTimes, FaTrophy, FaCheckCircle, FaChartLine } from "react-icons/fa"
+import { FaTimes, FaTrophy, FaBookOpen, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa"
 import { useTheme } from "../../../hooks/useTheme"
 
 type TestResultModalProps = {
@@ -10,6 +10,8 @@ type TestResultModalProps = {
   onClose: () => void
   level: string
   percent: number
+  correctCount: number
+  totalQuestions: number
   xpEarned: number
   isPassed: boolean
   onContinue: () => void
@@ -20,6 +22,8 @@ export default function TestResultModal({
   onClose,
   level,
   percent,
+  correctCount,
+  totalQuestions,
   xpEarned,
   isPassed,
   onContinue,
@@ -77,7 +81,11 @@ export default function TestResultModal({
                     ? "bg-gradient-to-r from-green-500 to-emerald-600"
                     : "bg-gradient-to-r from-orange-500 to-amber-500"
                 }`} aria-hidden="true">
-                  {isPassed ? "🏆" : "📚"}
+                  {isPassed ? (
+                    <FaTrophy className="text-white text-3xl" />
+                  ) : (
+                    <FaBookOpen className="text-white text-3xl" />
+                  )}
                 </div>
               </div>
 
@@ -116,7 +124,7 @@ export default function TestResultModal({
               <div className="space-y-2 text-left mb-6">
                 <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
                   <span className="font-bold text-gray-700 dark:text-gray-300">Правильных ответов</span>
-                  <span className="text-green-500 font-bold">{Math.round((percent / 100) * (xpEarned / 5))}/{xpEarned / 5}</span>
+                  <span className="text-green-500 font-bold">{correctCount}/{totalQuestions}</span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="font-bold text-gray-700 dark:text-gray-300">Награда</span>
@@ -125,9 +133,10 @@ export default function TestResultModal({
               </div>
 
               {!isPassed && (
-                <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl">
-                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                    ⚠️ Для перехода на следующий уровень необходимо набрать <strong>90%</strong>.
+                <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-start gap-2">
+                  <FaExclamationTriangle className="text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300 text-left">
+                    Для перехода на следующий уровень необходимо набрать <strong>90%</strong>.
                   </p>
                 </div>
               )}

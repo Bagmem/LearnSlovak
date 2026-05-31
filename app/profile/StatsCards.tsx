@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { FaBook, FaLayerGroup, FaBullseye } from "react-icons/fa"
+import { FaBook, FaLayerGroup, FaTrophy, FaCrosshairs } from "react-icons/fa"
 
-// Локальный компонент кругового прогресса
 function CircularProgress({
   percent,
   label,
@@ -14,7 +13,7 @@ function CircularProgress({
 }: {
   percent: number
   label: string
-  icon: string
+  icon: React.ReactNode
   color?: string
   size?: number
 }) {
@@ -122,7 +121,13 @@ export default function StatsCards({
             </div>
           </div>
           <div className="flex-grow flex flex-col justify-center">
-            <CircularProgress percent={wordsPercent} label="Слов изучено" icon="📚" color="#f97316" size={80} />
+            <CircularProgress
+  percent={wordsPercent}
+  label="Слов изучено"
+  icon={<FaBook className="text-amber-500" />}
+  color="#f97316"
+  size={80}
+/>
           </div>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
             {uniqueLearnedWords} из {totalWordsCount}
@@ -138,7 +143,13 @@ export default function StatsCards({
             </div>
           </div>
           <div className="flex-grow flex flex-col justify-center">
-            <CircularProgress percent={categoriesPercent} label="Тем завершено" icon="🏆" color="#3b82f6" size={80} />
+            <CircularProgress
+              percent={categoriesPercent}
+              label="Тем завершено"
+              icon={<FaTrophy className="text-yellow-500" />}
+              color="#3b82f6"
+              size={80}
+            />
           </div>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
             {completedCategoriesCount} из {totalCategories}
@@ -150,11 +161,17 @@ export default function StatsCards({
         <div className="rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm shadow-md border border-gray-200/50 dark:border-gray-700/50 p-3 text-center h-full flex flex-col">
           <div className="flex justify-center mb-1">
             <div className="p-1.5 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40">
-              <FaBullseye className="text-orange-500 text-base" />
+              <FaCrosshairs className="text-orange-500 text-base" />
             </div>
           </div>
           <div className="flex-grow flex flex-col justify-center">
-            <CircularProgress percent={accuracy} label="Точность" icon="🎯" color="#22c55e" size={80} />
+            <CircularProgress
+              percent={accuracy}
+              label="Точность"
+              icon={<FaCrosshairs className="text-red-500" />}
+              color="#22c55e"
+              size={80}
+            />
           </div>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
             {totalCorrect} из {totalAnswers} ответов
@@ -163,4 +180,4 @@ export default function StatsCards({
       </StatCard>
     </div>
   )
-}
+} 

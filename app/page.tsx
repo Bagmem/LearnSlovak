@@ -97,6 +97,7 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isLoadingUser, setIsLoadingUser] = useState(true)
   const [globalTab, setGlobalTab] = useState<"study" | "texts" | "test" | "reference" | "activity" | "friends">("study")
+  const [studySubTab, setStudySubTab] = useState<"vocab" | "grammar">("vocab")
 
   const [xp, setXp] = useState<number>(() => {
     const savedXp = loadProgress<number>("xp")
@@ -163,7 +164,7 @@ export default function Home() {
   const [testLevel, setTestLevel] = useState<LanguageLevel | null>(null)
   const [showTestResultModal, setShowTestResultModal] = useState(false)
   const [testResultData, setTestResultData] = useState<{
-    level: string; percent: number; xpEarned: number; isPassed: boolean
+    level: string; percent: number; correctCount: number; totalQuestions: number; xpEarned: number; isPassed: boolean
   } | null>(null)
 
   // Пересчёт XP при загрузке, если он не соответствует новым правилам (2/3/1)
@@ -529,6 +530,8 @@ export default function Home() {
     setTestResultData({
       level: testLevel!,
       percent: bestPercent,
+      correctCount: score,
+      totalQuestions: total,
       xpEarned,
       isPassed,
     })
@@ -656,6 +659,8 @@ export default function Home() {
         getUserDisplayName={getUserDisplayName}
         onLoginClick={() => router.push("/login")}
         onRegisterClick={() => router.push("/register")}
+        studySubTab={studySubTab}
+        onStudySubTabChange={setStudySubTab}
       />
 
       <main className="ml-64 min-h-screen p-8">
@@ -678,6 +683,10 @@ export default function Home() {
               onStartReview={(reviewWords) => {
                 game.handleSelectCategory("review", "A1", "vocab", reviewWords)
               }}
+              onXpEarned={handleXpEarned}
+              setXp={setXp}
+              setProgressData={setProgressData}
+              studySubTab={studySubTab}
             />
           )}
           {globalTab === "reference" && (
@@ -727,19 +736,21 @@ export default function Home() {
                       setShowTestResultModal(false)
                       handleBackToLevels()
                     }}
+                    level={testResultData.level}
+                    percent={testResultData.percent}
+                    correctCount={testResultData.correctCount}
+                    totalQuestions={testResultData.totalQuestions}
+                    xpEarned={testResultData.xpEarned}
+                    isPassed={testResultData.isPassed}
                     onContinue={() => {
                       setShowTestResultModal(false)
                       handleBackToLevels()
                     }}
-                    level={testResultData.level}
-                    percent={testResultData.percent}
-                    xpEarned={testResultData.xpEarned}
-                    isPassed={testResultData.isPassed}
                   />
                 )}
               </>
             ) : (
-              <LevelTest onStartTest={handleStartTest} />
+              <LevelTest onStartTest={handleStartTest} userLevel={userLevel} />
             )
           )}
           {globalTab === "activity" && (

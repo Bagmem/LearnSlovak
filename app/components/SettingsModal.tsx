@@ -4,7 +4,8 @@ import { useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   FaTimes, FaVolumeUp, FaVolumeMute, FaMicrophoneAlt, 
-  FaTachometerAlt, FaPalette, FaCheck 
+  FaTachometerAlt, FaPalette, FaCheck, FaCog,
+  FaVolumeDown, FaBolt
 } from "react-icons/fa"
 import { Settings } from "../../hooks/useSettings"
 import { Theme } from "../../hooks/useTheme"
@@ -60,7 +61,7 @@ export default function SettingsModal({
             <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-orange-500/10 to-amber-500/10 dark:from-orange-500/5 dark:to-amber-500/5 border-b border-gray-200/50 dark:border-gray-800/50">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg" aria-hidden="true">
-                  <span className="text-white text-sm">⚙️</span>
+                  <FaCog className="text-white text-sm" />
                 </div>
                 <h2 id="settings-title" className="text-xl font-black bg-gradient-to-r from-orange-600 to-amber-600 dark:from-orange-400 dark:to-amber-400 bg-clip-text text-transparent">
                   Настройки
@@ -147,8 +148,8 @@ export default function SettingsModal({
                     aria-label="Громкость звуков"
                   />
                   <div className="flex justify-between text-xs text-gray-400 px-1">
-                    <span>🔇 Тише</span>
-                    <span>🔊 Громче</span>
+                    <span className="flex items-center gap-1"><FaVolumeDown size={12} /> Тише</span>
+                    <span className="flex items-center gap-1"><FaVolumeUp size={12} /> Громче</span>
                   </div>
                 </div>
               </div>
@@ -199,9 +200,9 @@ export default function SettingsModal({
                     aria-label="Скорость речи"
                   />
                   <div className="flex justify-between text-xs text-gray-400 px-1">
-                    <span>🐢 Медленнее</span>
-                    <span>⚡ Норма</span>
-                    <span>🐇 Быстрее</span>
+                    <span>Медленнее</span>
+                    <span className="flex items-center gap-1"><FaBolt size={12} /> Норма</span>
+                    <span>Быстрее</span>
                   </div>
                 </div>
               </div>

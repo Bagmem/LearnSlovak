@@ -3,13 +3,14 @@
 import { useState, useMemo, useEffect, useRef } from "react"
 import { motion, useInView, AnimatePresence } from "framer-motion"
 import { words } from "../../data/words"
-import { grammarTasks } from "../../data/grammar"
+import { grammarExercises } from "../../data/grammar"
 import { type WordStats } from "../../lib/game"
 import {
   FaSearch, FaCalendarAlt, FaSkull, FaQuestionCircle,
   FaFire, FaStar, FaTrophy, FaBook, FaCheckCircle, FaRegSmile,
   FaGraduationCap, FaHeart, FaTimes, FaChevronDown, FaChevronUp,
-  FaVolumeUp
+  FaVolumeUp, FaBookOpen, FaSeedling, FaRocket, FaGem, FaSmile,
+  FaLightbulb, FaFont
 } from "react-icons/fa"
 import ReferenceStatsCards from "./reference/ReferenceStatsCards"
 import ReferenceDictionary from "./reference/ReferenceDictionary"
@@ -44,18 +45,26 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
     }
   }
 
-  const allItems = [...words, ...grammarTasks]
+  // allItems объединяет только слова (для словаря)
+  const allItems = [...words]
+
+  // Для статистики категорий нужно отдельно собрать все элементы (слова + грамматика)
+  const allCategories = [
+    ...words.map(w => ({ level: w.level, category: w.category })),
+    ...grammarExercises.map(e => ({ level: e.level, category: e.category }))
+  ]
 
   const categoryTotalCount: Record<string, number> = {}
-  allItems.forEach(i => {
+  allCategories.forEach(i => {
     const key = `${i.level}_${i.category}`
     categoryTotalCount[key] = (categoryTotalCount[key] || 0) + 1
   })
 
   let completedCategories = 0
   Object.entries(progressData).forEach(([key, passed]) => {
-    const total = categoryTotalCount[key] || 1
-    if (passed >= total) completedCategories++
+    if (categoryTotalCount[key] !== undefined) {
+      if (passed >= categoryTotalCount[key]) completedCategories++
+    }
   })
 
   let totalCorrectAnswers = 0
@@ -87,11 +96,11 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
   const activeDaysCount = activeDates.filter(date => last30Days.includes(date)).length
 
   const levelIcons: Record<string, React.ReactNode> = {
-    A1: "🌱",
-    A2: "🚀",
-    B1: "🏆",
-    B2: "🔥",
-    C1: "💎",
+    A1: <FaSeedling className="text-emerald-500" />,
+    A2: <FaRocket className="text-sky-500" />,
+    B1: <FaTrophy className="text-amber-500" />,
+    B2: <FaFire className="text-orange-500" />,
+    C1: <FaGem className="text-purple-500" />,
   }
 
   const levelColors: Record<string, string> = {
@@ -105,7 +114,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
   const levelStats = useMemo(() => {
     const levels = ["A1", "A2", "B1", "B2", "C1"] as const
     return levels.map(level => {
-      const items = allItems.filter(i => i.level === level)
+      const items = allCategories.filter(i => i.level === level)
       if (!items.length) return { level, total: 0, learned: 0, percent: 0 }
       const uniqueCategories = new Set(items.map(i => i.category))
       let completed = 0
@@ -119,7 +128,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
       const percent = total ? (completed / total) * 100 : 0
       return { level, total, learned: completed, percent }
     })
-  }, [allItems, progressData])
+  }, [allCategories, progressData])
 
   const hardWords = useMemo(() => {
     const wordsList: { word: string; translation: string; wrong: number; correct: number }[] = []
@@ -179,7 +188,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         className="text-center mb-10"
       >
         <h1 className="text-4xl md:text-5xl font-black flex items-center justify-center gap-2">
-          <span className="text-4xl md:text-5xl">📚</span>
+          <FaBookOpen className="text-4xl md:text-5xl text-orange-500" />
           <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
             Справочник
           </span>
@@ -301,7 +310,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         </h3>
         {hardWords.length === 0 ? (
           <div className="text-center py-6">
-            <div className="text-5xl mb-3">🎉</div>
+            <FaSmile className="text-5xl mb-3 text-yellow-500 mx-auto" />
             <p className="text-gray-600 dark:text-gray-300 font-medium">Пока нет сложных слов!</p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Продолжайте в том же духе, отлично работаете.</p>
           </div>
@@ -322,7 +331,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
               ))}
             </div>
             <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl text-center">
-              <p className="text-xs text-gray-600 dark:text-gray-300">💡 Повторите эти слова в карточках или письме, чтобы улучшить результат.</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300"><FaLightbulb className="inline mr-1 text-yellow-500" /> Повторите эти слова в карточках или письме, чтобы улучшить результат.</p>
             </div>
           </>
         )}
@@ -341,11 +350,12 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         </h3>
         <div className="grid md:grid-cols-2 gap-4 text-sm">
           {[
-            { icon: <FaStar className="text-yellow-500" />, q: "Как заработать XP?", a: "Тест – 10 XP, письмо – 15 XP, карточки – 5 XP. Бонус за урок – 50 XP." },
-            { icon: <FaFire className="text-orange-500" />, q: "Зачем нужна серия?", a: "Серия мотивирует заниматься каждый день." },
-            { icon: <FaRegSmile className="text-green-500" />, q: "Можно ли учить слово несколько раз в день?", a: "XP начисляется только раз в день, но повторять можно сколько угодно." },
-            { icon: <FaHeart className="text-red-500" />, q: "Как работают жизни?", a: "При старте урока или кнопке «Попробовать снова» жизни сбрасываются до 3." },
-            { icon: <FaBook className="text-blue-500" />, q: "Как считаются изученные слова?", a: "Слово считается изученным, если вы ответили на него правильно минимум 2 раза и количество правильных ответов не меньше количества ошибок. Учитываются только лексические слова (без грамматики)." }
+            { icon: <FaStar className="text-yellow-500" />, q: "Как заработать XP?", a: "За правильный ответ в режиме Тест – 2 XP, Письмо – 3 XP, Карточки – 1 XP. За грамматическое упражнение – 5 XP. Бонус за завершение урока – 5 XP." },
+            { icon: <FaFire className="text-orange-500" />, q: "Зачем нужна серия?", a: "Серия мотивирует заниматься каждый день. Чем длиннее серия, тем выше ваш прогресс и награды." },
+            { icon: <FaRegSmile className="text-green-500" />, q: "Можно ли учить слово несколько раз в день?", a: "XP начисляется только раз в день за слово, но повторять можно сколько угодно для закрепления." },
+            { icon: <FaHeart className="text-red-500" />, q: "Как работают жизни?", a: "При старте урока у вас 3 жизни. Каждая ошибка отнимает жизнь. Когда жизни заканчиваются, урок завершается. При перезапуске жизни восстанавливаются." },
+            { icon: <FaBook className="text-blue-500" />, q: "Как считаются изученные слова?", a: "Слово считается изученным, если вы ответили на него правильно минимум 2 раза и количество правильных ответов не меньше количества ошибок. Учитываются только лексические слова." },
+            { icon: <FaGraduationCap className="text-purple-500" />, q: "Как открыть следующий уровень?", a: "Чтобы открыть уровень B1 и выше, нужно пройти тест предыдущего уровня на 90% или выше. Текущий уровень отображается на главной странице." },
           ].map((item, idx) => (
             <div key={idx} className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors">
               <p className="font-bold flex items-center gap-2 text-gray-800 dark:text-white">{item.icon} {item.q}</p>
@@ -363,7 +373,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 mb-8 shadow-lg"
       >
-        <h3 className="font-black text-xl text-gray-800 dark:text-white mb-3 flex items-center gap-2">🔤 Особые буквы и произношение</h3>
+        <h3 className="font-black text-xl text-gray-800 dark:text-white mb-3 flex items-center gap-2"><FaFont className="text-orange-500" /> Особые буквы и произношение</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Значок над буквой (dĺžeň) удлиняет звук, птичка (mäkčeň) смягчает.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
@@ -406,7 +416,7 @@ export default function ReferenceView({ progressData, activeDates, wordStatsMap 
         levelData={selectedLevel}
         onClose={() => setSelectedLevel(null)}
         levelColor={selectedLevel ? levelColors[selectedLevel.level] : "#f97316"}
-        levelIcon={selectedLevel ? levelIcons[selectedLevel.level] : "📚"}
+        levelIcon={selectedLevel ? levelIcons[selectedLevel.level] : <FaBookOpen className="text-orange-500" />}
         allItems={allItems}
         wordStatsMap={wordStatsMap}
         progressData={progressData}

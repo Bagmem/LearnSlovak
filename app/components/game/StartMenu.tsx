@@ -5,12 +5,14 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   FaKeyboard, FaPencilAlt, FaLayerGroup,
   FaSeedling, FaRocket, FaTrophy, FaFire, FaGem,
-  FaBookOpen, FaLanguage, FaLock,
+  FaBookOpen, FaLanguage, FaLock, FaGraduationCap,
+  FaRedo, FaBook, FaChartLine, FaUnlock,
 } from "react-icons/fa"
 import { words, type LanguageLevel, type Word } from "../../../data/words"
-import { grammarTasks } from "../../../data/grammar"
+import { grammarTasks, grammarExercises, type GrammarExercise } from "../../../data/grammar"
 import StreakWidget from "../streak/StreakWidget"
 import CategoryCard from "./CategoryCard"
+import GrammarPracticeScreen from "./GrammarPracticeScreen"
 import { playModeSwitchSound, initAudio } from "../../../lib/sounds"
 import ProfileModal from "../ProfileModal"
 import { useAchievements } from "../../../hooks/useAchievements"
@@ -35,6 +37,10 @@ type StartMenuProps = {
   completedCategoriesCount: number
   wordStatsMap: Map<string, WordStats>
   onStartReview?: (words: Word[]) => void
+  onXpEarned?: (amount: number, source: string) => void
+  setXp?: (value: number | ((prev: number) => number)) => void
+  setProgressData?: (value: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void
+  studySubTab: "vocab" | "grammar"
 }
 
 const levelIcons: Record<LanguageLevel, React.ReactNode> = {
@@ -43,7 +49,6 @@ const levelIcons: Record<LanguageLevel, React.ReactNode> = {
   B1: <FaTrophy className="text-lg" />,
   B2: <FaFire className="text-lg" />,
   C1: <FaGem className="text-lg" />,
-  C2: <FaGem className="text-lg" />,
 }
 
 const levelTitles: Record<LanguageLevel, string> = {
@@ -52,7 +57,6 @@ const levelTitles: Record<LanguageLevel, string> = {
   B1: "Уровень B1",
   B2: "Уровень B2",
   C1: "Уровень C1",
-  C2: "Уровень C2",
 }
 
 const levelColors: Record<LanguageLevel, { bg: string; border: string; text: string; progress: string }> = {
@@ -61,15 +65,14 @@ const levelColors: Record<LanguageLevel, { bg: string; border: string; text: str
   B1: { bg: "from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20", border: "border-amber-200 dark:border-amber-800", text: "text-amber-600 dark:text-amber-400", progress: "from-amber-500 to-yellow-500" },
   B2: { bg: "from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20", border: "border-orange-200 dark:border-orange-800", text: "text-orange-600 dark:text-orange-400", progress: "from-orange-500 to-amber-500" },
   C1: { bg: "from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20", border: "border-purple-200 dark:border-purple-800", text: "text-purple-600 dark:text-purple-400", progress: "from-purple-500 to-indigo-500" },
-  C2: { bg: "from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-900/50", border: "border-gray-200 dark:border-gray-700", text: "text-gray-600 dark:text-gray-400", progress: "from-gray-500 to-gray-600" },
 }
 
 export default function StartMenu({
   onSelectCategory, userLevel, xp, progressData, streak, activeDates, gameMode, setGameMode,
   correctAnswersCount, totalClicksCount, learnedWordsCount, completedCategoriesCount,
-  wordStatsMap, onStartReview,
+  wordStatsMap, onStartReview, onXpEarned, setXp: externalSetXp, setProgressData: externalSetProgressData,
+  studySubTab,
 }: StartMenuProps) {
-  const [studyTab, setStudyTab] = useState<"vocab" | "grammar">("vocab")
   const [selectedLevel, setSelectedLevel] = useState<LanguageLevel>("A1")
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [avatar, setAvatar] = useState<string>(() => {
@@ -78,6 +81,12 @@ export default function StartMenu({
   })
   const { unlocked } = useAchievements()
   const [mounted, setMounted] = useState(false)
+
+  const [grammarSession, setGrammarSession] = useState<{
+    category: string
+    level: LanguageLevel
+    exercises: GrammarExercise[]
+  } | null>(null)
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -98,23 +107,39 @@ export default function StartMenu({
     if (mode !== gameMode) { playModeSwitchSound(); setGameMode(mode) }
   }, [gameMode, setGameMode])
 
-  const activePool = useMemo(() => studyTab === "vocab" ? words : grammarTasks, [studyTab])
+  // Раздельные пулы для лексики и грамматики
+  const vocabPool = useMemo(() => words as Word[], [])
+  const grammarPool = useMemo(() => grammarExercises as GrammarExercise[], [])
 
-  const getCategoriesForLevel = useCallback((levelCode: LanguageLevel) => {
-    const categoriesSet = new Set(activePool.filter(w => w.level === levelCode).map(w => w.category))
-    return Array.from(categoriesSet).map(catName => {
-      const itemsInCat = activePool.filter(w => w.category === catName && w.level === levelCode)
-      const totalCount = itemsInCat.length
-      const passedCount = progressData[`cat_progress_${levelCode}_${catName}`] ?? 0
-      return { name: catName, passedCount, totalCount, isCompleted: passedCount >= totalCount }
+  // Категории для лексики
+  const getVocabCategoriesForLevel = useCallback((levelCode: LanguageLevel) => {
+    const cats = new Set(vocabPool.filter(w => w.level === levelCode).map(w => w.category))
+    return Array.from(cats).map(catName => {
+      const items = vocabPool.filter(w => w.category === catName && w.level === levelCode)
+      const total = items.length
+      const passed = progressData[`cat_progress_${levelCode}_${catName}`] ?? 0
+      return { name: catName, passedCount: passed, totalCount: total, isCompleted: passed >= total }
     })
-  }, [activePool, progressData])
+  }, [vocabPool, progressData])
+
+  // Категории для грамматики
+  const getGrammarCategoriesForLevel = useCallback((levelCode: LanguageLevel) => {
+    const cats = new Set(grammarPool.filter(e => e.level === levelCode).map(e => e.category))
+    return Array.from(cats).map(catName => {
+      const items = grammarPool.filter(e => e.category === catName && e.level === levelCode)
+      const total = items.length
+      const passed = progressData[`grammar_progress_${levelCode}_${catName}`] ?? 0
+      return { name: catName, passedCount: passed, totalCount: total, isCompleted: passed >= total }
+    })
+  }, [grammarPool, progressData])
+
+  const getCategoriesForLevel = studySubTab === "grammar" ? getGrammarCategoriesForLevel : getVocabCategoriesForLevel
 
   const levelsToShow: LanguageLevel[] = ["A1", "A2", "B1", "B2", "C1"]
 
   const getRequiredLevelName = (level: LanguageLevel): string | null => {
     if (level === "A1") return null
-    const map: Record<LanguageLevel, LanguageLevel> = { A1: "A1", A2: "A1", B1: "A2", B2: "B1", C1: "B2", C2: "C1" }
+    const map: Record<LanguageLevel, LanguageLevel> = { A1: "A1", A2: "A1", B1: "A2", B2: "B1", C1: "B2" }
     return map[level]
   }
 
@@ -130,11 +155,32 @@ export default function StartMenu({
     return result
   }, [wordStatsMap])
 
+  const handleGrammarCategorySelect = useCallback((category: string, level: LanguageLevel) => {
+    const ex = grammarExercises.filter(e => e.category === category && e.level === level)
+    setGrammarSession({ category, level, exercises: ex })
+  }, [])
+
   if (!mounted) {
     return (
       <div className="space-y-8 max-w-7xl mx-auto px-4 pb-12">
         {[...Array(5)].map((_, i) => <SkeletonLevelCard key={i} />)}
       </div>
+    )
+  }
+
+  if (grammarSession) {
+    return (
+      <GrammarPracticeScreen
+        exercises={grammarSession.exercises}
+        category={grammarSession.category}
+        level={grammarSession.level}
+        xp={xp}
+        setXp={externalSetXp || ((v) => {})}
+        progressData={progressData}
+        setProgressData={externalSetProgressData || ((v) => {})}
+        onXpEarned={onXpEarned}
+        onBack={() => setGrammarSession(null)}
+      />
     )
   }
 
@@ -146,7 +192,7 @@ export default function StartMenu({
       className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12"
     >
       {/* Заголовок */}
-      <div className="text-center mb-2 overflow-x-visible px-2">
+      <div className="text-center mb-2">
         <motion.div
           initial={{ scale: 0.95 }}
           animate={{ scale: 1 }}
@@ -154,78 +200,77 @@ export default function StartMenu({
           className="inline-block max-w-full"
         >
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black flex items-center justify-center gap-3 flex-wrap sm:flex-nowrap leading-[1.3] pb-1">
-            <span className="text-3xl sm:text-5xl md:text-6xl leading-[1.3]" aria-hidden="true">🎯</span>
+            <span className="text-3xl sm:text-5xl md:text-6xl leading-[1.3] text-orange-500" aria-hidden="true">
+              {studySubTab === "grammar" ? <FaLanguage /> : <FaGraduationCap />}
+            </span>
             <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent break-words whitespace-normal sm:whitespace-nowrap leading-[1.3] pb-0.5">
-              Изучение
+              {studySubTab === "grammar" ? "Грамматика" : "Лексика"}
             </span>
           </h1>
           <div className="h-1 w-24 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full mx-auto mt-2" aria-hidden="true" />
         </motion.div>
-        <p className="text-gray-500 dark:text-gray-400 mt-3 text-base">Выбери тему и уровень, чтобы начать</p>
+        <p className="text-gray-500 dark:text-gray-400 mt-3 text-base">
+          {studySubTab === "grammar"
+            ? "Изучай правила и закрепляй их в упражнениях"
+            : "Выбери тему и уровень, чтобы начать"}
+        </p>
       </div>
 
+      {/* StreakWidget – всегда */}
       <StreakWidget streak={streak} activeDates={activeDates} />
 
-      <div className="grid grid-cols-3 gap-4">
-        {(["choice", "write", "flashcard"] as const).map((mode, idx) => {
-          const icons = { choice: <FaKeyboard className="text-2xl" />, write: <FaPencilAlt className="text-2xl" />, flashcard: <FaLayerGroup className="text-2xl" /> }
-          const titles = { choice: "Тест", write: "Письмо", flashcard: "Карточки" }
-          const descriptions = { choice: "Выбери правильный вариант", write: "Напиши перевод", flashcard: "Изучай в удобном темпе" }
-          const isActive = gameMode === mode
-          return (
-            <motion.button
-              key={mode}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              whileHover={{ y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleModeChange(mode)}
-              className={`relative overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${
-                isActive
-                  ? "bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-lg"
-                  : "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 hover:shadow-md"
-              }`}
-              aria-label={`${titles[mode]}: ${descriptions[mode]}${isActive ? " (активный)" : ""}`}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className={isActive ? "text-white" : "text-orange-500"} aria-hidden="true">{icons[mode]}</div>
-                <h3 className="font-bold text-lg">{titles[mode]}</h3>
-              </div>
-              <p className={`text-xs ${isActive ? "text-white/80" : "text-gray-500 dark:text-gray-400"}`}>{descriptions[mode]}</p>
-              {isActive && <motion.div layoutId="activeMode" className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/30" initial={false} transition={{ duration: 0.2 }} />}
-            </motion.button>
-          )
-        })}
-      </div>
+      {/* Режимы только для лексики */}
+      {studySubTab === "vocab" && (
+        <div className="grid grid-cols-3 gap-4">
+          {(["choice", "write", "flashcard"] as const).map((mode, idx) => {
+            const icons = { choice: <FaKeyboard className="text-2xl" />, write: <FaPencilAlt className="text-2xl" />, flashcard: <FaLayerGroup className="text-2xl" /> }
+            const titles = { choice: "Тест", write: "Письмо", flashcard: "Карточки" }
+            const descriptions = { choice: "Выбери правильный вариант", write: "Напиши перевод", flashcard: "Изучай в удобном темпе" }
+            const isActive = gameMode === mode
+            return (
+              <motion.button
+                key={mode}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                whileHover={{ y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleModeChange(mode)}
+                className={`relative overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${
+                  isActive
+                    ? "bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-lg"
+                    : "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 hover:shadow-md"
+                }`}
+                aria-label={`${titles[mode]}: ${descriptions[mode]}${isActive ? " (активный)" : ""}`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={isActive ? "text-white" : "text-orange-500"} aria-hidden="true">{icons[mode]}</div>
+                  <h3 className="font-bold text-lg">{titles[mode]}</h3>
+                </div>
+                <p className={`text-xs ${isActive ? "text-white/80" : "text-gray-500 dark:text-gray-400"}`}>{descriptions[mode]}</p>
+                {isActive && <motion.div layoutId="activeMode" className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/30" initial={false} transition={{ duration: 0.2 }} />}
+              </motion.button>
+            )
+          })}
+        </div>
+      )}
 
-      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800/50 rounded-2xl w-full max-w-md mx-auto" role="tablist" aria-label="Выбор раздела">
-        <button
-          onClick={() => setStudyTab("vocab")}
-          className={`flex-1 py-2.5 rounded-xl font-bold text-center transition-all flex items-center justify-center gap-2 ${studyTab === "vocab" ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md" : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
-          role="tab"
-          aria-selected={studyTab === "vocab"}
-          aria-label="Лексика"
-        >
-          <FaBookOpen size={16} aria-hidden="true" /><span>Лексика</span>
-        </button>
-        <button
-          onClick={() => setStudyTab("grammar")}
-          className={`flex-1 py-2.5 rounded-xl font-bold text-center transition-all flex items-center justify-center gap-2 ${studyTab === "grammar" ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md" : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
-          role="tab"
-          aria-selected={studyTab === "grammar"}
-          aria-label="Грамматика"
-        >
-          <FaLanguage size={16} aria-hidden="true" /><span>Грамматика</span>
-        </button>
-      </div>
-
+      {/* Информационная панель */}
       <div className="rounded-2xl bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 px-5 py-4 text-sm font-medium text-amber-800 dark:text-amber-200 border border-amber-200/50 dark:border-amber-800/30 shadow-sm flex items-center gap-3">
-        <span className="text-2xl" aria-hidden="true">{userLevel === null ? "🔓" : userLevel === "C1" ? "🏆" : "📈"}</span>
-        <span>{userLevel === null ? "Для открытия уровней пройдите тест A1 на 100%." : userLevel === "C1" ? "Поздравляем! Вы достигли максимального уровня C1!" : `Ваш уровень: ${userLevel}. Пройдите тест ${userLevel} на 100%, чтобы открыть уровень ${getNextLevel(userLevel)}.`}</span>
+        <span className="text-2xl">
+          {userLevel === null ? <FaUnlock className="text-amber-500" /> : userLevel === "C1" ? <FaTrophy className="text-yellow-500" /> : <FaChartLine className="text-green-500" />}
+        </span>
+        <span>
+          {userLevel === null
+            ? "Для открытия уровней пройдите тест A1 на 100%."
+            : userLevel === "C1"
+            ? "Поздравляем! Вы достигли максимального уровня C1!"
+            : `Ваш уровень: ${userLevel}. Пройдите тест ${userLevel} на 100%, чтобы открыть уровень ${getNextLevel(userLevel)}.`}
+        </span>
       </div>
 
-      {wordsToReview.length > 0 && (
+      {/* Повторение слов – только для лексики */}
+      {studySubTab === "vocab" && wordsToReview.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -236,20 +281,20 @@ export default function StartMenu({
           <div className="relative z-10 flex items-center justify-between">
             <div>
               <h3 className="font-black text-lg text-gray-800 dark:text-white group-hover:text-white transition-colors duration-300">
-                🔄 Повторить слова
+                <FaRedo className="inline mr-2" /> Повторить слова
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-white/90 transition-colors duration-300">
                 Готово к повторению: {wordsToReview.length} слов
               </p>
             </div>
             <div className="text-3xl transition-transform duration-200 group-hover:scale-110 group-hover:text-white">
-              📚
+              <FaBook />
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* Стеклянная панель с закладками */}
+      {/* Категории */}
       <div className="relative">
         <AnimatePresence mode="wait">
           <motion.div
@@ -260,7 +305,6 @@ export default function StartMenu({
             transition={{ type: "spring", stiffness: 300, damping: 24 }}
             className="rounded-2xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/20 shadow-2xl overflow-hidden"
           >
-            {/* Закладки, прикреплённые к правому верхнему углу */}
             <div className="absolute top-0 right-0 flex gap-1 p-2 z-10">
               {levelsToShow.map((levelCode) => {
                 const isLocked = !canAccessLevel(userLevel, levelCode)
@@ -293,7 +337,6 @@ export default function StartMenu({
               })}
             </div>
 
-            {/* Контент выбранного уровня */}
             {(() => {
               const levelCode = selectedLevel
               const isLocked = !canAccessLevel(userLevel, levelCode)
@@ -316,12 +359,12 @@ export default function StartMenu({
                     </div>
                   ) : categories.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {categories.map((cat, catIdx) => (
+                      {categories.map((cat) => (
                         <motion.div
                           key={cat.name}
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.1 + catIdx * 0.03 }}
+                          transition={{ delay: 0.1 + categories.indexOf(cat) * 0.03 }}
                           whileHover={{ y: -2 }}
                         >
                           <CategoryCard
@@ -330,7 +373,13 @@ export default function StartMenu({
                             totalCount={cat.totalCount}
                             isCompleted={cat.isCompleted}
                             isLocked={false}
-                            onSelect={() => onSelectCategory(cat.name, levelCode, studyTab)}
+                            onSelect={() => {
+                              if (studySubTab === "grammar") {
+                                handleGrammarCategorySelect(cat.name, levelCode)
+                              } else {
+                                onSelectCategory(cat.name, levelCode, studySubTab)
+                              }
+                            }}
                           />
                         </motion.div>
                       ))}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { FaHistory } from "react-icons/fa"
+import { FaHistory, FaMousePointer, FaPen, FaRedo, FaBullseye, FaTrophy, FaFileAlt, FaQuestionCircle, FaArrowUp, FaStar } from "react-icons/fa"
 import { supabase } from "../../../lib/supabase"
 
 type ActivityEntry = {
@@ -11,15 +11,15 @@ type ActivityEntry = {
   source: string | null
 }
 
-const sourceMap: Record<string, { icon: string; label: string }> = {
-  choice: { icon: "🖱️", label: "Тест" },
-  write: { icon: "✍️", label: "Письмо" },
-  flashcard: { icon: "🔄", label: "Карточки" },
-  daily_goal: { icon: "🎯", label: "Цель дня" },
-  achievement: { icon: "🏆", label: "Достижение" },
-  test: { icon: "📝", label: "Уровневый тест" },
-  quiz: { icon: "❓", label: "Квиз по тексту" },
-  level_up_bonus: { icon: "⬆️", label: "Повышение уровня" },
+const sourceMap: Record<string, { icon: React.ReactNode; label: string }> = {
+  choice: { icon: <FaMousePointer className="text-blue-500" />, label: "Тест" },
+  write: { icon: <FaPen className="text-emerald-500" />, label: "Письмо" },
+  flashcard: { icon: <FaRedo className="text-purple-500" />, label: "Карточки" },
+  daily_goal: { icon: <FaBullseye className="text-orange-500" />, label: "Цель дня" },
+  achievement: { icon: <FaTrophy className="text-yellow-500" />, label: "Достижение" },
+  test: { icon: <FaFileAlt className="text-sky-500" />, label: "Уровневый тест" },
+  quiz: { icon: <FaQuestionCircle className="text-amber-500" />, label: "Квиз по тексту" },
+  level_up_bonus: { icon: <FaArrowUp className="text-green-500" />, label: "Повышение уровня" },
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -49,7 +49,7 @@ export default function RecentActivityFeed({ userId }: { userId: string }) {
         .select("xp_gained, created_at, source")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(20) // загружаем больше записей для прокрутки
+        .limit(20)
 
       if (!error && data) {
         setActivities(data)
@@ -98,10 +98,9 @@ export default function RecentActivityFeed({ userId }: { userId: string }) {
         <h3 className="font-black text-gray-800 dark:text-white text-lg">Последняя активность</h3>
       </div>
 
-      {/* Контейнер с прокруткой: фиксированная высота, показывающая примерно 5 записей */}
       <div className="space-y-2 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
         {activities.map((entry, idx) => {
-          const info = sourceMap[entry.source ?? ""] ?? { icon: "⭐", label: "Опыт" }
+          const info = sourceMap[entry.source ?? ""] ?? { icon: <FaStar className="text-gray-400" />, label: "Опыт" }
           return (
             <motion.div
               key={idx}

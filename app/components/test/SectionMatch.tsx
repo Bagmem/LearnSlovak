@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { FaExchangeAlt, FaFlag, FaList } from "react-icons/fa"
 import toast from "react-hot-toast"
 
 type MatchData = {
@@ -11,7 +12,7 @@ type MatchData = {
 
 type SectionMatchProps = {
   matchData: MatchData
-  onComplete: (score: number, maxScore: number) => void
+  onComplete: (score: number, maxScore: number, connections: Map<number, number>) => void
 }
 
 export default function SectionMatch({ matchData, onComplete }: SectionMatchProps) {
@@ -75,7 +76,7 @@ export default function SectionMatch({ matchData, onComplete }: SectionMatchProp
       const expected = pairs.find(p => p.slovak === slovak)?.russian
       if (expected === right[r]) correct++
     }
-    onComplete(correct, pairs.length)
+    onComplete(correct, pairs.length, connections)
   }
 
   const getLeftStyle = (idx: number) => {
@@ -93,9 +94,19 @@ export default function SectionMatch({ matchData, onComplete }: SectionMatchProp
 
   return (
     <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 space-y-6 border border-gray-200/50 dark:border-gray-700/50">
+      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+        <FaExchangeAlt className="text-orange-500" />
+        <h3 className="font-bold text-lg">Сопоставление пар</h3>
+      </div>
+      <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+        <FaList className="text-orange-500" />
+        <span>Пар: {pairs.length}</span>
+      </div>
       <div className="grid grid-cols-2 gap-8">
         <div className="space-y-3">
-          <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-2">🇸🇰 Словацкий</h3>
+          <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-2 flex items-center gap-1">
+            <FaFlag className="text-blue-500" /> Словацкий
+          </h3>
           {left.map((word, idx) => (
             <div key={idx} onClick={() => handleLeftClick(idx)} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${getLeftStyle(idx)}`}>
               {word}
@@ -103,7 +114,9 @@ export default function SectionMatch({ matchData, onComplete }: SectionMatchProp
           ))}
         </div>
         <div className="space-y-3">
-          <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-2">🇷🇺 Русский</h3>
+          <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-2 flex items-center gap-1">
+            <FaFlag className="text-red-500" /> Русский
+          </h3>
           {right.map((word, idx) => (
             <div key={idx} onClick={() => handleRightClick(idx)} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${getRightStyle(idx)}`}>
               {word}

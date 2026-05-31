@@ -2,12 +2,14 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { FaTimes, FaChevronDown, FaChevronUp, FaVolumeUp, FaCheckCircle } from "react-icons/fa"
+import { FaTimes, FaChevronDown, FaChevronUp, FaVolumeUp, FaCheckCircle, FaBookOpen, FaPen, FaQuestionCircle } from "react-icons/fa"
 import { words } from "../../../data/words"
-import { grammarTasks } from "../../../data/grammar"
+import { grammarExercises, type GrammarExercise } from "../../../data/grammar"
 import { type WordStats } from "../../../lib/game"
+import { categoryIcons } from "../../../lib/categoryIcons"
 import CircularProgress from "../shared/CircularProgress"
 import { isWordLearned } from "./ReferenceUtils"
+
 type LevelDetailModalProps = {
   levelData: any
   onClose: () => void
@@ -29,28 +31,30 @@ export default function ReferenceLevelDetailModal({
 }: LevelDetailModalProps) {
   if (!levelData) return null
 
-  const vocabItems = allItems.filter(item => words.some(w => w.slovak === item.slovak && w.russian === item.russian))
-  const grammarItems = allItems.filter(item => grammarTasks.some(g => g.slovak === item.slovak && g.russian === item.russian))
+  // Лексика – только слова
+  const vocabItems = words.filter(w => w.level === levelData.level)
+  // Грамматика – упражнения
+  const grammarItems = grammarExercises.filter(e => e.level === levelData.level)
 
-  const getCategoriesWithItems = (items: any[]) => {
+  const getCategoriesWithItems = (items: any[], type: 'vocab' | 'grammar') => {
     const level = levelData.level
-    const levelItems = items.filter(i => i.level === level)
     const categoryMap = new Map<string, any[]>()
-    levelItems.forEach(item => {
+    items.forEach(item => {
       if (!categoryMap.has(item.category)) categoryMap.set(item.category, [])
       categoryMap.get(item.category)!.push(item)
     })
     return Array.from(categoryMap.entries()).map(([catName, catItems]) => {
       const total = catItems.length
-      const key = `cat_progress_${level}_${catName}`
+      const prefix = type === 'grammar' ? 'grammar_progress_' : 'cat_progress_'
+      const key = `${prefix}${level}_${catName}`
       const passed = progressData[key] || 0
       const percent = total ? (passed / total) * 100 : 0
-      return { name: catName, total, passed, percent, items: catItems }
+      return { name: catName, total, passed, percent, items: catItems, type }
     })
   }
 
-  const vocabCategories = getCategoriesWithItems(vocabItems)
-  const grammarCategories = getCategoriesWithItems(grammarItems)
+  const vocabCategories = getCategoriesWithItems(vocabItems, 'vocab')
+  const grammarCategories = getCategoriesWithItems(grammarItems, 'grammar')
 
   const [activeTab, setActiveTab] = useState<'vocab' | 'grammar'>('vocab')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
@@ -130,23 +134,23 @@ export default function ReferenceLevelDetailModal({
             <div className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setActiveTab('vocab')}
-                className={`pb-2 px-3 font-bold text-sm transition-all ${
+                className={`pb-2 px-3 font-bold text-sm transition-all flex items-center gap-1 ${
                   activeTab === 'vocab'
                     ? 'text-orange-500 border-b-2 border-orange-500'
                     : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
-                📖 Лексика ({vocabCategories.length})
+                <FaBookOpen size={14} /> Лексика ({vocabCategories.length})
               </button>
               <button
                 onClick={() => setActiveTab('grammar')}
-                className={`pb-2 px-3 font-bold text-sm transition-all ${
+                className={`pb-2 px-3 font-bold text-sm transition-all flex items-center gap-1 ${
                   activeTab === 'grammar'
                     ? 'text-orange-500 border-b-2 border-orange-500'
                     : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
-                📝 Грамматика ({grammarCategories.length})
+                <FaPen size={14} /> Грамматика ({grammarCategories.length})
               </button>
             </div>
 
@@ -156,6 +160,7 @@ export default function ReferenceLevelDetailModal({
               <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1">
                 {currentCategories.map(cat => {
                   const isExpanded = expandedCategories.has(cat.name)
+                  const CategoryIcon = categoryIcons[cat.name] || FaQuestionCircle
                   return (
                     <div key={cat.name} className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
                       <button
@@ -164,7 +169,10 @@ export default function ReferenceLevelDetailModal({
                       >
                         <div className="flex-1 text-left">
                           <div className="flex justify-between items-center mb-1">
-                            <span className="font-bold text-gray-800 dark:text-white">{cat.name}</span>
+                            <span className="font-bold text-gray-800 dark:text-white flex items-center gap-1">
+                              <CategoryIcon className="text-orange-500" size={14} />
+                              {cat.name}
+                            </span>
                             <span className="text-xs font-mono text-gray-500 dark:text-gray-400 ml-2">
                               {cat.passed} / {cat.total}
                             </span>
@@ -184,27 +192,30 @@ export default function ReferenceLevelDetailModal({
                       {isExpanded && (
                         <div className="border-t border-gray-200 dark:border-gray-700 p-3 space-y-2 max-h-64 overflow-y-auto">
                           {cat.items.map((item: any, idx: number) => {
-                            const itemKey = `${item.slovak}|${item.russian}`
+                            const isVocab = cat.type === 'vocab'
+                            const itemKey = isVocab ? `${item.slovak}|${item.russian}` : item.id
                             const stat = wordStatsMap.get(itemKey)
-                            const learned = stat ? isWordLearned(stat) : false
+                            const learned = isVocab ? (stat ? isWordLearned(stat) : false) : !!stat
                             return (
                               <div key={idx} className="flex justify-between items-center p-2 rounded-lg bg-white dark:bg-gray-800/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className={`text-sm font-semibold ${learned ? 'text-green-600 dark:text-green-400' : 'text-gray-800 dark:text-white'}`}>
-                                      {item.slovak}
+                                      {isVocab ? item.slovak : item.sentence}
                                     </span>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); speak(item.slovak, "sk-SK"); }}
-                                      className="text-gray-400 hover:text-orange-500 transition"
-                                      title="Озвучить"
-                                    >
-                                      <FaVolumeUp size={12} />
-                                    </button>
+                                    {isVocab && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); speak(item.slovak, "sk-SK"); }}
+                                        className="text-gray-400 hover:text-orange-500 transition"
+                                        title="Озвучить"
+                                      >
+                                        <FaVolumeUp size={12} />
+                                      </button>
+                                    )}
                                     {learned && <FaCheckCircle className="text-green-500 text-xs" />}
                                   </div>
                                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {item.russian}
+                                    {isVocab ? item.russian : item.correctAnswer}
                                   </p>
                                 </div>
                               </div>

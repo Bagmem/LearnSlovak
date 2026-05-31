@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { FaArrowRight, FaCheckCircle, FaComments, FaUtensils, FaShoppingCart, FaHome, FaBus, FaBriefcase, FaHeartbeat, FaEnvelope, FaUsers, FaFutbol, FaCloudSun, FaSmile } from "react-icons/fa"
+import { FaArrowRight, FaCheckCircle } from "react-icons/fa"
+import { categoryIcons } from "../../../lib/categoryIcons"
 
 type CategoryCardProps = {
   name: string
@@ -13,24 +14,6 @@ type CategoryCardProps = {
   onSelect: () => void
 }
 
-const categoryIconMap: Record<string, React.ReactNode> = {
-  "💬 Разговорные фразы": <FaComments className="text-blue-500" size={20} />,
-  "🍎 Еда и рестораны": <FaUtensils className="text-green-500" size={20} />,
-  "🛒 Покупки и деньги": <FaShoppingCart className="text-indigo-500" size={20} />,
-  "🏠 Жилье и аренда": <FaHome className="text-teal-500" size={20} />,
-  "✈️ Город и транспорт": <FaBus className="text-cyan-500" size={20} />,
-  "💼 Работа и учеба": <FaBriefcase className="text-purple-500" size={20} />,
-  "🏥 Здоровье и медицина": <FaHeartbeat className="text-red-500" size={20} />,
-  "📦 Почта, банк и документы": <FaEnvelope className="text-gray-500" size={20} />,
-  "🏠 Семья и отношения": <FaUsers className="text-pink-500" size={20} />,
-  "⚽ Хобби и спорт": <FaFutbol className="text-orange-500" size={20} />,
-  "🌦 Погода и природа": <FaCloudSun className="text-yellow-500" size={20} />,
-  "😊 Эмоции и чувства": <FaSmile className="text-amber-500" size={20} />,
-}
-
-const getIcon = (name: string) => categoryIconMap[name] || <FaComments className="text-gray-400" size={20} />
-const cleanName = (name: string) => name.replace(/^[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\s*/u, '')
-
 export default function CategoryCard({ name, passedCount, totalCount, isCompleted, isLocked = false, onSelect }: CategoryCardProps) {
   const [mounted, setMounted] = useState(false)
 
@@ -38,8 +21,7 @@ export default function CategoryCard({ name, passedCount, totalCount, isComplete
     setMounted(true)
   }, [])
 
-  const clean = cleanName(name)
-  const icon = getIcon(name)
+  const CategoryIcon = categoryIcons[name] || undefined
 
   if (!mounted) {
     return (
@@ -48,8 +30,7 @@ export default function CategoryCard({ name, passedCount, totalCount, isComplete
         <div className="relative p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {icon}
-              <span className="font-black text-base text-gray-800 dark:text-white">{clean}</span>
+              <span className="font-black text-base text-gray-800 dark:text-white">{name}</span>
             </div>
           </div>
           <div className="mt-3">
@@ -85,8 +66,8 @@ export default function CategoryCard({ name, passedCount, totalCount, isComplete
       <div className="relative p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {icon}
-            <span className="font-black text-base text-gray-800 dark:text-white">{clean}</span>
+            {CategoryIcon && <CategoryIcon className="text-orange-500" size={20} />}
+            <span className="font-black text-base text-gray-800 dark:text-white">{name}</span>
           </div>
           {isCompleted && <FaCheckCircle className="text-green-500 text-lg" />}
         </div>

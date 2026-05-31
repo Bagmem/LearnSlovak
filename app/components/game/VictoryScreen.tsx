@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { motion } from "framer-motion"
 import confetti from "canvas-confetti"
-import { FaCheckCircle, FaTimesCircle, FaRedoAlt } from "react-icons/fa"
+import { FaCheckCircle, FaTimesCircle, FaRedoAlt, FaStar } from "react-icons/fa"
 import { useTheme } from "../../../hooks/useTheme"
 
 type VictoryProps = {
@@ -58,7 +58,7 @@ export default function VictoryScreen({
           transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
           className="text-6xl mb-4"
         >
-          🎉
+          <FaStar className="text-yellow-500" />
         </motion.div>
         <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
           Урок завершён!

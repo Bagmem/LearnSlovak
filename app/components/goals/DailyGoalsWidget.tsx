@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { FaBullseye } from "react-icons/fa"
 import type { DailyGoal } from "../../../hooks/useDailyGoals"
 
 type Props = {
@@ -18,7 +19,8 @@ export default function DailyGoalsWidget({ goals }: Props) {
       className="mb-6"
     >
       <h3 className="font-black text-lg text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-        🎯 Ежедневные цели
+        <FaBullseye className="text-orange-500" />
+        Ежедневные цели
       </h3>
       <div className="grid gap-3 sm:grid-cols-3">
         {goals.map((goal) => {

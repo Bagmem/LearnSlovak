@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { texts, type SlovakText, type TextLevel, type TextTopic } from "../../../data/texts"
 import { type UserLevel, canAccessLevel } from "../../../lib/levels"
-import { FaCheckCircle, FaFilter, FaTimes, FaSearch, FaBrain, FaTrashAlt } from "react-icons/fa"
+import { FaCheckCircle, FaFilter, FaTimes, FaSearch, FaBrain, FaTrashAlt, FaBookOpen, FaEdit } from "react-icons/fa"
 import { SkeletonTextsGrid } from "../shared/Skeleton"
 
 type TextsMenuProps = {
@@ -34,6 +34,21 @@ const levelColors: Record<TextLevel, string> = {
   A2: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
   B1: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
   B2: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+  C1: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+}
+
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.05,
+    },
+  },
+}
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
 export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLevel }: TextsMenuProps) {
@@ -108,7 +123,7 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
         className="text-center mb-10"
       >
         <h1 className="text-4xl md:text-5xl font-black flex items-center justify-center gap-2">
-          <span className="text-4xl md:text-5xl" aria-hidden="true">📖</span>
+          <FaBookOpen className="text-4xl md:text-5xl text-orange-500" aria-hidden="true" />
           <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
             Тексты для чтения
           </span>
@@ -183,36 +198,48 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
 
         <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Фильтр по уровню">
           {levels.map((level) => (
-            <button
+            <motion.button
               key={level.value}
               onClick={() => setSelectedLevel(level.value)}
+              animate={
+                selectedLevel === level.value
+                  ? { scale: [1, 1.05, 1] }
+                  : { scale: 1 }
+              }
+              transition={{ repeat: selectedLevel === level.value ? Infinity : 0, duration: 1 }}
               className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 ${
                 selectedLevel === level.value
-                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md scale-105"
+                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md"
                   : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
               aria-pressed={selectedLevel === level.value}
               aria-label={`Уровень ${level.label}`}
             >
               {level.label}
-            </button>
+            </motion.button>
           ))}
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Фильтр по теме">
           {topics.map((topic) => (
-            <button
+            <motion.button
               key={topic.value}
               onClick={() => setSelectedTopic(topic.value)}
+              animate={
+                selectedTopic === topic.value
+                  ? { scale: [1, 1.05, 1] }
+                  : { scale: 1 }
+              }
+              transition={{ repeat: selectedTopic === topic.value ? Infinity : 0, duration: 1 }}
               className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
                 selectedTopic === topic.value
-                  ? "bg-blue-500 text-white shadow-md scale-105"
+                  ? "bg-blue-500 text-white shadow-md"
                   : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
               aria-pressed={selectedTopic === topic.value}
               aria-label={`Тема: ${topic.label}`}
             >
               {topic.label}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -227,7 +254,12 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
           </button>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           <AnimatePresence>
             {filteredTexts.map((text, idx) => {
               const isRead = readStatus[text.id] || false
@@ -236,9 +268,7 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
               return (
                 <motion.button
                   key={text.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05, duration: 0.4 }}
+                  variants={cardVariants}
                   whileHover={{ scale: 1.02, y: -5 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => onSelectText(text)}
@@ -266,8 +296,8 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
                       <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
                         {topicLabels[text.topic]}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                        📝 {text.questions?.length || 0} вопросов
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <FaEdit className="text-xs" /> {text.questions?.length || 0} вопросов
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-3 line-clamp-2">
@@ -290,7 +320,7 @@ export default function TextsMenu({ onSelectText, readStatus, quizStatus, userLe
               )
             })}
           </AnimatePresence>
-        </div>
+        </motion.div>
       )}
     </div>
   )

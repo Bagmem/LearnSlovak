@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { type Word } from "../../../data/words"
 import { type GameMode } from "./StartMenu"
 import { playClickSound } from "../../../lib/sounds"
-import { FaVolumeUp, FaLightbulb, FaStepForward, FaSkull, FaCheck, FaTimes } from "react-icons/fa"
+import { FaVolumeUp, FaLightbulb, FaStepForward, FaSkull, FaCheck, FaTimes, FaHeart, FaCrosshairs } from "react-icons/fa"
 import { useTheme } from "../../../hooks/useTheme"
 
 type GameUIProps = {
@@ -203,7 +203,7 @@ export default function GameUI({
                 className={`text-xl transition ${idx < lives ? "text-red-500" : "text-gray-400"}`}
                 aria-hidden="true"
               >
-                ❤️
+                <FaHeart />
               </motion.span>
             ))}
           </div>
@@ -212,7 +212,7 @@ export default function GameUI({
         <div className={`relative rounded-2xl ${cardBg} shadow-2xl overflow-hidden border transition-colors`}>
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-500 to-amber-500" aria-hidden="true" />
           <div className={`flex justify-between items-center px-6 pt-4 text-sm font-bold ${textSecondary}`}>
-            <span>🎯 Точность сессии: {sessionAccuracy}%</span>
+            <span><FaCrosshairs className="inline mr-1" /> Точность сессии: {sessionAccuracy}%</span>
             <span>✓ {sessionCorrect}/{sessionTotal}</span>
           </div>
           <div className="p-6 md:p-8 space-y-6">
@@ -389,7 +389,7 @@ export default function GameUI({
                       className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold shadow-md"
                       aria-label={remainingCount === 0 && isCorrect ? "Завершить урок" : "Продолжить"}
                     >
-                      {remainingCount === 0 && isCorrect ? "Завершить урок 🎉" : "Продолжить (Enter) →"}
+                      {remainingCount === 0 && isCorrect ? "Завершить урок" : "Продолжить (Enter) →"}
                     </motion.button>
                   )}
                   {!isAnswered && (

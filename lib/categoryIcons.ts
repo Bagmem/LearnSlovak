@@ -1,0 +1,38 @@
+import type { IconType } from "react-icons"
+import {
+  FaHandshake,
+  FaUtensils,
+  FaHome,
+  FaBus,
+  FaShoppingCart,
+  FaBriefcase,
+  FaGraduationCap,
+  FaHeartbeat,
+  FaSmile,
+  FaCloudSun,
+  FaUsers,
+  FaGamepad,
+  FaPlaneDeparture,
+  FaLaptopCode,
+  FaFileAlt,
+  FaWalking,
+} from "react-icons/fa"
+
+export const categoryIcons: Record<string, IconType> = {
+  "Приветствия и этикет": FaHandshake,
+  "Еда и напитки": FaUtensils,
+  "Дом и быт": FaHome,
+  "Транспорт и город": FaBus,
+  "Покупки и услуги": FaShoppingCart,
+  "Работа и карьера": FaBriefcase,
+  "Образование": FaGraduationCap,
+  "Здоровье": FaHeartbeat,
+  "Эмоции и личность": FaSmile,
+  "Погода и природа": FaCloudSun,
+  "Семья и отношения": FaUsers,
+  "Свободное время и хобби": FaGamepad,
+  "Путешествия и направления": FaPlaneDeparture,
+  "Технологии и интернет": FaLaptopCode,
+  "Почта, документы и учреждения": FaFileAlt,
+  "Повседневные глаголы": FaWalking,
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { FaCamera, FaEnvelope, FaPen, FaUserCircle, FaCopy } from "react-icons/fa"
+import { FaCamera, FaEnvelope, FaPen, FaUserCircle, FaCopy, FaCrown, FaIdBadge } from "react-icons/fa"
 
 type UserProfileCardProps = {
   photoURL: string
@@ -61,7 +61,7 @@ export default function UserProfileCard({
 
         {isCreator && (
           <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-gradient-to-r from-amber-100 to-orange-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700 shadow-sm dark:border-amber-700/60 dark:from-amber-900/40 dark:to-orange-900/30 dark:text-amber-300">
-            <span>👑</span>
+            <FaCrown className="text-yellow-500" />
             <span>Creator</span>
           </div>
         )}
@@ -90,7 +90,7 @@ export default function UserProfileCard({
         </p>
 
         <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
-          <span>🆔</span>
+          <FaIdBadge className="text-[10px]" />
           <span className="font-mono">{userId.slice(0, 8)}...</span>
           <button onClick={() => onCopyId(userId)} className="text-gray-400 hover:text-orange-500 transition">
             <FaCopy size={8} />

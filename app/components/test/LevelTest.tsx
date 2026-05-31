@@ -2,12 +2,14 @@
 
 import { useState, useEffect, type ComponentType } from "react"
 import { motion } from "framer-motion"
-import { FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaCheckCircle, FaBookOpen, FaLayerGroup } from "react-icons/fa"
+import { FaSeedling, FaRocket, FaTrophy, FaFire, FaGem, FaCheckCircle, FaBookOpen, FaPencilAlt, FaLanguage, FaStar } from "react-icons/fa"
+import type { UserLevel } from "../../../lib/levels"
 
 type TestLevel = "A1" | "A2" | "B1" | "B2" | "C1"
 
 type LevelTestProps = {
   onStartTest: (level: TestLevel) => void
+  userLevel?: UserLevel
 }
 
 type ProgressMap = Record<TestLevel, number>
@@ -44,7 +46,7 @@ const loadProgress = (): ProgressMap => {
   }
 }
 
-export default function LevelTest({ onStartTest }: LevelTestProps) {
+export default function LevelTest({ onStartTest, userLevel }: LevelTestProps) {
   const [progress, setProgress] = useState<ProgressMap>(loadProgress)
 
   useEffect(() => {
@@ -65,7 +67,6 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
   }
 
   const handleLevelClick = (level: TestLevel) => {
-    // Никаких модалок, просто запускаем тест
     onStartTest(level)
   }
 
@@ -102,6 +103,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                 const Icon = level.icon
                 const percent = progress[level.id]
                 const isPassed = percent >= 90
+                const isRecommended = userLevel === level.id
                 return (
                   <motion.button
                     key={level.id}
@@ -112,6 +114,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleLevelClick(level.id)}
                     className="group w-full rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
+                    aria-label={`Начать тест уровня ${level.title} - ${level.name}`}
                   >
                     <div className={`h-1 w-full bg-gradient-to-r ${level.bgGradient}`} />
                     <div className="p-5">
@@ -128,21 +131,35 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                         {isPassed && <FaCheckCircle className="text-green-500 text-2xl" />}
                       </div>
                       <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 leading-relaxed">{level.desc}</p>
+                      {isRecommended && (
+                        <div className="mt-2 inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full text-xs font-bold">
+                          <FaStar size={10} /> Рекомендуется
+                        </div>
+                      )}
                     </div>
                     <div className="px-5 py-3 bg-white/50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        <span className="flex items-center gap-1"><FaBookOpen size={10} /> {level.testWordCount} слов</span>
-                        <span className="flex items-center gap-1"><FaLayerGroup size={10} /> {level.questionCount} вопр.</span>
+                        <span className="flex items-center gap-1"><FaBookOpen size={10} /> Чтение</span>
+                        <span className="flex items-center gap-1"><FaPencilAlt size={10} /> Письмо</span>
+                        <span className="flex items-center gap-1"><FaLanguage size={10} /> Грамматика</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-medium">Прогресс</span>
                         <span className="text-xs font-bold text-orange-500">{percent}%</span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1 overflow-hidden">
-                        <div className={`h-full rounded-full ${getProgressColor(percent)}`} style={{ width: `${percent}%` }} />
+                        <motion.div
+                          className={`h-full rounded-full ${getProgressColor(percent)}`}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${percent}%` }}
+                          transition={{ duration: 0.5, ease: "easeOut" }}
+                        />
                       </div>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                        {isPassed ? "Пройдено!" : `${90 - percent}% до прохождения`}
+                      </p>
                       <div className="mt-2 text-right">
-                        <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
+                        <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200 inline-block">
                           Начать тест →
                         </span>
                       </div>
@@ -189,6 +206,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                 const Icon = level.icon
                 const percent = progress[level.id]
                 const isPassed = percent >= 90
+                const isRecommended = userLevel === level.id
                 return (
                   <motion.button
                     key={level.id}
@@ -199,6 +217,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleLevelClick(level.id)}
                     className="group w-full rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
+                    aria-label={`Начать тест уровня ${level.title} - ${level.name}`}
                   >
                     <div className={`h-1 w-full bg-gradient-to-r ${level.bgGradient}`} />
                     <div className="p-5">
@@ -215,21 +234,35 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                         {isPassed && <FaCheckCircle className="text-green-500 text-2xl" />}
                       </div>
                       <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 leading-relaxed">{level.desc}</p>
+                      {isRecommended && (
+                        <div className="mt-2 inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full text-xs font-bold">
+                          <FaStar size={10} /> Рекомендуется
+                        </div>
+                      )}
                     </div>
                     <div className="px-5 py-3 bg-white/50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        <span className="flex items-center gap-1"><FaBookOpen size={10} /> {level.testWordCount} слов</span>
-                        <span className="flex items-center gap-1"><FaLayerGroup size={10} /> {level.questionCount} вопр.</span>
+                        <span className="flex items-center gap-1"><FaBookOpen size={10} /> Чтение</span>
+                        <span className="flex items-center gap-1"><FaPencilAlt size={10} /> Письмо</span>
+                        <span className="flex items-center gap-1"><FaLanguage size={10} /> Грамматика</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-medium">Прогресс</span>
                         <span className="text-xs font-bold text-orange-500">{percent}%</span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1 overflow-hidden">
-                        <div className={`h-full rounded-full ${getProgressColor(percent)}`} style={{ width: `${percent}%` }} />
+                        <motion.div
+                          className={`h-full rounded-full ${getProgressColor(percent)}`}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${percent}%` }}
+                          transition={{ duration: 0.5, ease: "easeOut" }}
+                        />
                       </div>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                        {isPassed ? "Пройдено!" : `${90 - percent}% до прохождения`}
+                      </p>
                       <div className="mt-2 text-right">
-                        <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
+                        <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200 inline-block">
                           Начать тест →
                         </span>
                       </div>
@@ -246,6 +279,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
               const Icon = level.icon
               const percent = progress[level.id]
               const isPassed = percent >= 90
+              const isRecommended = userLevel === level.id
               return (
                 <motion.button
                   key={level.id}
@@ -256,6 +290,7 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleLevelClick(level.id)}
                   className="group w-full rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
+                  aria-label={`Начать тест уровня ${level.title} - ${level.name}`}
                 >
                   <div className={`h-1 w-full bg-gradient-to-r ${level.bgGradient}`} />
                   <div className="p-5">
@@ -272,21 +307,35 @@ export default function LevelTest({ onStartTest }: LevelTestProps) {
                       {isPassed && <FaCheckCircle className="text-green-500 text-2xl" />}
                     </div>
                     <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 leading-relaxed">{level.desc}</p>
+                    {isRecommended && (
+                      <div className="mt-2 inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full text-xs font-bold">
+                        <FaStar size={10} /> Рекомендуется
+                      </div>
+                    )}
                   </div>
                   <div className="px-5 py-3 bg-white/50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      <span className="flex items-center gap-1"><FaBookOpen size={10} /> {level.testWordCount} слов</span>
-                      <span className="flex items-center gap-1"><FaLayerGroup size={10} /> {level.questionCount} вопр.</span>
+                      <span className="flex items-center gap-1"><FaBookOpen size={10} /> Чтение</span>
+                      <span className="flex items-center gap-1"><FaPencilAlt size={10} /> Письмо</span>
+                      <span className="flex items-center gap-1"><FaLanguage size={10} /> Грамматика</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-medium">Прогресс</span>
                       <span className="text-xs font-bold text-orange-500">{percent}%</span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1 overflow-hidden">
-                      <div className={`h-full rounded-full ${getProgressColor(percent)}`} style={{ width: `${percent}%` }} />
+                      <motion.div
+                        className={`h-full rounded-full ${getProgressColor(percent)}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${percent}%` }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                      />
                     </div>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                      {isPassed ? "Пройдено!" : `${90 - percent}% до прохождения`}
+                    </p>
                     <div className="mt-2 text-right">
-                      <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200">
+                      <span className="text-sm font-bold text-orange-500 group-hover:translate-x-1 transition-transform duration-200 inline-block">
                         Начать тест →
                       </span>
                     </div>
