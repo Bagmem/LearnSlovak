@@ -130,5 +130,4 @@ export const trueFalseQuestionsByLevel: Record<LanguageLevel, TrueFalseStatement
   B1: B1_QUESTIONS,
   B2: B2_QUESTIONS,
   C1: C1_QUESTIONS,
-  C2: [],
 }
