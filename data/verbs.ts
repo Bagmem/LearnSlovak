@@ -289,5 +289,4 @@ export const verbsByLevel: Record<LanguageLevel, VerbData[]> = {
     createVerb("parafrázovať", "парафразировать", "C1"),
     createVerb("kontextualizovať", "контекстуализировать", "C1"),
   ],
-  C2: [], 
 }
